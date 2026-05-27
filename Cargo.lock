@@ -5,3 +5,14 @@ version = 4
 [[package]]
 name = "ayuc"
 version = "0.0.0"
+
+[[package]]
+name = "ayuc_lexer"
+version = "0.1.0"
+dependencies = [
+ "ayuc_span",
+]
+
+[[package]]
+name = "ayuc_span"
+version = "0.1.0"
