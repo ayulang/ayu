@@ -1,0 +1,8 @@
+[package]
+name = "ayuc_lexer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ayuc_scanner = { path = "../ayuc_scanner" }
+ariadne = "0.6.0"
