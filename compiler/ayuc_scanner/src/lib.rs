@@ -10,17 +10,17 @@ use crate::raw_token::{LiteralKind, RawToken, RawTokenKind};
 /// Transforms the input source code to a stream of [RawToken]s.
 /// These are basically normal tokens that only contain the token kind and location, no additional data.
 pub struct Scanner<'a> {
-    source: &'a str,
     chars: Chars<'a>,
     position: usize,
+    source_len: usize,
 }
 
 impl<'a> Scanner<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
-            source,
             chars: source.chars(),
             position: 0,
+            source_len: source.len(),
         }
     }
 
@@ -99,7 +99,7 @@ impl<'a> Scanner<'a> {
 
     pub fn next_token(&mut self) -> RawToken {
         let Some(first_char) = self.bump() else {
-            return RawToken::new(RawTokenKind::Eof, self.source.len());
+            return RawToken::new(RawTokenKind::Eof, self.source_len);
         };
 
         match first_char {
