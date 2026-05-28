@@ -13,14 +13,27 @@ pub struct RawToken {
 pub enum RawTokenKind {
     /// Any sequence of whitespace characters.
     Whitespace,
+
     /// An identifier or keyword.
     Ident,
     /// An invalid identifier.
     InvalidIdent,
+
     /// A literal.
     Literal {
         kind: LiteralKind,
     },
+
+    /// ;
+    Semi,
+    /// (
+    OpenParen,
+    /// )
+    CloseParen,
+    /// {
+    OpenBrace,
+    /// }
+    CloseBrace,
 
     /// An unknown token.
     Unknown,
@@ -41,5 +54,15 @@ impl RawToken {
             kind,
             span: span.into(),
         }
+    }
+
+    #[inline]
+    pub fn is_eof(&self) -> bool {
+        self.kind == RawTokenKind::Eof
+    }
+
+    #[inline]
+    pub fn is_whitespace(&self) -> bool {
+        self.kind == RawTokenKind::Whitespace
     }
 }

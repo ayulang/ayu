@@ -5,7 +5,7 @@ use std::str::Chars;
 
 use unicode_properties::UnicodeEmoji;
 
-use crate::raw_token::{RawToken, RawTokenKind};
+use crate::raw_token::{LiteralKind, RawToken, RawTokenKind};
 
 /// Transforms the input source code to a stream of [RawToken]s.
 /// These are basically normal tokens that only contain the token kind and location, no additional data.
@@ -24,13 +24,21 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    pub(crate) fn bump(&mut self) -> Option<char> {
+        let c = self.chars.next();
+
+        if !c.is_none() {
+            self.position += 1;
+        }
+
+        c
+    }
+
     pub(crate) fn eat_while(&mut self, predicate: impl Fn(char) -> bool) {
         while let Some(current) = self.first()
             && predicate(current)
         {
-            self.position += 1;
-
-            self.chars.next();
+            self.bump();
         }
     }
 
@@ -59,16 +67,53 @@ impl<'a> Scanner<'a> {
         RawToken::new(RawTokenKind::InvalidIdent, (ident_start, self.position))
     }
 
+    pub(crate) fn string(&mut self) -> RawToken {
+        let start = self.position - 1;
+        let terminated = self.string_until_termination();
+
+        RawToken::new(
+            RawTokenKind::Literal {
+                kind: LiteralKind::Str { terminated },
+            },
+            (start, self.position),
+        )
+    }
+
+    pub(crate) fn string_until_termination(&mut self) -> bool {
+        while let Some(c) = self.bump() {
+            match c {
+                '"' => return true,
+                '\\' if self.first() == Some('\\') || self.first() == Some('"') => {
+                    self.bump();
+                }
+                _ => (),
+            }
+        }
+
+        false
+    }
+
+    pub(crate) fn single(&self, kind: RawTokenKind) -> RawToken {
+        RawToken::new(kind, (self.position - 1, self.position))
+    }
+
     pub fn next_token(&mut self) -> RawToken {
-        let Some(first_char) = self.chars.next() else {
+        let Some(first_char) = self.bump() else {
             return RawToken::new(RawTokenKind::Eof, self.source.len());
         };
-
-        self.position += 1;
 
         match first_char {
             c if c.is_whitespace() => self.whitespace(),
             c if predicate::is_ident_start(c) => self.ident(),
+
+            ';' => self.single(RawTokenKind::Semi),
+            '(' => self.single(RawTokenKind::OpenParen),
+            ')' => self.single(RawTokenKind::CloseParen),
+            '{' => self.single(RawTokenKind::OpenBrace),
+            '}' => self.single(RawTokenKind::CloseBrace),
+
+            '"' => self.string(),
+
             _ => RawToken::new(RawTokenKind::Unknown, (self.position - 1, self.position)),
         }
     }
