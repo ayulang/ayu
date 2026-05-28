@@ -19,6 +19,9 @@ pub struct Lexer<'a> {
     scanner: Scanner<'a>,
     /// The source string. Reserved for error diagnostics.
     source: SourceFile<'a>,
+
+    /// The produced diagnostics.
+    pub diagnostics: Vec<Report<'a, (&'a str, Range<usize>)>>,
 }
 
 impl<'a> Lexer<'a> {
@@ -26,6 +29,7 @@ impl<'a> Lexer<'a> {
         Self {
             scanner: Scanner::new(source.data),
             source,
+            diagnostics: Vec::new(),
         }
     }
 
@@ -141,9 +145,7 @@ impl<'a> Lexer<'a> {
                         );
                     };
 
-                    let _ = report.finish().eprint(self.ariadne_source());
-
-                    eprintln!();
+                    self.diagnostics.push(report.finish());
 
                     continue;
                 }
