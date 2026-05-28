@@ -122,33 +122,28 @@ impl<'a> Lexer<'a> {
                         .find(|c| c.1.is_emoji_char())
                         .map(|(idx, c)| (span.start + idx, c.len_utf8()));
 
-                    let _ = Report::build(ReportKind::Error, self.ariadne_span(span))
+                    let main_span = self.ariadne_span(span);
+
+                    let mut report = Report::build(ReportKind::Error, main_span.clone())
                         .with_config(ARIADNE_CONFIG)
                         .with_message("invalid identifier")
-                        .with_labels(
-                            vec![
-                                Some(
-                                    Label::new(self.ariadne_span(span))
-                                        .with_color(Color::Red)
-                                        .with_message(
-                                            "this is an invalid identifier".fg(Color::Red),
-                                        ),
-                                ),
-                                emoji_props.map(|(position, char_len)| {
-                                    Label::new(self.ariadne_span(position..position + char_len))
-                                        .with_color(Color::Yellow)
-                                        .with_message("help: remove this emoji".fg(Color::Yellow))
-                                }),
-                            ]
-                            .into_iter()
-                            .flatten(),
-                        )
-                        .finish()
-                        .eprint(self.ariadne_source())
-                        .is_ok_and(|_| {
-                            eprintln!();
-                            true
-                        });
+                        .with_label(
+                            Label::new(main_span)
+                                .with_color(Color::Red)
+                                .with_message("this is an invalid identifier".fg(Color::Red)),
+                        );
+
+                    if let Some((pos, len)) = emoji_props {
+                        report = report.with_label(
+                            Label::new(self.ariadne_span(pos..pos + len))
+                                .with_color(Color::Yellow)
+                                .with_message("help: remove this emoji".fg(Color::Yellow)),
+                        );
+                    };
+
+                    let _ = report.finish().eprint(self.ariadne_source());
+
+                    eprintln!();
 
                     continue;
                 }
