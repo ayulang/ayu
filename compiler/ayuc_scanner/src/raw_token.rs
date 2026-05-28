@@ -26,6 +26,10 @@ pub enum RawTokenKind {
 
     /// ;
     Semi,
+    /// :
+    Colon,
+    /// =
+    Equals,
     /// (
     OpenParen,
     /// )

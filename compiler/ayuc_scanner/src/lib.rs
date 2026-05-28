@@ -25,13 +25,11 @@ impl<'a> Scanner<'a> {
     }
 
     pub(crate) fn bump(&mut self) -> Option<char> {
-        let c = self.chars.next();
+        let c = self.chars.next()?;
 
-        if !c.is_none() {
-            self.position += 1;
-        }
+        self.position += c.len_utf8();
 
-        c
+        Some(c)
     }
 
     pub(crate) fn eat_while(&mut self, predicate: impl Fn(char) -> bool) {
@@ -107,6 +105,8 @@ impl<'a> Scanner<'a> {
             c if predicate::is_ident_start(c) => self.ident(),
 
             ';' => self.single(RawTokenKind::Semi),
+            ':' => self.single(RawTokenKind::Colon),
+            '=' => self.single(RawTokenKind::Equals),
             '(' => self.single(RawTokenKind::OpenParen),
             ')' => self.single(RawTokenKind::CloseParen),
             '{' => self.single(RawTokenKind::OpenBrace),

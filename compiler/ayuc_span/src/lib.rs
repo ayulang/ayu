@@ -1,4 +1,7 @@
-use std::ops::Index;
+pub mod source;
+pub mod symbol;
+
+use std::ops::{Index, Range};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Span {
@@ -11,10 +14,10 @@ pub struct Span {
 }
 
 impl Span {
-    /// Calculates the length of the span.
+    /// Converts the byte offsets into a [Range].
     #[inline]
-    pub fn len(&self) -> usize {
-        self.end - self.start
+    pub fn range(&self) -> Range<usize> {
+        self.start..self.end
     }
 }
 
@@ -33,10 +36,30 @@ impl From<(usize, usize)> for Span {
     }
 }
 
+impl From<Span> for Range<usize> {
+    fn from(value: Span) -> Self {
+        value.start..value.end
+    }
+}
+
+impl From<&Span> for Range<usize> {
+    fn from(value: &Span) -> Self {
+        (*value).into()
+    }
+}
+
 impl Index<Span> for str {
     type Output = str;
 
     fn index(&self, index: Span) -> &Self::Output {
-        &self[index.start..index.end]
+        &self[index.range()]
+    }
+}
+
+impl Index<&Span> for str {
+    type Output = str;
+
+    fn index(&self, index: &Span) -> &Self::Output {
+        &self[*index]
     }
 }
