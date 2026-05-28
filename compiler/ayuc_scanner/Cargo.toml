@@ -1,0 +1,9 @@
+[package]
+name = "ayuc_scanner"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ayuc_span = { path = "../ayuc_span" }
+unicode-ident = "1.0.24"
+unicode-properties = { version = "0.1.4", features = ["emoji"] }
