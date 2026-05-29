@@ -35,7 +35,15 @@ name = "ayuc"
 version = "0.0.0"
 
 [[package]]
-name = "ayuc_ast"
+name = "ayuc_common"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "ayuc_source",
+]
+
+[[package]]
+name = "ayuc_ir"
 version = "0.1.0"
 
 [[package]]
@@ -43,6 +51,7 @@ name = "ayuc_lexer"
 version = "0.1.0"
 dependencies = [
  "ariadne",
+ "ayuc_common",
  "ayuc_scanner",
  "ayuc_source",
  "ayuc_span",
@@ -54,8 +63,11 @@ name = "ayuc_parser"
 version = "0.1.0"
 dependencies = [
  "ariadne",
+ "ayuc_common",
+ "ayuc_ir",
  "ayuc_lexer",
  "ayuc_source",
+ "ayuc_span",
 ]
 
 [[package]]

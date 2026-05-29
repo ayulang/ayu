@@ -7,6 +7,20 @@ pub struct Token {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum StructuredToken {
+    Token(Token),
+    Delimited(Span, Delimiter, Vec<StructuredToken>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Delimiter {
+    /// ( )
+    Parenthesis,
+    /// { }
+    Braces,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     /// An identifier and its associated [Symbol].
     Ident(Symbol),
@@ -40,6 +54,15 @@ pub enum Keyword {
     Let,
 }
 
+impl StructuredToken {
+    pub fn span(&self) -> Span {
+        match self {
+            StructuredToken::Token(t) => t.span,
+            Self::Delimited(span, ..) => *span,
+        }
+    }
+}
+
 impl Token {
     pub const fn new(kind: TokenKind, span: Span) -> Self {
         Self { kind, span }
@@ -48,5 +71,24 @@ impl Token {
     #[inline]
     pub fn is_eof(&self) -> bool {
         self.kind == TokenKind::Eof
+    }
+}
+
+impl TokenKind {
+    pub fn to_delimiter(&self) -> Option<Delimiter> {
+        match self {
+            Self::OpenParen | Self::CloseParen => Some(Delimiter::Parenthesis),
+            Self::OpenBrace | Self::CloseBrace => Some(Delimiter::Braces),
+            _ => None,
+        }
+    }
+}
+
+impl Delimiter {
+    pub fn closing_kind(&self) -> TokenKind {
+        match self {
+            Self::Parenthesis => TokenKind::CloseParen,
+            Self::Braces => TokenKind::CloseBrace,
+        }
     }
 }

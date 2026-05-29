@@ -7,5 +7,6 @@ edition = "2024"
 ayuc_scanner = { path = "../ayuc_scanner" }
 ayuc_span = { path = "../ayuc_span" }
 ayuc_source = { path = "../ayuc_source" }
+ayuc_common = { path = "../ayuc_common" }
 ariadne = "0.6.0"
 unicode-properties = { version = "0.1.4", features = ["emoji"] }

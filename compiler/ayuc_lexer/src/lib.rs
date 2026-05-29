@@ -1,7 +1,8 @@
 pub mod stream;
 pub mod token;
 
-use ariadne::{Color, Config, Fmt, IndexType, Label, Report, ReportKind};
+use ariadne::{Color, Fmt, Label, Report, ReportKind};
+use ayuc_common::{ARIADNE_CONFIG, SourceReport};
 use ayuc_scanner::{
     Scanner,
     raw_token::{self, RawToken, RawTokenKind},
@@ -12,28 +13,18 @@ use unicode_properties::UnicodeEmoji;
 
 use crate::{
     stream::TokenStream,
-    token::{Keyword, Token, TokenKind},
+    token::{Delimiter, Keyword, StructuredToken, Token, TokenKind},
 };
 
-const ARIADNE_CONFIG: Config = Config::new().with_index_type(IndexType::Byte);
-
 /// Lexes the whole input file and returns a [TokenStream] and the produced diagnostics.
-pub fn lex(file_id: usize, source: &str) -> (TokenStream, Vec<Report<'_, SourceSpan>>) {
-    let mut lexer = Lexer::new(file_id, source);
-    let mut buf = Vec::new();
+pub fn lex(
+    file_id: usize,
+    source: &str,
+) -> Result<(TokenStream, Vec<Report<'_, SourceSpan>>), SourceReport<'_>> {
+    let lexer = Lexer::new(file_id, source);
+    let (tokens, diagnostics) = lexer.lex_into_structured()?;
 
-    loop {
-        let token = lexer.next_token();
-        let is_eof = token.is_eof();
-
-        buf.push(token);
-
-        if is_eof {
-            break;
-        }
-    }
-
-    (TokenStream::new(buf), lexer.diagnostics)
+    Ok((TokenStream::new(tokens), diagnostics))
 }
 
 pub struct Lexer<'a> {
@@ -113,6 +104,56 @@ impl<'a> Lexer<'a> {
                 })
             }
         }
+    }
+
+    /// Lexes a vector of [StructuredToken]s until the delimiter is closed. An error means that a delimiter is not properly closed and is an unrecoverable error.
+    pub(crate) fn lex_structured_until_delimiter(
+        &mut self,
+        span: Span,
+        delimiter: Delimiter,
+    ) -> Result<StructuredToken, SourceReport<'a>> {
+        let mut buf = Vec::new();
+        let mut full_span = span;
+        let closing_kind = delimiter.closing_kind();
+
+        loop {
+            let token = self.next_token();
+
+            match token.kind {
+                kind if kind == closing_kind => {
+                    full_span.end = token.span.end;
+
+                    break;
+                }
+
+                TokenKind::OpenParen | TokenKind::OpenBrace => {
+                    let delimiter = token
+                        .kind
+                        .to_delimiter()
+                        .expect("failed to convert token kind to delimiter");
+
+                    buf.push(self.lex_structured_until_delimiter(token.span, delimiter)?)
+                }
+
+                TokenKind::Eof => {
+                    let main_span = self.sourced_span(span);
+
+                    return Err(Report::build(ReportKind::Error, main_span)
+                        .with_config(ARIADNE_CONFIG)
+                        .with_message("unclosed delimiter")
+                        .with_label(
+                            Label::new(main_span)
+                                .with_color(Color::BrightRed)
+                                .with_message("delimiter starts here and is never closed"),
+                        )
+                        .finish());
+                }
+
+                _ => buf.push(StructuredToken::Token(token)),
+            }
+        }
+
+        Ok(StructuredToken::Delimited(full_span, delimiter, buf))
     }
 
     pub fn next_token(&mut self) -> Token {
@@ -196,5 +237,51 @@ impl<'a> Lexer<'a> {
 
             return Token::new(kind, span);
         }
+    }
+
+    pub fn lex_into_structured(
+        mut self,
+    ) -> Result<(Vec<StructuredToken>, Vec<Report<'a, SourceSpan>>), Report<'a, SourceSpan>> {
+        let mut buf = Vec::new();
+
+        loop {
+            let token = self.next_token();
+
+            match token.kind {
+                TokenKind::CloseParen | TokenKind::CloseBrace => {
+                    let main_span = self.sourced_span(token.span);
+                    let src = &self.source[token.span];
+
+                    return Err(Report::build(ReportKind::Error, main_span)
+                        .with_config(ARIADNE_CONFIG)
+                        .with_message(format!("unexpected closing delimiter: `{src}`"))
+                        .with_label(
+                            Label::new(main_span).with_message("unexpected closing delimiter"),
+                        )
+                        .finish());
+                }
+
+                TokenKind::OpenParen | TokenKind::OpenBrace => {
+                    let delimiter = token
+                        .kind
+                        .to_delimiter()
+                        .expect("failed to convert token kind to delimiter");
+
+                    buf.push(self.lex_structured_until_delimiter(token.span, delimiter)?)
+                }
+
+                TokenKind::Eof => {
+                    buf.push(StructuredToken::Token(token));
+
+                    break;
+                }
+
+                _ => {
+                    buf.push(StructuredToken::Token(token));
+                }
+            }
+        }
+
+        Ok((buf, self.diagnostics))
     }
 }
