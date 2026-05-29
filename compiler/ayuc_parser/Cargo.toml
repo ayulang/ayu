@@ -1,0 +1,9 @@
+[package]
+name = "ayuc_parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ayuc_lexer = { path = "../ayuc_lexer" }
+ayuc_source = { path = "../ayuc_source" }
+ariadne = { version = "0.6.0", default-features = false }

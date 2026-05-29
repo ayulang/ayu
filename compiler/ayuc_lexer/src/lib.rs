@@ -1,3 +1,4 @@
+pub mod stream;
 pub mod token;
 
 use ariadne::{Color, Config, Fmt, IndexType, Label, Report, ReportKind};
@@ -9,9 +10,31 @@ use ayuc_source::SourceSpan;
 use ayuc_span::{Span, symbol::Symbol};
 use unicode_properties::UnicodeEmoji;
 
-use crate::token::{Keyword, Token, TokenKind};
+use crate::{
+    stream::TokenStream,
+    token::{Keyword, Token, TokenKind},
+};
 
 const ARIADNE_CONFIG: Config = Config::new().with_index_type(IndexType::Byte);
+
+/// Lexes the whole input file and returns a [TokenStream] and the produced diagnostics.
+pub fn lex(file_id: usize, source: &str) -> (TokenStream, Vec<Report<'_, SourceSpan>>) {
+    let mut lexer = Lexer::new(file_id, source);
+    let mut buf = Vec::new();
+
+    loop {
+        let token = lexer.next_token();
+        let is_eof = token.is_eof();
+
+        buf.push(token);
+
+        if is_eof {
+            break;
+        }
+    }
+
+    (TokenStream::new(buf), lexer.diagnostics)
+}
 
 pub struct Lexer<'a> {
     /// The token scanner.
