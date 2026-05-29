@@ -119,6 +119,7 @@ impl<'a> Lexer<'a> {
                 RawTokenKind::OpenBrace => TokenKind::OpenBrace,
                 RawTokenKind::CloseBrace => TokenKind::CloseBrace,
 
+                // Provide a diagnostic about the invalid identifier. We return [TokenKind::Ident] anyway, so the parser can continue.
                 RawTokenKind::InvalidIdent => {
                     let emoji_props = self.source[span]
                         .chars()
@@ -147,7 +148,7 @@ impl<'a> Lexer<'a> {
 
                     self.diagnostics.push(report.finish());
 
-                    continue;
+                    TokenKind::Ident(Symbol::intern(&self.source[span]))
                 }
 
                 RawTokenKind::Unknown => {
