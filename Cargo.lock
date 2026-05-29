@@ -40,6 +40,7 @@ version = "0.1.0"
 dependencies = [
  "ariadne",
  "ayuc_scanner",
+ "ayuc_source",
  "ayuc_span",
  "unicode-properties",
 ]
@@ -51,6 +52,14 @@ dependencies = [
  "ayuc_span",
  "unicode-ident",
  "unicode-properties",
+]
+
+[[package]]
+name = "ayuc_source"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "ayuc_span",
 ]
 
 [[package]]

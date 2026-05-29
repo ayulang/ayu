@@ -1,0 +1,8 @@
+[package]
+name = "ayuc_source"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ayuc_span = { path = "../ayuc_span" }
+ariadne = { version = "0.6.0", default-features = false }
