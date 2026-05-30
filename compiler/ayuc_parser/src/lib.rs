@@ -1,17 +1,28 @@
+/// Contains implementations of the [Parsable] trait for `ayuc_ir` nodes.
+pub mod impls;
 pub mod parsable;
 
-use ariadne::Report;
+use ariadne::{Color, Fmt, Label, Report};
 use ayuc_common::SourceReport;
 use ayuc_ir::Ast;
-use ayuc_lexer::stream::TokenStream;
+use ayuc_lexer::{
+    stream::{self, TokenStream},
+    token::{Keyword, StructuredToken, TokenKind},
+};
 use ayuc_source::SourceSpan;
+use ayuc_span::Span;
+
+use crate::parsable::{Parsable, ParseError, ParseResult};
 
 /// Used for parsing an input file into an abstract syntax tree.
 pub struct Parser<'a> {
     /// The input token stream.
-    stream: TokenStream,
+    pub(crate) stream: TokenStream,
+
+    file_id: usize,
+
     /// The produced diagnostics from both the parser and lexer.
-    diagnostics: Vec<Report<'a, SourceSpan>>,
+    pub diagnostics: Vec<Report<'a, SourceSpan>>,
 }
 
 impl<'a> Parser<'a> {
@@ -21,11 +32,45 @@ impl<'a> Parser<'a> {
 
         Ok(Self {
             stream,
+            file_id,
             diagnostics,
         })
     }
 
+    pub(crate) fn sourced_span(&self, span: Span) -> SourceSpan {
+        SourceSpan::new(self.file_id, span)
+    }
+
+    pub(crate) fn expect_token(&mut self) -> ParseResult<'_, StructuredToken> {
+        if let Some(token) = self.stream.consume() {
+            Ok(token)
+        } else {
+            let sourced = self.sourced_span(Span::from(self.stream.last_position.end));
+
+            Err(ParseError::new().with_report(
+                Report::build(ariadne::ReportKind::Error, sourced)
+                    .with_label(
+                        Label::new(sourced)
+                            .with_color(Color::BrightRed)
+                            .with_message("unexpected end of stream".fg(Color::BrightRed)),
+                    )
+                    .finish(),
+            ))
+        }
+    }
+
+    pub(crate) fn expect<P: Parsable>(&mut self) -> ParseResult<'_, P> {
+        P::parse(self)
+    }
+
     pub fn parse_full(&mut self) -> Ast {
+        while let Some(token) = self.stream.first() {
+            match token {
+                StructuredToken::Token(tok) if tok.kind == TokenKind::Keyword(Keyword::Fn) => {}
+                _ => unreachable!(),
+            }
+        }
+
         todo!()
     }
 }

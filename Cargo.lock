@@ -45,6 +45,9 @@ dependencies = [
 [[package]]
 name = "ayuc_ir"
 version = "0.1.0"
+dependencies = [
+ "ayuc_span",
+]
 
 [[package]]
 name = "ayuc_lexer"

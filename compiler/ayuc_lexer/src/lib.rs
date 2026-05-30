@@ -136,12 +136,6 @@ impl<'a> Lexer<'a> {
                 }
 
                 TokenKind::Eof => {
-                    let pair = match delimiter.closing_kind() {
-                        TokenKind::CloseBrace => "}",
-                        TokenKind::CloseParen => "}",
-                        _ => "",
-                    };
-
                     let main_span = self.sourced_span(span);
 
                     return Err(Report::build(ReportKind::Error, main_span)
@@ -150,14 +144,8 @@ impl<'a> Lexer<'a> {
                         .with_label(
                             Label::new(main_span)
                                 .with_color(Color::BrightRed)
-                                .with_message(
-                                    "delimiter starts here and is never closed"
-                                        .fg(Color::BrightRed),
-                                ),
+                                .with_message("delimiter starts here and is never closed"),
                         )
-                        .with_help(format!(
-                            "consider adding a `{pair}` to close this delimiter if practical"
-                        ))
                         .finish());
                 }
 
@@ -261,12 +249,6 @@ impl<'a> Lexer<'a> {
 
             match token.kind {
                 TokenKind::CloseParen | TokenKind::CloseBrace => {
-                    let pair = match token.kind {
-                        TokenKind::CloseBrace => "{",
-                        TokenKind::CloseParen => "(",
-                        _ => "",
-                    };
-
                     let main_span = self.sourced_span(token.span);
                     let src = &self.source[token.span];
 
@@ -274,11 +256,8 @@ impl<'a> Lexer<'a> {
                         .with_config(ARIADNE_CONFIG)
                         .with_message(format!("unexpected closing delimiter: `{src}`"))
                         .with_label(
-                            Label::new(main_span)
-                                .with_color(Color::BrightRed)
-                                .with_message("unexpected closing delimiter".fg(Color::BrightRed)),
+                            Label::new(main_span).with_message("unexpected closing delimiter"),
                         )
-                        .with_note(format!("this delimiter needs a matching `{pair}`"))
                         .finish());
                 }
 
