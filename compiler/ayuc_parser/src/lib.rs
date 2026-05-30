@@ -4,7 +4,7 @@ pub mod parsable;
 
 use ariadne::{Color, Fmt, Label, Report};
 use ayuc_common::SourceReport;
-use ayuc_ir::Ast;
+use ayuc_ir::{Ast, node::stmt::fn_decl::FnDecl};
 use ayuc_lexer::{
     stream::{self, TokenStream},
     token::{Keyword, StructuredToken, TokenKind},
@@ -20,6 +20,7 @@ pub struct Parser<'a> {
     pub(crate) stream: TokenStream,
 
     file_id: usize,
+    source: &'a str,
 
     /// The produced diagnostics from both the parser and lexer.
     pub diagnostics: Vec<Report<'a, SourceSpan>>,
@@ -33,6 +34,7 @@ impl<'a> Parser<'a> {
         Ok(Self {
             stream,
             file_id,
+            source,
             diagnostics,
         })
     }
@@ -41,7 +43,7 @@ impl<'a> Parser<'a> {
         SourceSpan::new(self.file_id, span)
     }
 
-    pub(crate) fn expect_token(&mut self) -> ParseResult<'_, StructuredToken> {
+    pub(crate) fn expect_token(&mut self) -> ParseResult<'a, StructuredToken> {
         if let Some(token) = self.stream.consume() {
             Ok(token)
         } else {
@@ -59,15 +61,25 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn expect<P: Parsable>(&mut self) -> ParseResult<'_, P> {
+    pub(crate) fn expect<P: Parsable>(&mut self) -> ParseResult<'a, P> {
         P::parse(self)
     }
 
     pub fn parse_full(&mut self) -> Ast {
         while let Some(token) = self.stream.first() {
             match token {
-                StructuredToken::Token(tok) if tok.kind == TokenKind::Keyword(Keyword::Fn) => {}
-                _ => unreachable!(),
+                StructuredToken::Token(tok) if tok.kind == TokenKind::Keyword(Keyword::Fn) => {
+                    self.stream.consume();
+
+                    if let Err(err) = self.expect::<FnDecl>() {
+                        if let Some(report) = err.report {
+                            self.diagnostics.push(report);
+                        }
+                    }
+                }
+                _ => {
+                    self.stream.consume();
+                }
             }
         }
 

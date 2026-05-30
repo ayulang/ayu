@@ -1,4 +1,4 @@
-use ayuc_ir::node::stmt::fn_decl::FnDecl;
+use ayuc_ir::node::{leaf::ident::Ident, stmt::fn_decl::FnDecl};
 
 use crate::{
     Parser,
@@ -6,7 +6,11 @@ use crate::{
 };
 
 impl Parsable for FnDecl {
-    fn parse<'a>(input: &mut Parser<'a>) -> ParseResult<'a, Self> {
+    fn parse<'a>(parser: &mut Parser<'a>) -> ParseResult<'a, Self> {
+        let ident = parser.expect::<Ident>()?;
+
+        println!("{:#?}", ident);
+
         todo!()
     }
 }

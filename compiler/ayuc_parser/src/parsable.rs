@@ -7,7 +7,7 @@ pub type ParseResult<'a, T> = Result<T, ParseError<'a>>;
 
 pub trait Parsable: Sized {
     /// Parses this node. This is used for "expecting" nodes.
-    fn parse<'a>(input: &mut Parser<'a>) -> ParseResult<'a, Self>;
+    fn parse<'a>(parser: &mut Parser<'a>) -> ParseResult<'a, Self>;
 }
 
 pub struct ParseError<'a> {
