@@ -28,6 +28,8 @@ pub enum RawTokenKind {
     Semi,
     /// :
     Colon,
+    /// -
+    Minus,
     /// =
     Equals,
     /// (
@@ -38,6 +40,10 @@ pub enum RawTokenKind {
     OpenBrace,
     /// }
     CloseBrace,
+    /// >
+    Gt,
+    /// ->
+    Arrow,
 
     /// An unknown token.
     Unknown,

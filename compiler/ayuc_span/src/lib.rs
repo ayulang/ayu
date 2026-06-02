@@ -20,6 +20,12 @@ impl Span {
     }
 }
 
+impl Default for Span {
+    fn default() -> Self {
+        0.into()
+    }
+}
+
 impl From<usize> for Span {
     fn from(value: usize) -> Self {
         Self {

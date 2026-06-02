@@ -95,6 +95,10 @@ impl<'a> Scanner<'a> {
         RawToken::new(kind, (self.position - 1, self.position))
     }
 
+    pub(crate) fn single_with_offset(&self, kind: RawTokenKind, offset: usize) -> RawToken {
+        RawToken::new(kind, (self.position - offset, self.position))
+    }
+
     pub fn next_token(&mut self) -> RawToken {
         let Some(first_char) = self.bump() else {
             return RawToken::new(RawTokenKind::Eof, self.source_len);
@@ -104,13 +108,21 @@ impl<'a> Scanner<'a> {
             c if c.is_whitespace() => self.whitespace(),
             c if predicate::is_ident_start(c) => self.ident(),
 
+            '-' if let Some('>') = self.first() => {
+                self.bump();
+
+                self.single_with_offset(RawTokenKind::Arrow, 2)
+            }
+
             ';' => self.single(RawTokenKind::Semi),
             ':' => self.single(RawTokenKind::Colon),
+            '-' => self.single(RawTokenKind::Minus),
             '=' => self.single(RawTokenKind::Equals),
             '(' => self.single(RawTokenKind::OpenParen),
             ')' => self.single(RawTokenKind::CloseParen),
             '{' => self.single(RawTokenKind::OpenBrace),
             '}' => self.single(RawTokenKind::CloseBrace),
+            '>' => self.single(RawTokenKind::Gt),
 
             '"' => self.string(),
 

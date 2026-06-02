@@ -3,26 +3,29 @@ use ayuc_lexer::token::{StructuredToken, Token, TokenKind};
 
 use crate::{
     Parser,
-    parsable::{Parsable, ParseError, ParseResult},
+    parsable::{Parsable, Parsed},
+    session::ParseSession,
 };
 
 impl Parsable for Ident {
-    fn parse<'a>(parser: &mut Parser<'a>) -> ParseResult<'a, Self> {
-        let next = parser.expect_token()?;
+    fn parse<'a>(
+        parser: &mut Parser<'a>,
+        _sess: &mut ParseSession<'a>,
+    ) -> Result<Parsed<Self>, ()> {
+        let snapshot = parser.stream.snapshot();
 
-        if let StructuredToken::Token(Token {
-            kind: TokenKind::Ident(ident),
+        if let Some(StructuredToken::Token(Token {
+            kind: TokenKind::Ident(sym),
             span,
-        }) = next
+        })) = parser.stream.consume()
         {
-            Ok(Self { sym: ident, span })
+            Ok(Parsed::Present(Self {
+                sym: *sym,
+                span: *span,
+            }))
         } else {
-            let span = next.span();
-
-            Err(ParseError::new().with_expected_report(
-                parser.sourced_span(span),
-                "identifier",
-                &parser.source[span],
+            Ok(Parsed::Missing(
+                parser.stream.past_span_or_distance(1, snapshot),
             ))
         }
     }

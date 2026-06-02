@@ -176,7 +176,9 @@ impl<'a> Lexer<'a> {
             } = self.scanner.next_token();
 
             let kind = match raw_kind {
-                RawTokenKind::Whitespace => continue,
+                RawTokenKind::Whitespace => {
+                    continue;
+                }
 
                 RawTokenKind::Ident => self.ident_or_keyword(&span),
                 RawTokenKind::Literal { kind } => {
@@ -187,6 +189,8 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
+                RawTokenKind::Arrow => TokenKind::Arrow,
+                RawTokenKind::Minus => TokenKind::Minus,
                 RawTokenKind::Semi => TokenKind::Semi,
                 RawTokenKind::Colon => TokenKind::Colon,
                 RawTokenKind::Equals => TokenKind::Equals,
@@ -194,6 +198,7 @@ impl<'a> Lexer<'a> {
                 RawTokenKind::CloseParen => TokenKind::CloseParen,
                 RawTokenKind::OpenBrace => TokenKind::OpenBrace,
                 RawTokenKind::CloseBrace => TokenKind::CloseBrace,
+                RawTokenKind::Gt => TokenKind::Gt,
 
                 // Provide a diagnostic about the invalid identifier. We return [TokenKind::Ident] anyway, so the parser can continue.
                 RawTokenKind::InvalidIdent => {

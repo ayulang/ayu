@@ -33,6 +33,8 @@ pub enum TokenKind {
     Semi,
     /// :
     Colon,
+    /// -
+    Minus,
     /// =
     Equals,
     /// (
@@ -43,6 +45,10 @@ pub enum TokenKind {
     OpenBrace,
     /// }
     CloseBrace,
+    /// >
+    Gt,
+    /// ->
+    Arrow,
 
     /// The end of the input.
     Eof,

@@ -1,5 +1,7 @@
-use ayuc_span::symbol::Symbol;
+use crate::node::leaf::ident::Ident;
 
 pub struct FnDecl {
-    pub ident: Symbol,
+    pub ident: Ident,
 }
+
+pub struct ParameterList;
