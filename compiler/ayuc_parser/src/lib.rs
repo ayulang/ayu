@@ -9,7 +9,7 @@ use ayuc_ir::{
     Ast,
     node::{
         Node,
-        stmt::{Statement, fn_decl::FnDecl},
+        decl::{Declaration, function::FnDecl},
     },
 };
 use ayuc_lexer::{
@@ -129,7 +129,7 @@ impl<'a> Parser<'a> {
                     Parsed::Present(decl) => decl,
                 };
 
-                Ok(Node::Statement(Statement::FnDecl(decl)))
+                Ok(Node::Decl(Declaration::Function(decl)))
             }
             _ => {
                 todo!()
