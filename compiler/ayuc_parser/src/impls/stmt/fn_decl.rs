@@ -1,49 +1,33 @@
 use ariadne::{Color, Fmt, Label};
-use ayuc_common::SourceReport;
+use ayuc_common::{ARIADNE_CONFIG, SourceReport};
 use ayuc_ir::node::{
     leaf::ident::Ident,
-    stmt::fn_decl::{FnDecl, ParameterList},
+    stmt::{
+        block::Block,
+        fn_decl::{FnDecl, ParameterList},
+    },
 };
-use ayuc_lexer::token::{Delimiter, StructuredToken};
+use ayuc_lexer::token::{Delimiter, Keyword, StructuredToken};
 use ayuc_span::Span;
 
 use crate::{
     Parser,
     parsable::{Parsable, Parsed},
-    session::ParseSession,
 };
 
 impl Parsable for FnDecl {
-    fn parse<'a>(parser: &mut Parser<'a>, sess: &mut ParseSession<'a>) -> Result<Parsed<Self>, ()> {
-        let ident = match Ident::parse(parser, sess)? {
-            Parsed::Present(ident) => ident,
-            Parsed::Missing(span) => {
-                let span = parser.sourced_span(span);
+    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ()> {
+        parser.assert_keyword(Keyword::Fn)?;
 
-                sess.emit(
-                    SourceReport::build(ariadne::ReportKind::Error, span)
-                        .with_message(format!(
-                            "expected identifier, got: `{}`",
-                            &parser.source[span]
-                        ))
-                        .with_label(
-                            Label::new(span)
-                                .with_color(ariadne::Color::BrightRed)
-                                .with_message("expected an identifier".fg(Color::BrightRed)),
-                        )
-                        .finish(),
-                );
+        let ident = parser.assert_parsable::<Ident>()?;
 
-                return Err(());
-            }
-        };
-
-        let _params = match ParameterList::parse(parser, sess)? {
+        let params = match ParameterList::parse(parser)? {
             p @ Parsed::Missing(span) => {
                 let span = parser.sourced_span(span);
 
-                sess.emit(
+                parser.session.emit(
                     SourceReport::build(ariadne::ReportKind::Error, span)
+                        .with_config(ARIADNE_CONFIG)
                         .with_message("function declarations require a parameter list")
                         .with_label(
                             Label::new(span)
@@ -63,15 +47,18 @@ impl Parsable for FnDecl {
             p => p,
         };
 
-        Err(())
+        let block = parser.assert_parsable::<Block>()?;
+
+        Ok(Parsed::Present(FnDecl {
+            ident: ident,
+            parameters: params.unwrap_or(ParameterList::default()),
+            block,
+        }))
     }
 }
 
 impl Parsable for ParameterList {
-    fn parse<'a>(
-        parser: &mut Parser<'a>,
-        _sess: &mut ParseSession<'a>,
-    ) -> Result<Parsed<Self>, ()> {
+    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ()> {
         let snapshot = parser.stream.snapshot();
 
         let _tokens = match parser.stream.consume() {

@@ -1,6 +1,6 @@
 use ayuc_span::Span;
 
-use crate::{Parser, session::ParseSession};
+use crate::Parser;
 
 pub trait Parsable: Sized {
     /// Tries to parse this node.
@@ -9,7 +9,12 @@ pub trait Parsable: Sized {
     ///
     /// - `Err`, if any error occurred and the node couldn't be parsed.
     /// - `Ok`, if the node was parsed successfully.
-    fn parse<'a>(parser: &mut Parser<'a>, sess: &mut ParseSession<'a>) -> Result<Parsed<Self>, ()>;
+    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ()>;
+}
+
+pub trait Assertable: Parsable {
+    /// The name of the parsable for automatic diagnostic creation.
+    const NAME: &str;
 }
 
 pub enum Parsed<T> {
@@ -22,6 +27,13 @@ impl<T> Parsed<T> {
         match self {
             Self::Missing(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn unwrap_or(self, value: T) -> T {
+        match self {
+            Self::Present(p) => p,
+            Self::Missing(_) => value,
         }
     }
 }

@@ -3,15 +3,11 @@ use ayuc_lexer::token::{StructuredToken, Token, TokenKind};
 
 use crate::{
     Parser,
-    parsable::{Parsable, Parsed},
-    session::ParseSession,
+    parsable::{Assertable, Parsable, Parsed},
 };
 
 impl Parsable for Ident {
-    fn parse<'a>(
-        parser: &mut Parser<'a>,
-        _sess: &mut ParseSession<'a>,
-    ) -> Result<Parsed<Self>, ()> {
+    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ()> {
         let snapshot = parser.stream.snapshot();
 
         if let Some(StructuredToken::Token(Token {
@@ -29,4 +25,8 @@ impl Parsable for Ident {
             ))
         }
     }
+}
+
+impl Assertable for Ident {
+    const NAME: &str = "identifier";
 }

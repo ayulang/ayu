@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use ayuc_span::{Span, symbol::Symbol};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -96,5 +98,16 @@ impl Delimiter {
             Self::Parenthesis => TokenKind::CloseParen,
             Self::Braces => TokenKind::CloseBrace,
         }
+    }
+}
+
+impl Display for Keyword {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let kw = match self {
+            Self::Fn => "fn",
+            Self::Let => "let",
+        };
+
+        write!(f, "{kw}")
     }
 }

@@ -20,5 +20,9 @@ impl<'a> ParseSession<'a> {
         other.0.extend(self.0);
     }
 
+    pub fn extend(&mut self, reports: Vec<SourceReport<'a>>) {
+        self.0.extend(reports);
+    }
+
     pub fn discard(self) {}
 }

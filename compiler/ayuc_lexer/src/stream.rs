@@ -6,13 +6,13 @@ use crate::token::StructuredToken;
 pub struct Snapshot(usize);
 
 /// A stream of tokens.
-pub struct TokenStream {
-    tokens: Vec<StructuredToken>,
+pub struct TokenStream<'a> {
+    tokens: &'a [StructuredToken],
     pos: usize,
 }
 
-impl TokenStream {
-    pub const fn new(tokens: Vec<StructuredToken>) -> Self {
+impl<'a> TokenStream<'a> {
+    pub const fn new(tokens: &'a [StructuredToken]) -> Self {
         Self {
             tokens: tokens,
             pos: 0,
@@ -28,7 +28,12 @@ impl TokenStream {
         self.pos = snapshot.0;
     }
 
-    pub fn consume(&mut self) -> Option<&StructuredToken> {
+    #[inline]
+    pub fn is_exhausted(&self) -> bool {
+        self.pos >= self.tokens.len() - 1
+    }
+
+    pub fn consume(&mut self) -> Option<&'a StructuredToken> {
         if let Some(token) = self.tokens.get(self.pos) {
             self.pos += 1;
 

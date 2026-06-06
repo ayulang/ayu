@@ -1,10 +1,13 @@
-use std::sync::LazyLock;
+use std::{
+    fmt::{Debug, Display},
+    sync::LazyLock,
+};
 
 use lasso::{Spur, ThreadedRodeo};
 
 static INTERNER: LazyLock<ThreadedRodeo> = LazyLock::new(ThreadedRodeo::default);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Symbol(Spur);
 
 impl Symbol {
@@ -22,5 +25,17 @@ impl Symbol {
 impl From<Spur> for Symbol {
     fn from(value: Spur) -> Self {
         Self(value)
+    }
+}
+
+impl Debug for Symbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Symbol(\"{}\")", self.as_str())
+    }
+}
+
+impl Display for Symbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }

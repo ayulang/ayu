@@ -11,20 +11,17 @@ use ayuc_source::SourceSpan;
 use ayuc_span::{Span, symbol::Symbol};
 use unicode_properties::UnicodeEmoji;
 
-use crate::{
-    stream::TokenStream,
-    token::{Delimiter, Keyword, StructuredToken, Token, TokenKind},
-};
+use crate::token::{Delimiter, Keyword, StructuredToken, Token, TokenKind};
 
 /// Lexes the whole input file and returns a [TokenStream] and the produced diagnostics.
 pub fn lex(
     file_id: usize,
     source: &str,
-) -> Result<(TokenStream, Vec<Report<'_, SourceSpan>>), SourceReport<'_>> {
+) -> Result<(Vec<StructuredToken>, Vec<Report<'_, SourceSpan>>), SourceReport<'_>> {
     let lexer = Lexer::new(file_id, source);
     let (tokens, diagnostics) = lexer.lex_into_structured()?;
 
-    Ok((TokenStream::new(tokens), diagnostics))
+    Ok((tokens, diagnostics))
 }
 
 pub struct Lexer<'a> {

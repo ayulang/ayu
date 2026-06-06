@@ -1,8 +1,11 @@
 pub mod symbol;
 
-use std::ops::{Index, Range};
+use std::{
+    fmt::Debug,
+    ops::{Index, Range},
+};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Span {
     /// The start of the span.
     pub start: usize,
@@ -23,6 +26,12 @@ impl Span {
 impl Default for Span {
     fn default() -> Self {
         0.into()
+    }
+}
+
+impl Debug for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Span({}..{})", self.start, self.end)
     }
 }
 
