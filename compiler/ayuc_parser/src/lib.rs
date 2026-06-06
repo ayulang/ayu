@@ -10,17 +10,18 @@ use ayuc_ir::{
     node::{
         Node,
         decl::{Declaration, function::FnDecl},
+        expr::{Expression, call::CallExpression},
     },
 };
 use ayuc_lexer::{
     stream::TokenStream,
-    token::{Keyword, StructuredToken, Token, TokenKind},
+    token::{Delimiter, Keyword, StructuredToken, Token, TokenKind},
 };
 use ayuc_source::SourceSpan;
 use ayuc_span::Span;
 
 use crate::{
-    parsable::{Assertable, Parsable, Parsed},
+    parsable::{Assertable, Parsed},
     session::ParseSession,
 };
 
@@ -119,17 +120,28 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_node(&mut self) -> Result<Node, ()> {
-        match self.stream.first() {
-            Some(StructuredToken::Token(Token {
+        let Some(first) = self.stream.first() else {
+            return Err(());
+        };
+
+        match first {
+            StructuredToken::Token(Token {
                 kind: TokenKind::Keyword(Keyword::Fn),
                 ..
-            })) => {
-                let decl = match FnDecl::parse(self)? {
-                    Parsed::Missing(_) => return Err(()),
-                    Parsed::Present(decl) => decl,
-                };
-
-                Ok(Node::Decl(Declaration::Function(decl)))
+            }) => Ok(Node::Decl(Declaration::Function(
+                self.assert_parsable::<FnDecl>()?,
+            ))),
+            StructuredToken::Token(Token {
+                kind: TokenKind::Ident(_),
+                ..
+            }) if matches!(
+                self.stream.second(),
+                Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, _))
+            ) =>
+            {
+                Ok(Node::Expr(Expression::Call(
+                    self.assert_parsable::<CallExpression>()?,
+                )))
             }
             _ => {
                 todo!()

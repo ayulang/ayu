@@ -1,6 +1,7 @@
-use crate::node::{decl::Declaration, stmt::Statement};
+use crate::node::{decl::Declaration, expr::Expression, stmt::Statement};
 
 pub mod decl;
+pub mod expr;
 pub mod leaf;
 pub mod stmt;
 
@@ -9,4 +10,5 @@ pub mod stmt;
 pub enum Node {
     Stmt(Statement),
     Decl(Declaration),
+    Expr(Expression),
 }

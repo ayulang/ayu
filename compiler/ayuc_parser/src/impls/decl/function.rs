@@ -10,7 +10,7 @@ use ayuc_span::Span;
 
 use crate::{
     Parser,
-    parsable::{Parsable, Parsed},
+    parsable::{Assertable, Parsable, Parsed},
 };
 
 impl Parsable for FnDecl {
@@ -53,6 +53,10 @@ impl Parsable for FnDecl {
             block,
         }))
     }
+}
+
+impl Assertable for FnDecl {
+    const NAME: &str = "function declaration";
 }
 
 impl Parsable for ParameterList {

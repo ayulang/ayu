@@ -28,13 +28,13 @@ impl Parsable for Block {
 
         session.commit(&mut parser.session);
 
-        if ast.is_none() {
-            Err(()) // unrecoverable error
-        } else {
+        if let Some(ast) = ast {
             Ok(Parsed::Present(Self {
                 span,
-                children: Vec::new(),
+                children: ast.nodes,
             }))
+        } else {
+            Err(()) // unrecoverable error
         }
     }
 }
