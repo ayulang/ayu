@@ -1,4 +1,4 @@
-use ayuc_ir::node::stmt::block::Block;
+use ayuc_ast::node::stmt::block::Block;
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, StructuredToken},

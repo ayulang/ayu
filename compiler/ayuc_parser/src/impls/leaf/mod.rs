@@ -1,4 +1,4 @@
-use ayuc_ir::node::leaf::ident::Ident;
+use ayuc_ast::node::leaf::ident::Ident;
 use ayuc_lexer::token::{StructuredToken, Token, TokenKind};
 
 use crate::{

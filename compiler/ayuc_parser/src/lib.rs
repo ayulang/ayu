@@ -4,15 +4,11 @@ pub mod parsable;
 pub mod session;
 
 use ariadne::{Color, Fmt, Label, ReportKind};
-use ayuc_common::{ARIADNE_CONFIG, SourceReport};
-use ayuc_ir::{
+use ayuc_ast::{
     Ast,
-    node::{
-        Node,
-        decl::{Declaration, function::FnDecl},
-        expr::{Expression, call::CallExpression},
-    },
+    node::{Node, decl::Declaration, expr::Expression, stmt::Statement},
 };
+use ayuc_common::{ARIADNE_CONFIG, SourceReport};
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, Keyword, StructuredToken, Token, TokenKind},
@@ -128,9 +124,8 @@ impl<'a> Parser<'a> {
             StructuredToken::Token(Token {
                 kind: TokenKind::Keyword(Keyword::Fn),
                 ..
-            }) => Ok(Node::Decl(Declaration::Function(
-                self.assert_parsable::<FnDecl>()?,
-            ))),
+            }) => Ok(Node::Decl(Declaration::Function(self.assert_parsable()?))),
+
             StructuredToken::Token(Token {
                 kind: TokenKind::Ident(_),
                 ..
@@ -139,10 +134,11 @@ impl<'a> Parser<'a> {
                 Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, _))
             ) =>
             {
-                Ok(Node::Expr(Expression::Call(
-                    self.assert_parsable::<CallExpression>()?,
-                )))
+                Ok(Node::Stmt(Statement::Expr(Expression::Call(
+                    self.assert_parsable()?,
+                ))))
             }
+
             _ => {
                 todo!()
             }

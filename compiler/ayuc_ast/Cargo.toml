@@ -1,5 +1,5 @@
 [package]
-name = "ayuc_ir"
+name = "ayuc_ast"
 version = "0.1.0"
 edition = "2024"
 

@@ -1,0 +1,7 @@
+[package]
+name = "ayuc_codegen"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ayuc_ast = { path = "../ayuc_ast" }

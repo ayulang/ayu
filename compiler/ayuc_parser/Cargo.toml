@@ -8,5 +8,5 @@ ayuc_lexer = { path = "../ayuc_lexer" }
 ayuc_source = { path = "../ayuc_source" }
 ayuc_span = { path = "../ayuc_span" }
 ayuc_common = { path = "../ayuc_common" }
-ayuc_ir = { path = "../ayuc_ir" }
+ayuc_ast = { path = "../ayuc_ast" }
 ariadne = { version = "0.6.0", default-features = false }

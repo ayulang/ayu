@@ -1,4 +1,4 @@
-use ayuc_ir::node::{
+use ayuc_ast::node::{
     expr::call::{ArgumentList, CallExpression},
     leaf::ident::Ident,
 };
