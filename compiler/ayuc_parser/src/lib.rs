@@ -4,20 +4,17 @@ pub mod parsable;
 pub mod session;
 
 use ariadne::{Color, Fmt, Label, ReportKind};
-use ayuc_ast::{
-    Ast,
-    node::{Node, decl::Declaration, expr::Expression, stmt::Statement},
-};
+use ayuc_ast::{Ast, Expression, Literal, item::Item, stmt::Statement};
 use ayuc_common::{ARIADNE_CONFIG, SourceReport};
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, Keyword, StructuredToken, Token, TokenKind},
 };
 use ayuc_source::SourceSpan;
-use ayuc_span::Span;
+use ayuc_span::{Span, symbol::Symbol};
 
 use crate::{
-    parsable::{Assertable, Parsed},
+    parsable::{Assertable, ParseError, Parsed},
     session::ParseSession,
 };
 
@@ -50,7 +47,7 @@ impl<'a> Parser<'a> {
         Self::new(self.file_id, self.source, stream)
     }
 
-    pub(crate) fn assert_parsable<P: Assertable>(&mut self) -> Result<P, ()> {
+    pub(crate) fn assert_parsable<P: Assertable>(&mut self) -> Result<P, ParseError> {
         match P::parse(self)? {
             Parsed::Present(p) => Ok(p),
             Parsed::Missing(span) => {
@@ -71,12 +68,12 @@ impl<'a> Parser<'a> {
                         .finish(),
                 );
 
-                Err(())
+                Err(ParseError::Unrecoverable)
             }
         }
     }
 
-    pub(crate) fn assert_keyword(&mut self, keyword: Keyword) -> Result<(), ()> {
+    pub(crate) fn assert_keyword(&mut self, keyword: Keyword) -> Result<(), ParseError> {
         let snapshot = self.stream.snapshot();
 
         if let Some(StructuredToken::Token(Token {
@@ -107,7 +104,7 @@ impl<'a> Parser<'a> {
                     .finish(),
             );
 
-            Err(())
+            Err(ParseError::Unrecoverable)
         }
     }
 
@@ -115,17 +112,35 @@ impl<'a> Parser<'a> {
         SourceSpan::new(self.file_id, span)
     }
 
-    pub(crate) fn parse_node(&mut self) -> Result<Node, ()> {
+    pub(crate) fn parse_expression(&mut self) -> Result<Expression, ParseError> {
         let Some(first) = self.stream.first() else {
-            return Err(());
+            return Err(ParseError::Unrecoverable);
         };
 
         match first {
             StructuredToken::Token(Token {
-                kind: TokenKind::Keyword(Keyword::Fn),
-                ..
-            }) => Ok(Node::Decl(Declaration::Function(self.assert_parsable()?))),
+                kind: TokenKind::Literal { data_span },
+                span,
+            }) => {
+                let expr = Expression::Lit(Literal::Str {
+                    span: *span,
+                    data: Symbol::intern(&self.source[data_span]),
+                });
 
+                self.stream.consume();
+
+                Ok(expr)
+            }
+            _ => todo!(),
+        }
+    }
+
+    pub(crate) fn parse_statement(&mut self) -> Result<Statement, ParseError> {
+        let Some(first) = self.stream.first() else {
+            return Err(ParseError::Unrecoverable);
+        };
+
+        match first {
             StructuredToken::Token(Token {
                 kind: TokenKind::Ident(_),
                 ..
@@ -134,27 +149,46 @@ impl<'a> Parser<'a> {
                 Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, _))
             ) =>
             {
-                Ok(Node::Stmt(Statement::Expr(Expression::Call(
+                Ok(Statement::Expr(ayuc_ast::Expression::Call(
                     self.assert_parsable()?,
-                ))))
+                )))
             }
+            _ => todo!(),
+        }
+    }
 
-            _ => {
-                todo!()
-            }
+    pub(crate) fn parse_item(&mut self) -> Result<Item, ParseError> {
+        let Some(first) = self.stream.first() else {
+            return Err(ParseError::Unrecoverable);
+        };
+
+        match first {
+            StructuredToken::Token(Token {
+                kind: TokenKind::Keyword(Keyword::Fn),
+                ..
+            }) => Ok(Item::Fn(self.assert_parsable()?)),
+            _ => todo!(),
         }
     }
 
     pub fn parse_full(mut self) -> (Option<Ast>, ParseSession<'a>) {
-        let mut nodes = Vec::new();
+        let mut items = Vec::new();
 
-        while !self.stream.is_exhausted() {
-            match self.parse_node() {
-                Ok(node) => nodes.push(node),
-                Err(()) => return (None, self.session),
+        while !self.stream.is_exhausted()
+            && !matches!(
+                self.stream.first(),
+                Some(StructuredToken::Token(Token {
+                    kind: TokenKind::Eof,
+                    ..
+                }))
+            )
+        {
+            match self.parse_item() {
+                Ok(node) => items.push(node),
+                Err(_) => return (None, self.session),
             }
         }
 
-        (Some(Ast { nodes }), self.session)
+        (Some(Ast { items }), self.session)
     }
 }

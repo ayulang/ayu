@@ -45,7 +45,8 @@ dependencies = [
 name = "ayuc_codegen"
 version = "0.1.0"
 dependencies = [
- "ayuc_ast",
+ "ayuc_hir",
+ "ayuc_tyctx",
 ]
 
 [[package]]
@@ -54,6 +55,13 @@ version = "0.1.0"
 dependencies = [
  "ariadne",
  "ayuc_source",
+]
+
+[[package]]
+name = "ayuc_hir"
+version = "0.1.0"
+dependencies = [
+ "ayuc_span",
 ]
 
 [[package]]
@@ -69,6 +77,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ayuc_lower"
+version = "0.1.0"
+dependencies = [
+ "ayuc_ast",
+ "ayuc_hir",
+ "ayuc_tyctx",
+]
+
+[[package]]
 name = "ayuc_parser"
 version = "0.1.0"
 dependencies = [
@@ -81,6 +98,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ayuc_printer"
+version = "0.1.0"
+
+[[package]]
 name = "ayuc_scanner"
 version = "0.1.0"
 dependencies = [
@@ -88,6 +109,10 @@ dependencies = [
  "unicode-ident",
  "unicode-properties",
 ]
+
+[[package]]
+name = "ayuc_sema"
+version = "0.1.0"
 
 [[package]]
 name = "ayuc_source"
@@ -102,6 +127,13 @@ name = "ayuc_span"
 version = "0.1.0"
 dependencies = [
  "lasso",
+]
+
+[[package]]
+name = "ayuc_tyctx"
+version = "0.1.0"
+dependencies = [
+ "ayuc_hir",
 ]
 
 [[package]]

@@ -13,10 +13,7 @@ pub struct TokenStream<'a> {
 
 impl<'a> TokenStream<'a> {
     pub const fn new(tokens: &'a [StructuredToken]) -> Self {
-        Self {
-            tokens: tokens,
-            pos: 0,
-        }
+        Self { tokens, pos: 0 }
     }
 
     pub const fn snapshot(&self) -> Snapshot {
@@ -30,7 +27,7 @@ impl<'a> TokenStream<'a> {
 
     #[inline]
     pub fn is_exhausted(&self) -> bool {
-        self.pos >= self.tokens.len() - 1
+        self.pos > self.tokens.len() - 1
     }
 
     pub fn consume(&mut self) -> Option<&'a StructuredToken> {

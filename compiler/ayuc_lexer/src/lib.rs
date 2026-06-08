@@ -13,15 +13,20 @@ use unicode_properties::UnicodeEmoji;
 
 use crate::token::{Delimiter, Keyword, StructuredToken, Token, TokenKind};
 
+pub struct LexedFile<'a> {
+    pub tokens: Vec<StructuredToken>,
+    pub diagnostics: Vec<SourceReport<'a>>,
+}
+
 /// Lexes the whole input file and returns a [TokenStream] and the produced diagnostics.
-pub fn lex(
-    file_id: usize,
-    source: &str,
-) -> Result<(Vec<StructuredToken>, Vec<Report<'_, SourceSpan>>), SourceReport<'_>> {
+pub fn lex(file_id: usize, source: &str) -> Result<LexedFile<'_>, Box<SourceReport<'_>>> {
     let lexer = Lexer::new(file_id, source);
     let (tokens, diagnostics) = lexer.lex_into_structured()?;
 
-    Ok((tokens, diagnostics))
+    Ok(LexedFile {
+        tokens,
+        diagnostics,
+    })
 }
 
 pub struct Lexer<'a> {
@@ -108,7 +113,7 @@ impl<'a> Lexer<'a> {
         &mut self,
         span: Span,
         delimiter: Delimiter,
-    ) -> Result<StructuredToken, SourceReport<'a>> {
+    ) -> Result<StructuredToken, Box<SourceReport<'a>>> {
         let mut buf = Vec::new();
         let mut full_span = span;
         let closing_kind = delimiter.closing_kind();
@@ -141,21 +146,23 @@ impl<'a> Lexer<'a> {
 
                     let main_span = self.sourced_span(span);
 
-                    return Err(Report::build(ReportKind::Error, main_span)
-                        .with_config(ARIADNE_CONFIG)
-                        .with_message("unclosed delimiter")
-                        .with_label(
-                            Label::new(main_span)
-                                .with_color(Color::BrightRed)
-                                .with_message(
-                                    "delimiter starts here and is never closed"
-                                        .fg(Color::BrightRed),
-                                ),
-                        )
-                        .with_help(format!(
-                            "consider adding a `{pair}` to close this delimiter where practical"
-                        ))
-                        .finish());
+                    return Err(Box::new(
+                        Report::build(ReportKind::Error, main_span)
+                            .with_config(ARIADNE_CONFIG)
+                            .with_message("unclosed delimiter")
+                            .with_label(
+                                Label::new(main_span)
+                                    .with_color(Color::BrightRed)
+                                    .with_message(
+                                        "delimiter starts here and is never closed"
+                                            .fg(Color::BrightRed),
+                                    ),
+                            )
+                            .with_help(format!(
+                                "consider adding a `{pair}` to close this delimiter where practical"
+                            ))
+                            .finish(),
+                    ));
                 }
 
                 _ => buf.push(StructuredToken::Token(token)),
@@ -255,7 +262,7 @@ impl<'a> Lexer<'a> {
 
     pub fn lex_into_structured(
         mut self,
-    ) -> Result<(Vec<StructuredToken>, Vec<Report<'a, SourceSpan>>), Report<'a, SourceSpan>> {
+    ) -> Result<(Vec<StructuredToken>, Vec<SourceReport<'a>>), Box<SourceReport<'a>>> {
         let mut buf = Vec::new();
 
         loop {
@@ -272,16 +279,20 @@ impl<'a> Lexer<'a> {
                     let main_span = self.sourced_span(token.span);
                     let src = &self.source[token.span];
 
-                    return Err(Report::build(ReportKind::Error, main_span)
-                        .with_config(ARIADNE_CONFIG)
-                        .with_message(format!("unexpected closing delimiter: `{src}`"))
-                        .with_label(
-                            Label::new(main_span)
-                                .with_color(Color::BrightRed)
-                                .with_message("unexpected closing delimiter".fg(Color::BrightRed)),
-                        )
-                        .with_note(format!("this delimiter needs a matching `{pair}`"))
-                        .finish());
+                    return Err(Box::new(
+                        Report::build(ReportKind::Error, main_span)
+                            .with_config(ARIADNE_CONFIG)
+                            .with_message(format!("unexpected closing delimiter: `{src}`"))
+                            .with_label(
+                                Label::new(main_span)
+                                    .with_color(Color::BrightRed)
+                                    .with_message(
+                                        "unexpected closing delimiter".fg(Color::BrightRed),
+                                    ),
+                            )
+                            .with_note(format!("this delimiter needs a matching `{pair}`"))
+                            .finish(),
+                    ));
                 }
 
                 TokenKind::OpenParen | TokenKind::OpenBrace => {

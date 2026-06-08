@@ -1,8 +1,7 @@
 use ariadne::{Color, Fmt, Label};
-use ayuc_ast::node::{
-    decl::function::{FnDecl, ParameterList},
-    leaf::ident::Ident,
-    stmt::block::Block,
+use ayuc_ast::{
+    expr::{Block, Ident},
+    item::{FnDecl, ParameterList},
 };
 use ayuc_common::{ARIADNE_CONFIG, SourceReport};
 use ayuc_lexer::token::{Delimiter, Keyword, StructuredToken};
@@ -10,11 +9,11 @@ use ayuc_span::Span;
 
 use crate::{
     Parser,
-    parsable::{Assertable, Parsable, Parsed},
+    parsable::{Assertable, Parsable, ParseError, Parsed},
 };
 
 impl Parsable for FnDecl {
-    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ()> {
+    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
         parser.assert_keyword(Keyword::Fn)?;
 
         let ident = parser.assert_parsable::<Ident>()?;
@@ -47,10 +46,10 @@ impl Parsable for FnDecl {
 
         let block = parser.assert_parsable::<Block>()?;
 
-        Ok(Parsed::Present(FnDecl {
-            ident: ident,
-            parameters: params.unwrap_or(ParameterList::default()),
+        Ok(Parsed::Present(Self {
+            ident,
             block,
+            parameters: params.unwrap_or(ParameterList),
         }))
     }
 }
@@ -60,7 +59,7 @@ impl Assertable for FnDecl {
 }
 
 impl Parsable for ParameterList {
-    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ()> {
+    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
         let snapshot = parser.stream.snapshot();
 
         let _tokens = match parser.stream.consume() {

@@ -1,0 +1,59 @@
+use ayuc_ast as ast;
+use ayuc_hir::{self as hir};
+
+use ayuc_tyctx::TyCtx;
+
+pub struct AstLowering<'a> {
+    pub ty_ctx: &'a mut TyCtx,
+}
+
+impl<'a> AstLowering<'a> {
+    pub fn lower(&mut self, ast: &ayuc_ast::Ast) -> hir::ModuleId {
+        let id = self.ty_ctx.mint_module_id();
+        let mut items = Vec::new();
+
+        for item in &ast.items {
+            items.push(self.lower_item(item));
+        }
+
+        self.ty_ctx.register_module(hir::Module { id, items });
+
+        id
+    }
+
+    fn lower_item(&mut self, item: &ast::Item) -> hir::Item {
+        match item {
+            ast::Item::Fn(fn_decl) => hir::Item::Fn(hir::FnItem {
+                id: hir::DefId::new(0),
+                name: fn_decl.ident.sym,
+                return_ty: hir::Ty::None,
+                block: self.lower_block(&fn_decl.block),
+            }),
+        }
+    }
+
+    fn lower_block(&mut self, block: &ast::Block) -> hir::Block {
+        hir::Block {
+            stmts: block.children.iter().map(|s| self.lower_stmt(s)).collect(),
+        }
+    }
+
+    fn lower_stmt(&mut self, stmt: &ast::Statement) -> hir::Statement {
+        match stmt {
+            ast::Statement::Expr(expr) => hir::Statement::Expr(self.lower_expr(expr)),
+        }
+    }
+
+    fn lower_expr(&mut self, expr: &ast::Expression) -> hir::Expression {
+        match expr {
+            ast::Expression::Identifier(ident) => hir::Expression::Ident(ident.sym),
+            ast::Expression::Call(call) => hir::Expression::Call(ayuc_hir::CallExpr {
+                callee: Box::new(self.lower_expr(&call.callee)),
+                args: call.args.iter().map(|e| self.lower_expr(e)).collect(),
+            }),
+            ast::Expression::Lit(lit) => hir::Expression::Lit(match lit {
+                ast::Literal::Str { span: _, data } => hir::Literal::Str(*data),
+            }),
+        }
+    }
+}
