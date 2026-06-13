@@ -27,7 +27,7 @@ impl SourceCache {
     }
 }
 
-impl ariadne::Cache<FileId> for SourceCache {
+impl ariadne::Cache<FileId> for &SourceCache {
     type Storage = String;
 
     fn display<'a>(&self, id: &'a FileId) -> Option<impl std::fmt::Display + 'a> {

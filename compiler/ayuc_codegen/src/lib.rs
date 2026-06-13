@@ -19,7 +19,7 @@ fn write_expr(buf: &mut String, expr: &Expression) {
                 }
             }
 
-            let _ = write!(buf, ")\n");
+            let _ = writeln!(buf, ")");
         }
         Expression::Ident(ident) => {
             let _ = write!(buf, "{}", ident.as_str());

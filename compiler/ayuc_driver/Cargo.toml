@@ -1,0 +1,12 @@
+[package]
+name = "ayuc_driver"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ayuc_source = { path = "../ayuc_source" }
+ayuc_lexer = { path = "../ayuc_lexer" }
+ayuc_parser = { path = "../ayuc_parser" }
+ayuc_tyctx = { path = "../ayuc_tyctx" }
+ayuc_lower = { path = "../ayuc_lower" }
+ayuc_codegen = { path = "../ayuc_codegen" }

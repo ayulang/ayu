@@ -33,6 +33,9 @@ dependencies = [
 [[package]]
 name = "ayuc"
 version = "0.0.0"
+dependencies = [
+ "ayuc_driver",
+]
 
 [[package]]
 name = "ayuc_ast"
@@ -55,6 +58,18 @@ version = "0.1.0"
 dependencies = [
  "ariadne",
  "ayuc_source",
+]
+
+[[package]]
+name = "ayuc_driver"
+version = "0.1.0"
+dependencies = [
+ "ayuc_codegen",
+ "ayuc_lexer",
+ "ayuc_lower",
+ "ayuc_parser",
+ "ayuc_source",
+ "ayuc_tyctx",
 ]
 
 [[package]]
