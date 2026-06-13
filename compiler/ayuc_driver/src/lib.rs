@@ -6,7 +6,7 @@ use std::{
 };
 
 use ayuc_codegen::LuauCodegen;
-use ayuc_hir::Package^;
+use ayuc_hir::Package;
 use ayuc_lexer::{LexedFile, stream::TokenStream};
 use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
