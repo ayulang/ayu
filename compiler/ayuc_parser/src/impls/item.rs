@@ -19,7 +19,7 @@ impl Parsable for FnDecl {
 
         let ident = parser.assert_parsable::<Ident>()?;
 
-        let params = match ParameterList::parse(parser)? {
+        let params = match ParameterList::parse_with_rollback(parser)? {
             p @ Parsed::Missing(span) => {
                 let span = parser.sourced_span(span);
 
@@ -66,7 +66,7 @@ impl Parsable for ExternFnDecl {
 
         let ident = parser.assert_parsable::<Ident>()?;
 
-        let params = match ParameterList::parse(parser)? {
+        let params = match ParameterList::parse_with_rollback(parser)? {
             p @ Parsed::Missing(span) => {
                 let span = parser.sourced_span(span);
 
