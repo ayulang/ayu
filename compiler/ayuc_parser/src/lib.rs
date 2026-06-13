@@ -131,6 +131,16 @@ impl<'a> Parser<'a> {
 
                 Ok(expr)
             }
+            StructuredToken::Token(Token {
+                kind: TokenKind::Ident(_),
+                ..
+            }) if matches!(
+                self.stream.second(),
+                Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, _))
+            ) =>
+            {
+                Ok(ayuc_ast::Expression::Call(self.assert_parsable()?))
+            }
             _ => todo!(),
         }
     }
@@ -140,6 +150,7 @@ impl<'a> Parser<'a> {
             return Err(ParseError::Unrecoverable);
         };
 
+        // redo this so it tries known patterns first, and then maybe expressions?
         match first {
             StructuredToken::Token(Token {
                 kind: TokenKind::Ident(_),

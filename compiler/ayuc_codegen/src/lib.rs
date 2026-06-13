@@ -19,7 +19,7 @@ fn write_expr(buf: &mut String, expr: &Expression) {
                 }
             }
 
-            let _ = writeln!(buf, ")");
+            let _ = write!(buf, ")");
         }
         Expression::Ident(ident) => {
             let _ = write!(buf, "{}", ident.as_str());
@@ -33,7 +33,9 @@ fn write_expr(buf: &mut String, expr: &Expression) {
 fn write_stmt(buf: &mut String, stmt: &Statement) {
     match stmt {
         Statement::Expr(expr) => write_expr(buf, expr),
-    }
+    };
+
+    let _ = writeln!(buf);
 }
 
 impl LuauCodegen {
