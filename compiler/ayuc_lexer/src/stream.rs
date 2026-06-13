@@ -27,7 +27,7 @@ impl<'a> TokenStream<'a> {
 
     #[inline]
     pub fn is_exhausted(&self) -> bool {
-        self.pos > self.tokens.len() - 1
+        self.tokens.is_empty() || self.pos >= self.tokens.len()
     }
 
     pub fn consume(&mut self) -> Option<&'a StructuredToken> {

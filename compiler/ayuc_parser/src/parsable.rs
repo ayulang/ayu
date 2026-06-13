@@ -22,6 +22,7 @@ pub enum ParseError {
     Unrecoverable,
 }
 
+#[derive(Debug)]
 pub enum Parsed<T> {
     Present(T),
     Missing(Span),
