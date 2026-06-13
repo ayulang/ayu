@@ -1,5 +1,6 @@
 use ariadne::{Color, Fmt, Label};
 use ayuc_ast::{
+    ExternFnDecl,
     expr::{Block, Ident},
     item::{FnDecl, ParameterList},
 };
@@ -56,6 +57,50 @@ impl Parsable for FnDecl {
 
 impl Assertable for FnDecl {
     const NAME: &str = "function declaration";
+}
+
+impl Parsable for ExternFnDecl {
+    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
+        parser.assert_keyword(Keyword::Extern)?;
+        parser.assert_keyword(Keyword::Fn)?;
+
+        let ident = parser.assert_parsable::<Ident>()?;
+
+        let params = match ParameterList::parse(parser)? {
+            p @ Parsed::Missing(span) => {
+                let span = parser.sourced_span(span);
+
+                parser.session.emit(
+                    SourceReport::build(ariadne::ReportKind::Error, span)
+                        .with_config(ARIADNE_CONFIG)
+                        .with_message("extern function declarations require a parameter list")
+                        .with_label(
+                            Label::new(span)
+                                .with_color(ariadne::Color::BrightRed)
+                                .with_message("missing parameter list".fg(Color::BrightRed)),
+                        )
+                        .with_help(format!(
+                            "add a parameter list: `{}{}`",
+                            ident.sym.as_str(),
+                            "()".fg(Color::BrightGreen)
+                        ))
+                        .finish(),
+                );
+
+                p
+            }
+            p => p,
+        };
+
+        Ok(Parsed::Present(Self {
+            ident,
+            parameters: params.unwrap_or(ParameterList),
+        }))
+    }
+}
+
+impl Assertable for ExternFnDecl {
+    const NAME: &str = "extern function declaration";
 }
 
 impl Parsable for ParameterList {

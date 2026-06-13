@@ -178,6 +178,19 @@ impl<'a> Parser<'a> {
                 kind: TokenKind::Keyword(Keyword::Fn),
                 ..
             }) => Ok(Item::Fn(self.assert_parsable()?)),
+            StructuredToken::Token(Token {
+                kind: TokenKind::Keyword(Keyword::Extern),
+                ..
+            }) if matches!(
+                self.stream.second(),
+                Some(StructuredToken::Token(Token {
+                    kind: TokenKind::Keyword(Keyword::Fn),
+                    ..
+                }))
+            ) =>
+            {
+                Ok(Item::ExternFn(self.assert_parsable()?))
+            }
             _ => todo!(),
         }
     }

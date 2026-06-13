@@ -61,6 +61,7 @@ impl LuauCodegen {
 
                     let _ = writeln!(buf, "end");
                 }
+                Item::ExternFn(_) => {}
             }
         }
 

@@ -60,6 +60,7 @@ pub enum TokenKind {
 pub enum Keyword {
     Fn,
     Let,
+    Extern,
 }
 
 impl StructuredToken {
@@ -106,6 +107,7 @@ impl Display for Keyword {
         let kw = match self {
             Self::Fn => "fn",
             Self::Let => "let",
+            Self::Extern => "extern",
         };
 
         write!(f, "{kw}")

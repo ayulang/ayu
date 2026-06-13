@@ -29,6 +29,10 @@ impl<'a> AstLowering<'a> {
                 return_ty: hir::Ty::None,
                 block: self.lower_block(&fn_decl.block),
             }),
+            ast::Item::ExternFn(extern_fn) => hir::Item::ExternFn(hir::ExternFnItem {
+                id: hir::DefId::new(0),
+                name: extern_fn.ident.sym,
+            }),
         }
     }
 

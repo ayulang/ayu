@@ -62,6 +62,7 @@ impl<'a> Lexer<'a> {
         let keyword = match ident {
             "fn" => Some(Keyword::Fn),
             "let" => Some(Keyword::Let),
+            "extern" => Some(Keyword::Extern),
             _ => None,
         };
 
