@@ -5,32 +5,32 @@ use ayuc_tyctx::TyCtx;
 
 pub struct AstLowering<'a> {
     pub ty_ctx: &'a mut TyCtx,
+    pub package: &'a mut hir::Package,
 }
 
 impl<'a> AstLowering<'a> {
-    pub fn lower(&mut self, ast: &ayuc_ast::Ast) -> hir::ModuleId {
-        let id = self.ty_ctx.mint_module_id();
-        let mut items = Vec::new();
+    pub fn new(ty_ctx: &'a mut TyCtx, package: &'a mut hir::Package) -> Self {
+        Self { ty_ctx, package }
+    }
 
+    pub fn lower(&mut self, ast: &ayuc_ast::Ast) {
         for item in &ast.items {
-            items.push(self.lower_item(item));
+            let item = self.lower_item(item);
+
+            self.package.items.push(item);
         }
-
-        self.ty_ctx.register_module(hir::Module { id, items });
-
-        id
     }
 
     fn lower_item(&mut self, item: &ast::Item) -> hir::Item {
         match item {
             ast::Item::Fn(fn_decl) => hir::Item::Fn(hir::FnItem {
-                id: hir::DefId::new(0),
+                id: self.package.mint_def_id(),
                 name: fn_decl.ident.sym,
                 return_ty: hir::Ty::None,
                 block: self.lower_block(&fn_decl.block),
             }),
             ast::Item::ExternFn(extern_fn) => hir::Item::ExternFn(hir::ExternFnItem {
-                id: hir::DefId::new(0),
+                id: self.package.mint_def_id(),
                 name: extern_fn.ident.sym,
             }),
         }

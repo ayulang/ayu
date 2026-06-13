@@ -1,4 +1,4 @@
-use ayuc_hir::{Expression, Item, Literal, Statement, id::ModuleId};
+use ayuc_hir::{Expression, Item, Literal, Statement, id::PackageId};
 use ayuc_tyctx::TyCtx;
 use std::fmt::Write;
 
@@ -39,12 +39,12 @@ fn write_stmt(buf: &mut String, stmt: &Statement) {
 }
 
 impl LuauCodegen {
-    pub fn emit(module_id: ModuleId, ty_ctx: &TyCtx) -> String {
+    pub fn emit(module_id: PackageId, ty_ctx: &TyCtx) -> String {
         // this is an experimental version of the codegen which is not intended to be used.
 
         let mut buf = String::new();
         let mut contains_main = false;
-        let module = ty_ctx.module(module_id);
+        let module = ty_ctx.package(module_id);
 
         for item in &module.items {
             match item {

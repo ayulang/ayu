@@ -1,22 +1,22 @@
-use ayuc_hir::{id::ModuleId, module::Module};
+use ayuc_hir::{id::PackageId, package::Package};
 
 pub struct TyCtx {
-    pub modules: Vec<Module>,
-    pub next_module_id: usize,
+    pub packages: Vec<Package>,
+    pub next_package_id: usize,
 }
 
 impl TyCtx {
-    pub fn register_module(&mut self, module: Module) {
-        self.modules.push(module);
+    pub fn register_package(&mut self, module: Package) {
+        self.packages.push(module);
     }
 
-    pub fn module(&self, id: ModuleId) -> &Module {
-        &self.modules[id.get()]
+    pub fn package(&self, id: PackageId) -> &Package {
+        &self.packages[id.get()]
     }
 
-    pub fn mint_module_id(&mut self) -> ModuleId {
-        self.next_module_id += 1;
+    pub fn mint_package_id(&mut self) -> PackageId {
+        self.next_package_id += 1;
 
-        ModuleId::new(self.next_module_id - 1)
+        PackageId::new(self.next_package_id - 1)
     }
 }

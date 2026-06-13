@@ -65,6 +65,7 @@ name = "ayuc_driver"
 version = "0.1.0"
 dependencies = [
  "ayuc_codegen",
+ "ayuc_hir",
  "ayuc_lexer",
  "ayuc_lower",
  "ayuc_parser",

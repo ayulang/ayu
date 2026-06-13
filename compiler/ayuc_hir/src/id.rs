@@ -15,6 +15,6 @@ macro_rules! define_id {
     };
 }
 
-define_id!(ModuleId);
+define_id!(PackageId);
 define_id!(TypeRefId);
 define_id!(DefId);
