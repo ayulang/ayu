@@ -53,12 +53,20 @@ pub fn drive() -> ExitCode {
     parser.extend_diagnostics(diagnostics);
 
     let (ast, diagnostics) = parser.parse_full();
+    let diagnostics = diagnostics.unwrap();
 
-    if ast.is_none() {
-        for diagnostic in diagnostics.unwrap() {
+    if !diagnostics.is_empty() {
+        for diagnostic in &diagnostics {
             let _ = diagnostic.eprint(&source_cache);
         }
 
+        println!(
+            "> Unable to compile because of {} diagnostics",
+            diagnostics.len()
+        );
+    }
+
+    if ast.is_none() || !diagnostics.is_empty() {
         return ExitCode::FAILURE;
     }
 
