@@ -1,6 +1,6 @@
 # Ayu
 
-> **⚠️ Early Development: **
+> **⚠️ Early Development:**
 > Ayu is not stable at all yet. A lot of things are subject to change, which is why outside contributions are not yet allowed.
 
 Ayu is a programming language heavily inspired by [Rust](https://github.com/rust-lang/rust) that compiles directly into optimized Luau.
