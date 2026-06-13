@@ -1,3 +1,19 @@
 [workspace]
 resolver = "3"
-members = ["compiler/ayuc", "compiler/ayuc_ast", "compiler/ayuc_codegen", "compiler/ayuc_common", "compiler/ayuc_driver", "compiler/ayuc_hir", "compiler/ayuc_lexer", "compiler/ayuc_lower", "compiler/ayuc_parser", "compiler/ayuc_printer", "compiler/ayuc_scanner", "compiler/ayuc_sema", "compiler/ayuc_source", "compiler/ayuc_span", "compiler/ayuc_tyctx"]
+members = [
+    "compiler/ayuc",
+    "compiler/ayuc_ast",
+    "compiler/ayuc_codegen",
+    "compiler/ayuc_common",
+    "compiler/ayuc_driver",
+    "compiler/ayuc_hir",
+    "compiler/ayuc_lexer",
+    "compiler/ayuc_lower",
+    "compiler/ayuc_parser",
+    "compiler/ayuc_printer",
+    "compiler/ayuc_scanner",
+    "compiler/ayuc_sema",
+    "compiler/ayuc_source",
+    "compiler/ayuc_span",
+    "compiler/ayuc_tyctx"
+]
