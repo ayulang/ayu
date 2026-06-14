@@ -129,6 +129,11 @@ dependencies = [
 [[package]]
 name = "ayuc_sema"
 version = "0.1.0"
+dependencies = [
+ "ayuc_hir",
+ "ayuc_span",
+ "ayuc_tyctx",
+]
 
 [[package]]
 name = "ayuc_source"

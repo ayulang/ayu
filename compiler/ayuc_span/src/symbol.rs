@@ -7,7 +7,7 @@ use lasso::{Spur, ThreadedRodeo};
 
 static INTERNER: LazyLock<ThreadedRodeo> = LazyLock::new(ThreadedRodeo::default);
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Symbol(Spur);
 
 impl Symbol {
