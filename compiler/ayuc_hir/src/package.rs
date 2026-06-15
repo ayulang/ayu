@@ -1,10 +1,11 @@
-use crate::{DefId, id::PackageId, item::Item};
+use crate::{DefId, HirIdAllocator, id::PackageId, item::Item};
 
 #[derive(Debug)]
 pub struct Package {
     pub id: PackageId,
     pub items: Vec<Item>,
 
+    pub hir_id_allocator: HirIdAllocator,
     pub next_def_id: usize,
 }
 

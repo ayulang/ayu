@@ -6,10 +6,11 @@ use std::{
 };
 
 use ayuc_codegen::LuauCodegen;
-use ayuc_hir::Package;
+use ayuc_hir::{HirIdAllocator, Package};
 use ayuc_lexer::{LexedFile, stream::TokenStream};
 use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
+use ayuc_sema::{SemanticAnalyzer, scope::ScopeCtx};
 use ayuc_source::cache::SourceCache;
 use ayuc_tyctx::TyCtx;
 
@@ -71,6 +72,8 @@ pub fn drive() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
+    let ast = ast.unwrap();
+
     let mut ty_ctx = TyCtx {
         packages: Vec::new(),
         next_package_id: 0,
@@ -79,6 +82,7 @@ pub fn drive() -> ExitCode {
     let mut package = Package {
         id: ty_ctx.mint_package_id(),
         items: Vec::new(),
+        hir_id_allocator: HirIdAllocator::new(),
         next_def_id: 0,
     };
 
@@ -89,10 +93,13 @@ pub fn drive() -> ExitCode {
         package: &mut package,
     };
 
-    let ast = ast.unwrap();
-
     lowering.lower(&ast);
     ty_ctx.register_package(package);
+
+    let mut scope_ctx = ScopeCtx::default();
+    let mut sema = SemanticAnalyzer::new(&mut ty_ctx, &mut scope_ctx);
+
+    sema.run_on(id);
 
     println!();
     println!("{}", LuauCodegen::emit(id, &ty_ctx));

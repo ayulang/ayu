@@ -25,12 +25,14 @@ impl<'a> AstLowering<'a> {
         match item {
             ast::Item::Fn(fn_decl) => hir::Item::Fn(hir::FnItem {
                 id: self.package.mint_def_id(),
+                hir_id: self.package.hir_id_allocator.allocate(),
                 name: fn_decl.ident.sym,
                 return_ty: hir::Ty::None,
                 block: self.lower_block(&fn_decl.block),
             }),
             ast::Item::ExternFn(extern_fn) => hir::Item::ExternFn(hir::ExternFnItem {
                 id: self.package.mint_def_id(),
+                hir_id: self.package.hir_id_allocator.allocate(),
                 name: extern_fn.ident.sym,
             }),
         }

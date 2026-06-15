@@ -69,6 +69,7 @@ dependencies = [
  "ayuc_lexer",
  "ayuc_lower",
  "ayuc_parser",
+ "ayuc_sema",
  "ayuc_source",
  "ayuc_tyctx",
 ]
