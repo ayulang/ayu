@@ -120,7 +120,7 @@ impl<'a> Parser<'a> {
 
         match first {
             StructuredToken::Token(Token {
-                kind: TokenKind::Literal { data_span },
+                kind: TokenKind::Literal(ayuc_lexer::token::Literal::Str { data_span }),
                 span,
             }) => {
                 let expr = Expression::Lit(Literal::Str {

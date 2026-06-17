@@ -23,13 +23,19 @@ pub enum Delimiter {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum Literal {
+    Str { data_span: Span },
+    Integer { data_span: Span },
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     /// An identifier and its associated [Symbol].
     Ident(Symbol),
     /// A keywrod.
     Keyword(Keyword),
     /// A literal.
-    Literal { data_span: Span },
+    Literal(Literal),
 
     /// ;
     Semi,

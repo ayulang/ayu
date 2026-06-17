@@ -59,6 +59,8 @@ pub enum RawTokenKind {
 pub enum LiteralKind {
     /// "abc" or "abc
     Str { terminated: bool },
+    /// 12345, 00491
+    Integer { data_span: Span },
 }
 
 impl RawToken {

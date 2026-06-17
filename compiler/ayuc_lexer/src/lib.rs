@@ -11,7 +11,7 @@ use ayuc_source::SourceSpan;
 use ayuc_span::{Span, symbol::Symbol};
 use unicode_properties::UnicodeEmoji;
 
-use crate::token::{Delimiter, Keyword, StructuredToken, Token, TokenKind};
+use crate::token::{Delimiter, Keyword, Literal, StructuredToken, Token, TokenKind};
 
 pub struct LexedFile<'a> {
     pub tokens: Vec<StructuredToken>,
@@ -78,7 +78,7 @@ impl<'a> Lexer<'a> {
     ) -> Option<TokenKind> {
         match kind {
             raw_token::LiteralKind::Str { terminated } => {
-                if !terminated {
+                let data_span = if !terminated {
                     let sourced_span = self.sourced_span(span);
                     let report = Report::build(ReportKind::Error, sourced_span)
                         .with_config(ARIADNE_CONFIG)
@@ -97,14 +97,17 @@ impl<'a> Lexer<'a> {
 
                     self.diagnostics.push(report.finish());
 
-                    return None;
-                }
+                    return None; // maybe we change this in the future (recovery), but not yet.
+                } else {
+                    (span.start + 1, span.end - 1) // removes the quotes "..."
+                };
 
-                let data_span = (span.start + 1, span.end - 1);
-
-                Some(TokenKind::Literal {
+                Some(TokenKind::Literal(Literal::Str {
                     data_span: data_span.into(),
-                })
+                }))
+            }
+            raw_token::LiteralKind::Integer { data_span } => {
+                Some(TokenKind::Literal(Literal::Integer { data_span }))
             }
         }
     }

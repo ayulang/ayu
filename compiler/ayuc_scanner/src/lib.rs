@@ -3,6 +3,7 @@ pub mod raw_token;
 
 use std::str::Chars;
 
+use ayuc_span::Span;
 use unicode_properties::UnicodeEmoji;
 
 use crate::raw_token::{LiteralKind, RawToken, RawTokenKind};
@@ -63,6 +64,21 @@ impl<'a> Scanner<'a> {
         self.eat_while(|c| predicate::is_ident_continue(c) || (!c.is_ascii() && c.is_emoji_char()));
 
         RawToken::new(RawTokenKind::InvalidIdent, (ident_start, self.position))
+    }
+
+    pub(crate) fn integer(&mut self) -> RawToken {
+        let start = self.position - 1;
+
+        self.eat_while(|c| c.is_ascii_digit());
+
+        let data_span = Span::from(start..self.position);
+
+        RawToken::new(
+            RawTokenKind::Literal {
+                kind: LiteralKind::Integer { data_span },
+            },
+            data_span,
+        )
     }
 
     pub(crate) fn string(&mut self) -> RawToken {
@@ -127,6 +143,7 @@ impl<'a> Scanner<'a> {
             ',' => self.single(RawTokenKind::Comma),
 
             '"' => self.string(),
+            c if c.is_ascii_digit() => self.integer(),
 
             _ => RawToken::new(RawTokenKind::Unknown, (self.position - 1, self.position)),
         }
