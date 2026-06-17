@@ -44,6 +44,8 @@ pub enum RawTokenKind {
     Gt,
     /// ->
     Arrow,
+    /// ,
+    Comma,
 
     /// An unknown token.
     Unknown,

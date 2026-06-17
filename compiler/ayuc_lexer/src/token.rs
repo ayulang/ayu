@@ -51,6 +51,8 @@ pub enum TokenKind {
     Gt,
     /// ->
     Arrow,
+    /// ,
+    Comma,
 
     /// The end of the input.
     Eof,

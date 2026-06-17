@@ -204,6 +204,7 @@ impl<'a> Lexer<'a> {
                 RawTokenKind::OpenBrace => TokenKind::OpenBrace,
                 RawTokenKind::CloseBrace => TokenKind::CloseBrace,
                 RawTokenKind::Gt => TokenKind::Gt,
+                RawTokenKind::Comma => TokenKind::Comma,
 
                 // Provide a diagnostic about the invalid identifier. We return [TokenKind::Ident] anyway, so the parser can continue.
                 RawTokenKind::InvalidIdent => {

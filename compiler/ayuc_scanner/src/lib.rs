@@ -123,6 +123,7 @@ impl<'a> Scanner<'a> {
             '{' => self.single(RawTokenKind::OpenBrace),
             '}' => self.single(RawTokenKind::CloseBrace),
             '>' => self.single(RawTokenKind::Gt),
+            ',' => self.single(RawTokenKind::Comma),
 
             '"' => self.string(),
 
