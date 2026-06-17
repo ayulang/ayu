@@ -33,6 +33,11 @@ fn write_expr(buf: &mut String, expr: &Expression) {
 fn write_stmt(buf: &mut String, stmt: &Statement) {
     match stmt {
         Statement::Expr(expr) => write_expr(buf, expr),
+        Statement::VarDecl(var_decl) => {
+            let _ = write!(buf, "local {} = ", var_decl.ident.as_str());
+
+            write_expr(buf, &var_decl.init);
+        }
     };
 
     let _ = writeln!(buf);

@@ -10,7 +10,6 @@ use ayuc_hir::{HirIdAllocator, Package};
 use ayuc_lexer::{LexedFile, stream::TokenStream};
 use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
-use ayuc_sema::{SemanticAnalyzer, scope::ScopeCtx};
 use ayuc_source::cache::SourceCache;
 use ayuc_tyctx::TyCtx;
 
@@ -95,11 +94,6 @@ pub fn drive() -> ExitCode {
 
     lowering.lower(&ast);
     ty_ctx.register_package(package);
-
-    let mut scope_ctx = ScopeCtx::default();
-    let mut sema = SemanticAnalyzer::new(&mut ty_ctx, &mut scope_ctx);
-
-    sema.run_on(id);
 
     println!();
     println!("{}", LuauCodegen::emit(id, &ty_ctx));

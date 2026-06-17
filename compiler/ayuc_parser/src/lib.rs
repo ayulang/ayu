@@ -57,13 +57,14 @@ impl<'a> Parser<'a> {
                     SourceReport::build(ariadne::ReportKind::Error, span)
                         .with_config(ARIADNE_CONFIG)
                         .with_message(format!(
-                            "expected identifier, got: `{}`",
+                            "expected {}, got: `{}`",
+                            P::NAME,
                             &self.source[span]
                         ))
                         .with_label(
                             Label::new(span)
                                 .with_color(ariadne::Color::BrightRed)
-                                .with_message("expected an identifier".fg(Color::BrightRed)),
+                                .with_message(format!("expected {}", P::NAME).fg(Color::BrightRed)),
                         )
                         .finish(),
                 );
@@ -139,8 +140,12 @@ impl<'a> Parser<'a> {
                 Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, _))
             ) =>
             {
-                Ok(ayuc_ast::Expression::Call(self.assert_parsable()?))
+                Ok(Expression::Call(self.assert_parsable()?))
             }
+            StructuredToken::Token(Token {
+                kind: TokenKind::Ident(_),
+                ..
+            }) => Ok(Expression::Identifier(self.assert_parsable()?)),
             _ => todo!(),
         }
     }
@@ -164,6 +169,10 @@ impl<'a> Parser<'a> {
                     self.assert_parsable()?,
                 )))
             }
+            StructuredToken::Token(Token {
+                kind: TokenKind::Keyword(Keyword::Let),
+                ..
+            }) => Ok(Statement::VarDecl(self.assert_parsable()?)),
             _ => todo!(),
         }
     }
