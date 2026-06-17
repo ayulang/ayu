@@ -35,6 +35,8 @@ pub enum TokenKind {
     Semi,
     /// :
     Colon,
+    /// +
+    Plus,
     /// -
     Minus,
     /// =

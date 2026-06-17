@@ -28,6 +28,8 @@ pub enum RawTokenKind {
     Semi,
     /// :
     Colon,
+    /// +
+    Plus,
     /// -
     Minus,
     /// =

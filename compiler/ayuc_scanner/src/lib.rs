@@ -116,6 +116,7 @@ impl<'a> Scanner<'a> {
 
             ';' => self.single(RawTokenKind::Semi),
             ':' => self.single(RawTokenKind::Colon),
+            '+' => self.single(RawTokenKind::Plus),
             '-' => self.single(RawTokenKind::Minus),
             '=' => self.single(RawTokenKind::Equals),
             '(' => self.single(RawTokenKind::OpenParen),

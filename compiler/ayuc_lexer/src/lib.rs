@@ -195,6 +195,7 @@ impl<'a> Lexer<'a> {
                 }
 
                 RawTokenKind::Arrow => TokenKind::Arrow,
+                RawTokenKind::Plus => TokenKind::Plus,
                 RawTokenKind::Minus => TokenKind::Minus,
                 RawTokenKind::Semi => TokenKind::Semi,
                 RawTokenKind::Colon => TokenKind::Colon,
