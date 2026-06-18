@@ -82,6 +82,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ayuc_id"
+version = "0.1.0"
+
+[[package]]
 name = "ayuc_lexer"
 version = "0.1.0"
 dependencies = [
@@ -116,6 +120,10 @@ dependencies = [
 
 [[package]]
 name = "ayuc_printer"
+version = "0.1.0"
+
+[[package]]
+name = "ayuc_resolve"
 version = "0.1.0"
 
 [[package]]
