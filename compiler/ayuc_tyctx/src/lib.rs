@@ -1,4 +1,5 @@
-use ayuc_hir::{id::PackageId, package::Package};
+use ayuc_hir::package::Package;
+use ayuc_id::hir::PackageId;
 
 pub struct TyCtx {
     pub packages: Vec<Package>,

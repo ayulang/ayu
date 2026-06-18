@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 ayuc_hir = { path = "../ayuc_hir" }
+ayuc_id = { path = "../ayuc_id" }

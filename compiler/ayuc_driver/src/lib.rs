@@ -6,7 +6,8 @@ use std::{
 };
 
 use ayuc_codegen::LuauCodegen;
-use ayuc_hir::{HirIdAllocator, Package};
+use ayuc_hir::Package;
+use ayuc_id::hir::{DefIdAllocator, HirIdAllocator};
 use ayuc_lexer::{LexedFile, stream::TokenStream};
 use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
@@ -82,7 +83,7 @@ pub fn drive() -> ExitCode {
         id: ty_ctx.mint_package_id(),
         items: Vec::new(),
         hir_id_allocator: HirIdAllocator::new(),
-        next_def_id: 0,
+        def_id_allocator: DefIdAllocator::new(),
     };
 
     let id = package.id;

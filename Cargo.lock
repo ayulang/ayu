@@ -49,6 +49,7 @@ name = "ayuc_codegen"
 version = "0.1.0"
 dependencies = [
  "ayuc_hir",
+ "ayuc_id",
  "ayuc_tyctx",
 ]
 
@@ -66,6 +67,7 @@ version = "0.1.0"
 dependencies = [
  "ayuc_codegen",
  "ayuc_hir",
+ "ayuc_id",
  "ayuc_lexer",
  "ayuc_lower",
  "ayuc_parser",
@@ -78,6 +80,7 @@ dependencies = [
 name = "ayuc_hir"
 version = "0.1.0"
 dependencies = [
+ "ayuc_id",
  "ayuc_span",
 ]
 
@@ -164,6 +167,7 @@ name = "ayuc_tyctx"
 version = "0.1.0"
 dependencies = [
  "ayuc_hir",
+ "ayuc_id",
 ]
 
 [[package]]

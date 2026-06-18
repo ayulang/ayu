@@ -1,6 +1,7 @@
+use ayuc_id::hir::{DefId, HirId};
 use ayuc_span::symbol::Symbol;
 
-use crate::{DefId, HirId, expr::Block, ty::Ty};
+use crate::{expr::Block, ty::Ty};
 
 #[derive(Debug)]
 pub enum Item {

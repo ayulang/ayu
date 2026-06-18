@@ -1,4 +1,5 @@
-use ayuc_hir::{Expression, Item, Literal, Statement, id::PackageId};
+use ayuc_hir::{Expression, Item, Literal, Statement};
+use ayuc_id::hir::PackageId;
 use ayuc_tyctx::TyCtx;
 use std::fmt::Write;
 
