@@ -71,6 +71,7 @@ pub enum Keyword {
     Fn,
     Let,
     Extern,
+    Return,
 }
 
 impl StructuredToken {
@@ -118,6 +119,7 @@ impl Display for Keyword {
             Self::Fn => "fn",
             Self::Let => "let",
             Self::Extern => "extern",
+            Self::Return => "return",
         };
 
         write!(f, "{kw}")

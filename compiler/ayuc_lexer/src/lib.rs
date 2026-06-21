@@ -63,6 +63,7 @@ impl<'a> Lexer<'a> {
             "fn" => Some(Keyword::Fn),
             "let" => Some(Keyword::Let),
             "extern" => Some(Keyword::Extern),
+            "return" => Some(Keyword::Return),
             _ => None,
         };
 
