@@ -1,7 +1,17 @@
+use ayuc_id::ast::NodeId;
+use ayuc_span::Span;
+
 use crate::expr::{Block, Ident};
 
 #[derive(Debug)]
-pub enum Item {
+pub struct Item {
+    pub id: NodeId,
+    pub span: Span,
+    pub kind: ItemKind,
+}
+
+#[derive(Debug)]
+pub enum ItemKind {
     Fn(FnDecl),
     ExternFn(ExternFnDecl),
 }

@@ -7,8 +7,12 @@ pub struct TyCtx {
 }
 
 impl TyCtx {
-    pub fn register_package(&mut self, module: Package) {
-        self.packages.push(module);
+    pub fn register_package(&mut self, package: Package) -> PackageId {
+        let id = package.id;
+
+        self.packages.push(package);
+
+        id
     }
 
     pub fn package(&self, id: PackageId) -> &Package {

@@ -4,8 +4,9 @@ pub mod parsable;
 pub mod session;
 
 use ariadne::{Color, Fmt, Label, ReportKind};
-use ayuc_ast::{Ast, Expression, Literal, item::Item, stmt::Statement};
+use ayuc_ast::{Ast, Expression, ItemKind, Literal, item::Item, stmt::Statement};
 use ayuc_common::{ARIADNE_CONFIG, SourceReport};
+use ayuc_id::ast::NodeIdAllocator;
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, Keyword, StructuredToken, Token, TokenKind},
@@ -25,6 +26,7 @@ pub struct Parser<'a> {
 
     file_id: usize,
     source: &'a str,
+    node_id_allocator: NodeIdAllocator,
 
     pub(crate) session: ParseSession<'a>,
 }
@@ -35,6 +37,7 @@ impl<'a> Parser<'a> {
             stream,
             file_id,
             source,
+            node_id_allocator: NodeIdAllocator::default(),
             session: ParseSession::default(),
         }
     }
@@ -182,11 +185,16 @@ impl<'a> Parser<'a> {
             return Err(ParseError::Unrecoverable);
         };
 
-        match first {
+        let snapshot = self.stream.snapshot();
+
+        let (id, kind) = match first {
             StructuredToken::Token(Token {
                 kind: TokenKind::Keyword(Keyword::Fn),
                 ..
-            }) => Ok(Item::Fn(self.assert_parsable()?)),
+            }) => (
+                self.node_id_allocator.allocate(),
+                ItemKind::Fn(self.assert_parsable()?),
+            ),
             StructuredToken::Token(Token {
                 kind: TokenKind::Keyword(Keyword::Extern),
                 ..
@@ -198,10 +206,19 @@ impl<'a> Parser<'a> {
                 }))
             ) =>
             {
-                Ok(Item::ExternFn(self.assert_parsable()?))
+                (
+                    self.node_id_allocator.allocate(),
+                    ItemKind::ExternFn(self.assert_parsable()?),
+                )
             }
             _ => todo!(),
-        }
+        };
+
+        Ok(Item {
+            id,
+            span: self.stream.span_since(snapshot),
+            kind,
+        })
     }
 
     pub fn parse_full(mut self) -> (Option<Ast>, ParseSession<'a>) {

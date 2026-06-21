@@ -41,6 +41,7 @@ dependencies = [
 name = "ayuc_ast"
 version = "0.1.0"
 dependencies = [
+ "ayuc_id",
  "ayuc_span",
 ]
 
@@ -106,7 +107,9 @@ version = "0.1.0"
 dependencies = [
  "ayuc_ast",
  "ayuc_hir",
+ "ayuc_id",
  "ayuc_tyctx",
+ "bimap",
 ]
 
 [[package]]
@@ -116,6 +119,7 @@ dependencies = [
  "ariadne",
  "ayuc_ast",
  "ayuc_common",
+ "ayuc_id",
  "ayuc_lexer",
  "ayuc_source",
  "ayuc_span",
@@ -169,6 +173,12 @@ dependencies = [
  "ayuc_hir",
  "ayuc_id",
 ]
+
+[[package]]
+name = "bimap"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "230c5f1ca6a325a32553f8640d31ac9b49f2411e901e427570154868b46da4f7"
 
 [[package]]
 name = "bitflags"

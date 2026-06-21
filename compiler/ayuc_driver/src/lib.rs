@@ -6,8 +6,6 @@ use std::{
 };
 
 use ayuc_codegen::LuauCodegen;
-use ayuc_hir::Package;
-use ayuc_id::hir::{DefIdAllocator, HirIdAllocator};
 use ayuc_lexer::{LexedFile, stream::TokenStream};
 use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
@@ -79,25 +77,12 @@ pub fn drive() -> ExitCode {
         next_package_id: 0,
     };
 
-    let mut package = Package {
-        id: ty_ctx.mint_package_id(),
-        items: Vec::new(),
-        hir_id_allocator: HirIdAllocator::new(),
-        def_id_allocator: DefIdAllocator::new(),
-    };
-
-    let id = package.id;
-
-    let mut lowering = AstLowering {
-        ty_ctx: &mut ty_ctx,
-        package: &mut package,
-    };
-
-    lowering.lower(&ast);
-    ty_ctx.register_package(package);
+    let lowering = AstLowering::new(&mut ty_ctx);
+    let package = lowering.lower(&ast);
+    let package_id = ty_ctx.register_package(package);
 
     println!();
-    println!("{}", LuauCodegen::emit(id, &ty_ctx));
+    println!("{}", LuauCodegen::emit(package_id, &ty_ctx));
 
     ExitCode::SUCCESS
 }

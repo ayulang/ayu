@@ -7,3 +7,5 @@ edition = "2024"
 ayuc_ast = { path = "../ayuc_ast" }
 ayuc_hir = { path = "../ayuc_hir" }
 ayuc_tyctx = { path = "../ayuc_tyctx" }
+ayuc_id = { path = "../ayuc_id" }
+bimap = "0.6.3"

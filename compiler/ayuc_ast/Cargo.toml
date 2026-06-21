@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 ayuc_span = { path = "../ayuc_span" }
+ayuc_id = { path = "../ayuc_id" }
