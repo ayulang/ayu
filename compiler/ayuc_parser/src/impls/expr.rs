@@ -10,10 +10,12 @@ use ayuc_span::Span;
 
 use crate::{
     Parser,
-    parsable::{Assertable, Parsable, ParseError, Parsed},
+    parsable::{Parsable, ParseError, Parsed},
 };
 
 impl Parsable for Call {
+    const NAME: &str = "call expression";
+
     fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
         let ident = parser.assert_parsable::<Ident>()?;
 
@@ -42,11 +44,9 @@ impl Parsable for Call {
     }
 }
 
-impl Assertable for Call {
-    const NAME: &str = "call expression";
-}
-
 impl Parsable for Block {
+    const NAME: &str = "block expression";
+
     fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
         let snapshot = parser.stream.snapshot();
 
@@ -70,11 +70,9 @@ impl Parsable for Block {
     }
 }
 
-impl Assertable for Block {
-    const NAME: &str = "block";
-}
-
 impl Parsable for Ident {
+    const NAME: &str = "identifier";
+
     fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
         let snapshot = parser.stream.snapshot();
 
@@ -93,8 +91,4 @@ impl Parsable for Ident {
             ))
         }
     }
-}
-
-impl Assertable for Ident {
-    const NAME: &str = "identifier";
 }

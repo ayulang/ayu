@@ -10,10 +10,12 @@ use ayuc_span::Span;
 
 use crate::{
     Parser,
-    parsable::{Assertable, Parsable, ParseError, Parsed},
+    parsable::{Parsable, ParseError, Parsed},
 };
 
 impl Parsable for FnDecl {
+    const NAME: &str = "function declaration";
+
     fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
         parser.assert_keyword(Keyword::Fn)?;
 
@@ -55,11 +57,9 @@ impl Parsable for FnDecl {
     }
 }
 
-impl Assertable for FnDecl {
-    const NAME: &str = "function declaration";
-}
-
 impl Parsable for ExternFnDecl {
+    const NAME: &str = "extern function declaration";
+
     fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
         parser.assert_keyword(Keyword::Extern)?;
         parser.assert_keyword(Keyword::Fn)?;
@@ -99,11 +99,9 @@ impl Parsable for ExternFnDecl {
     }
 }
 
-impl Assertable for ExternFnDecl {
-    const NAME: &str = "extern function declaration";
-}
-
 impl Parsable for ParameterList {
+    const NAME: &str = "parameter list";
+
     fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
         let snapshot = parser.stream.snapshot();
 

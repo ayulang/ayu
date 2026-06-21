@@ -3,6 +3,9 @@ use ayuc_span::Span;
 use crate::Parser;
 
 pub trait Parsable: Sized {
+    /// The name of the parsable for automatic diagnostic creation.
+    const NAME: &str;
+
     /// Tries to parse this node.
     ///
     /// ## Returns
@@ -24,11 +27,6 @@ pub trait Parsable: Sized {
             p => p,
         }
     }
-}
-
-pub trait Assertable: Parsable {
-    /// The name of the parsable for automatic diagnostic creation.
-    const NAME: &str;
 }
 
 #[derive(Debug)]

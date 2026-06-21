@@ -15,7 +15,7 @@ use ayuc_source::SourceSpan;
 use ayuc_span::{Span, symbol::Symbol};
 
 use crate::{
-    parsable::{Assertable, ParseError, Parsed},
+    parsable::{Parsable, ParseError, Parsed},
     session::ParseSession,
 };
 
@@ -50,7 +50,7 @@ impl<'a> Parser<'a> {
         Self::new(self.file_id, self.source, stream)
     }
 
-    pub(crate) fn assert_parsable<P: Assertable>(&mut self) -> Result<P, ParseError> {
+    pub(crate) fn assert_parsable<P: Parsable>(&mut self) -> Result<P, ParseError> {
         match P::parse(self)? {
             Parsed::Present(p) => Ok(p),
             Parsed::Missing(span) => {

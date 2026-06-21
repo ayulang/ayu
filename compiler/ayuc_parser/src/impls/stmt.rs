@@ -3,10 +3,12 @@ use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 
 use crate::{
     Parser,
-    parsable::{Assertable, Parsable, ParseError, Parsed},
+    parsable::{Parsable, ParseError, Parsed},
 };
 
 impl Parsable for VariableDeclaration {
+    const NAME: &str = "variable declaration";
+
     fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
         parser.assert_keyword(Keyword::Let)?;
 
@@ -27,8 +29,4 @@ impl Parsable for VariableDeclaration {
 
         Ok(Parsed::Present(Self { ident, init: expr }))
     }
-}
-
-impl Assertable for VariableDeclaration {
-    const NAME: &str = "variable declaration";
 }
