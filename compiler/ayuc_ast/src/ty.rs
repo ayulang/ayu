@@ -1,6 +1,8 @@
 use ayuc_id::ast::NodeId;
 use ayuc_span::Span;
 
+use crate::Path;
+
 #[derive(Debug)]
 pub struct Ty {
     pub id: NodeId,
@@ -9,4 +11,6 @@ pub struct Ty {
 }
 
 #[derive(Debug)]
-pub enum TyKind {}
+pub enum TyKind {
+    Path(Path),
+}
