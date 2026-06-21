@@ -1,0 +1,12 @@
+use ayuc_id::ast::NodeId;
+use ayuc_span::Span;
+
+#[derive(Debug)]
+pub struct Ty {
+    pub id: NodeId,
+    pub span: Span,
+    pub kind: TyKind,
+}
+
+#[derive(Debug)]
+pub enum TyKind {}
