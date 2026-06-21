@@ -21,6 +21,20 @@ impl Span {
     pub fn range(&self) -> Range<usize> {
         self.start..self.end
     }
+
+    /// Merges this span with another span.
+    ///
+    /// Example: Mergin (0..10) with (10..15) would create (0..15)
+    #[inline]
+    pub fn merge(&mut self, other: Span) {
+        if self.start > other.start {
+            self.start = other.start;
+        }
+
+        if self.end < other.end {
+            self.end = other.end;
+        }
+    }
 }
 
 impl Default for Span {

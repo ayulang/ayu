@@ -6,7 +6,7 @@ use std::str::Chars;
 use ayuc_span::Span;
 use unicode_properties::UnicodeEmoji;
 
-use crate::raw_token::{LiteralKind, RawToken, RawTokenKind};
+use crate::raw_token::{LiteralKind, RawToken, RawTokenKind, RawTokenStream};
 
 /// Transforms the input source code to a stream of [RawToken]s.
 /// These are basically normal tokens that only contain the token kind and location, no additional data.
@@ -111,10 +111,6 @@ impl<'a> Scanner<'a> {
         RawToken::new(kind, (self.position - 1, self.position))
     }
 
-    pub(crate) fn single_with_offset(&self, kind: RawTokenKind, offset: usize) -> RawToken {
-        RawToken::new(kind, (self.position - offset, self.position))
-    }
-
     pub fn next_token(&mut self) -> RawToken {
         let Some(first_char) = self.bump() else {
             return RawToken::new(RawTokenKind::Eof, self.source_len);
@@ -123,12 +119,6 @@ impl<'a> Scanner<'a> {
         match first_char {
             c if c.is_whitespace() => self.whitespace(),
             c if predicate::is_ident_start(c) => self.ident(),
-
-            '-' if let Some('>') = self.first() => {
-                self.bump();
-
-                self.single_with_offset(RawTokenKind::Arrow, 2)
-            }
 
             ';' => self.single(RawTokenKind::Semi),
             ':' => self.single(RawTokenKind::Colon),
@@ -168,5 +158,24 @@ impl<'a> Scanner<'a> {
         chars.next();
 
         chars.next()
+    }
+}
+
+impl<'a> From<Scanner<'a>> for RawTokenStream {
+    fn from(mut value: Scanner) -> Self {
+        let mut tokens = vec![];
+
+        loop {
+            let token = value.next_token();
+            let is_eof = token.is_eof();
+
+            tokens.push(token);
+
+            if is_eof {
+                break;
+            }
+        }
+
+        Self::new(tokens)
     }
 }

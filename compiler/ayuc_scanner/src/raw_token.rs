@@ -1,6 +1,24 @@
+use std::collections::VecDeque;
+
 use ayuc_span::Span;
 
-#[derive(Debug)]
+pub struct RawTokenStream(VecDeque<RawToken>);
+
+impl RawTokenStream {
+    pub fn new(tokens: Vec<RawToken>) -> Self {
+        Self(tokens.into())
+    }
+
+    pub fn consume(&mut self) -> Option<RawToken> {
+        self.0.pop_front()
+    }
+
+    pub fn peek(&self) -> Option<&RawToken> {
+        self.0.front()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct RawToken {
     /// The kind of token. Contains data.
     pub kind: RawTokenKind,
@@ -44,8 +62,6 @@ pub enum RawTokenKind {
     CloseBrace,
     /// >
     Gt,
-    /// ->
-    Arrow,
     /// ,
     Comma,
 

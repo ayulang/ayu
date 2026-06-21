@@ -5,7 +5,7 @@ use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use ayuc_common::{ARIADNE_CONFIG, SourceReport};
 use ayuc_scanner::{
     Scanner,
-    raw_token::{self, RawToken, RawTokenKind},
+    raw_token::{self, RawToken, RawTokenKind, RawTokenStream},
 };
 use ayuc_source::SourceSpan;
 use ayuc_span::{Span, symbol::Symbol};
@@ -30,8 +30,8 @@ pub fn lex(file_id: usize, source: &str) -> Result<LexedFile<'_>, Box<SourceRepo
 }
 
 pub struct Lexer<'a> {
-    /// The token scanner.
-    scanner: Scanner<'a>,
+    /// The raw tokens.
+    raw_stream: RawTokenStream,
 
     /// The source string.
     source: &'a str,
@@ -45,7 +45,7 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     pub fn new(file_id: usize, source: &'a str) -> Self {
         Self {
-            scanner: Scanner::new(source),
+            raw_stream: Scanner::new(source).into(),
             source,
             file_id,
             diagnostics: Vec::new(),
@@ -179,10 +179,13 @@ impl<'a> Lexer<'a> {
 
     pub fn next_token(&mut self) -> Token {
         loop {
-            let RawToken {
+            let Some(RawToken {
                 kind: raw_kind,
-                span,
-            } = self.scanner.next_token();
+                mut span,
+            }) = self.raw_stream.consume()
+            else {
+                todo!("have to add unexpected EOF to Lexer::next_token")
+            };
 
             let kind = match raw_kind {
                 RawTokenKind::Whitespace => {
@@ -198,11 +201,34 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
-                RawTokenKind::Arrow => TokenKind::Arrow,
                 RawTokenKind::Plus => TokenKind::Plus,
-                RawTokenKind::Minus => TokenKind::Minus,
+                RawTokenKind::Minus => match self.raw_stream.peek() {
+                    Some(RawToken {
+                        kind: RawTokenKind::Gt,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::Arrow
+                    }
+                    _ => TokenKind::Minus,
+                },
                 RawTokenKind::Semi => TokenKind::Semi,
-                RawTokenKind::Colon => TokenKind::Colon,
+                RawTokenKind::Colon => match self.raw_stream.peek() {
+                    Some(RawToken {
+                        kind: RawTokenKind::Colon,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::DoubleColon
+                    }
+                    _ => TokenKind::Colon,
+                },
                 RawTokenKind::Equals => TokenKind::Equals,
                 RawTokenKind::OpenParen => TokenKind::OpenParen,
                 RawTokenKind::CloseParen => TokenKind::CloseParen,
