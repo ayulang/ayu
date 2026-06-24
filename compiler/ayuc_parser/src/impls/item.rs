@@ -1,11 +1,11 @@
 use ariadne::{Color, Fmt, Label};
 use ayuc_ast::{
-    ExternFnDecl,
+    ExternFnDecl, Path,
     expr::{Block, Ident},
     item::{FnDecl, ParameterList},
 };
 use ayuc_common::{ARIADNE_CONFIG, SourceReport};
-use ayuc_lexer::token::{Delimiter, Keyword, StructuredToken};
+use ayuc_lexer::token::{Delimiter, Keyword, StructuredToken, TokenKind};
 use ayuc_span::Span;
 
 use crate::{
@@ -91,6 +91,16 @@ impl Parsable for ExternFnDecl {
             }
             p => p,
         };
+
+        if parser.maybe(TokenKind::Arrow) {
+            let _path = match Path::parse_with_rollback(parser)? {
+                Parsed::Missing(span) => {
+                    return Ok(Parsed::Missing(span));
+                }
+
+                p => p,
+            };
+        }
 
         Ok(Parsed::Present(Self {
             ident,

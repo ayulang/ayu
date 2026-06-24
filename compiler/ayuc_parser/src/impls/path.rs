@@ -37,6 +37,8 @@ impl Parsable for Path {
                 parser.stream.consume();
 
                 expect_segment = true;
+            } else {
+                expect_segment = false;
             }
         }
 

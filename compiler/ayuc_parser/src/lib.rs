@@ -112,6 +112,18 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub(crate) fn maybe(&mut self, k: TokenKind) -> bool {
+        if let Some(StructuredToken::Token(Token { kind, .. })) = self.stream.first()
+            && *kind == k
+        {
+            self.stream.consume();
+
+            true
+        } else {
+            false
+        }
+    }
+
     pub(crate) fn sourced_span(&self, span: Span) -> SourceSpan {
         SourceSpan::new(self.file_id, span)
     }
