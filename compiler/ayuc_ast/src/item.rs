@@ -1,7 +1,10 @@
 use ayuc_id::ast::NodeId;
 use ayuc_span::Span;
 
-use crate::expr::{Block, Ident};
+use crate::{
+    Ty,
+    expr::{Block, Ident},
+};
 
 #[derive(Debug)]
 pub struct Item {
@@ -30,4 +33,13 @@ pub struct ExternFnDecl {
 }
 
 #[derive(Debug, Default)]
-pub struct ParameterList;
+pub struct ParameterList {
+    pub span: Span,
+    pub parameters: Vec<Parameter>,
+}
+
+#[derive(Debug)]
+pub struct Parameter {
+    pub ident: Ident,
+    pub ty: Ty,
+}

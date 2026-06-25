@@ -46,8 +46,14 @@ impl<'a> Parser<'a> {
         self.session.extend(diagnostics);
     }
 
-    pub fn branch(&self, stream: TokenStream<'a>) -> Self {
-        Self::new(self.file_id, self.source, stream)
+    pub fn branch(&mut self, stream: TokenStream<'a>) -> Self {
+        Self {
+            stream,
+            file_id: self.file_id,
+            source: self.source,
+            node_id_allocator: self.node_id_allocator.clone(),
+            session: ParseSession::default(),
+        }
     }
 
     pub(crate) fn assert_parsable<P: Parsable>(&mut self) -> Result<P, ParseError> {
@@ -107,6 +113,20 @@ impl<'a> Parser<'a> {
                     )
                     .finish(),
             );
+
+            Err(ParseError::Unrecoverable)
+        }
+    }
+
+    pub(crate) fn assert_token(&mut self, k: TokenKind) -> Result<(), ParseError> {
+        if let Some(StructuredToken::Token(Token { kind, .. })) = self.stream.first()
+            && *kind == k
+        {
+            self.stream.consume();
+
+            Ok(())
+        } else {
+            // TODO: Diagnostic
 
             Err(ParseError::Unrecoverable)
         }

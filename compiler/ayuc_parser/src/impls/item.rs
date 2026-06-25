@@ -1,11 +1,14 @@
 use ariadne::{Color, Fmt, Label};
 use ayuc_ast::{
-    ExternFnDecl, Path,
+    ExternFnDecl, Parameter, Path, Ty,
     expr::{Block, Ident},
     item::{FnDecl, ParameterList},
 };
 use ayuc_common::{ARIADNE_CONFIG, SourceReport};
-use ayuc_lexer::token::{Delimiter, Keyword, StructuredToken, TokenKind};
+use ayuc_lexer::{
+    stream::TokenStream,
+    token::{Delimiter, Keyword, StructuredToken, TokenKind},
+};
 use ayuc_span::Span;
 
 use crate::{
@@ -47,12 +50,22 @@ impl Parsable for FnDecl {
             p => p,
         };
 
+        if parser.maybe(TokenKind::Arrow) {
+            let _path = match Path::parse_with_rollback(parser)? {
+                Parsed::Missing(span) => {
+                    return Ok(Parsed::Missing(span));
+                }
+
+                p => p,
+            };
+        }
+
         let block = parser.assert_parsable::<Block>()?;
 
         Ok(Parsed::Present(Self {
             ident,
             block,
-            parameters: params.unwrap_or(ParameterList),
+            parameters: params.unwrap_or(ParameterList::default()),
         }))
     }
 }
@@ -104,7 +117,7 @@ impl Parsable for ExternFnDecl {
 
         Ok(Parsed::Present(Self {
             ident,
-            parameters: params.unwrap_or(ParameterList),
+            parameters: params.unwrap_or(ParameterList::default()),
         }))
     }
 }
@@ -115,7 +128,7 @@ impl Parsable for ParameterList {
     fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
         let snapshot = parser.stream.snapshot();
 
-        let _tokens = match parser.stream.consume() {
+        let tokens = match parser.stream.consume() {
             Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens)) => tokens,
             _ => {
                 return Ok(Parsed::Missing(Span::from(
@@ -124,6 +137,41 @@ impl Parsable for ParameterList {
             }
         };
 
-        Ok(Parsed::Present(Self))
+        let mut parameters = Vec::new();
+
+        if tokens.is_empty() {
+            return Ok(Parsed::Present(Self {
+                span: parser.stream.span_since(snapshot),
+                parameters,
+            }));
+        }
+
+        let mut inner = parser.branch(TokenStream::new(tokens));
+        let mut expect_param = true;
+
+        while expect_param {
+            parameters.push(inner.assert_parsable::<Parameter>()?);
+
+            expect_param = inner.maybe(TokenKind::Comma);
+        }
+
+        Ok(Parsed::Present(Self {
+            span: parser.stream.span_since(snapshot),
+            parameters,
+        }))
+    }
+}
+
+impl Parsable for Parameter {
+    const NAME: &str = "parameter";
+
+    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
+        let ident = parser.assert_parsable::<Ident>()?;
+
+        parser.assert_token(TokenKind::Colon)?;
+
+        let ty = parser.assert_parsable::<Ty>()?;
+
+        Ok(Parsed::Present(Self { ident, ty }))
     }
 }
