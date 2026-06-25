@@ -4,7 +4,7 @@ members = [
     "compiler/ayuc",
     "compiler/ayuc_ast",
     "compiler/ayuc_codegen",
-    "compiler/ayuc_common",
+    "compiler/ayuc_common", "compiler/ayuc_diagnostic",
     "compiler/ayuc_driver",
     "compiler/ayuc_hir",
     "compiler/ayuc_id",

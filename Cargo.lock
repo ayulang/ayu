@@ -63,6 +63,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ayuc_diagnostic"
+version = "0.1.0"
+
+[[package]]
 name = "ayuc_driver"
 version = "0.1.0"
 dependencies = [
