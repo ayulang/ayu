@@ -1,4 +1,4 @@
-use ayuc_ast::{Ident, VariableDeclaration};
+use ayuc_ast::{Ident, ReturnStatement, VariableDeclaration};
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 
 use crate::{
@@ -28,5 +28,17 @@ impl Parsable for VariableDeclaration {
         let expr = parser.parse_expression()?;
 
         Ok(Parsed::Present(Self { ident, init: expr }))
+    }
+}
+
+impl Parsable for ReturnStatement {
+    const NAME: &str = "return statement";
+
+    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
+        parser.assert_keyword(Keyword::Return)?;
+
+        let expr = parser.parse_expression()?; // make it try to parse an expression instead.
+
+        Ok(Parsed::Present(Self { expr: Some(expr) }))
     }
 }

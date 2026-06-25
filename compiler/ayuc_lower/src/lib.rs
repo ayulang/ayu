@@ -86,6 +86,7 @@ impl<'a> AstLowering<'a> {
                     init: self.lower_expr(&var_decl.init),
                 })
             }
+            _ => todo!(),
         }
     }
 

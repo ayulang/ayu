@@ -194,7 +194,7 @@ impl<'a> Parser<'a> {
                 kind: TokenKind::Ident(_),
                 ..
             }) => Ok(Expression::Identifier(self.assert_parsable()?)),
-            _ => todo!(),
+            _ => todo!("{first:#?}"),
         }
     }
 
@@ -217,6 +217,10 @@ impl<'a> Parser<'a> {
                     self.assert_parsable()?,
                 )))
             }
+            StructuredToken::Token(Token {
+                kind: TokenKind::Keyword(Keyword::Return),
+                ..
+            }) => Ok(Statement::Return(self.assert_parsable()?)),
             StructuredToken::Token(Token {
                 kind: TokenKind::Keyword(Keyword::Let),
                 ..
