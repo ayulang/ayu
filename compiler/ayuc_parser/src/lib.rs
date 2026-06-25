@@ -180,6 +180,19 @@ impl<'a> Parser<'a> {
             StructuredToken::Token(Token {
                 kind: TokenKind::Ident(_),
                 ..
+            }) if matches!(
+                self.stream.second(),
+                Some(StructuredToken::Token(Token {
+                    kind: TokenKind::Plus,
+                    ..
+                }))
+            ) =>
+            {
+                Ok(Expression::Binary(self.assert_parsable()?))
+            }
+            StructuredToken::Token(Token {
+                kind: TokenKind::Ident(_),
+                ..
             }) => Ok(Expression::Identifier(self.assert_parsable()?)),
             _ => todo!(),
         }
@@ -208,7 +221,7 @@ impl<'a> Parser<'a> {
                 kind: TokenKind::Keyword(Keyword::Let),
                 ..
             }) => Ok(Statement::VarDecl(self.assert_parsable()?)),
-            _ => todo!(),
+            _ => todo!("{first:?}"),
         }
     }
 

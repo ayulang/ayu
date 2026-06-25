@@ -1,5 +1,5 @@
 use ayuc_ast::{
-    Call, Expression,
+    BinaryExpression, Call, Expression, Operator,
     expr::{Block, Ident},
 };
 use ayuc_lexer::{
@@ -90,5 +90,40 @@ impl Parsable for Ident {
                 parser.stream.past_span_or_distance(1, snapshot),
             ))
         }
+    }
+}
+
+impl Parsable for BinaryExpression {
+    const NAME: &str = "binary expression";
+
+    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
+        let left = parser.parse_expression()?;
+        let operator = parser.assert_parsable::<Operator>()?;
+        let right = parser.parse_expression()?;
+
+        Ok(Parsed::Present(Self {
+            left: Box::new(left),
+            operator,
+            right: Box::new(right),
+        }))
+    }
+}
+
+impl Parsable for Operator {
+    const NAME: &str = "binary operator";
+
+    fn parse<'a>(parser: &mut Parser<'a>) -> Result<Parsed<Self>, ParseError> {
+        let snapshot = parser.stream.snapshot();
+
+        if let Some(StructuredToken::Token(Token { kind, .. })) = parser.stream.consume() {
+            match kind {
+                TokenKind::Plus => return Ok(Parsed::Present(Operator::Add)),
+                _ => {}
+            }
+        }
+
+        Ok(Parsed::Missing(
+            parser.stream.past_span_or_distance(1, snapshot),
+        ))
     }
 }

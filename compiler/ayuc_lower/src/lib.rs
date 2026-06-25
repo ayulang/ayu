@@ -99,6 +99,7 @@ impl<'a> AstLowering<'a> {
             ast::Expression::Lit(lit) => hir::Expression::Lit(match lit {
                 ast::Literal::Str { span: _, data } => hir::Literal::Str(*data),
             }),
+            _ => todo!(),
         }
     }
 }

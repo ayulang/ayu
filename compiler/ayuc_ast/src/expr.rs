@@ -7,6 +7,20 @@ pub enum Expression {
     Lit(Literal),
     Identifier(Ident),
     Call(Call),
+    Binary(BinaryExpression),
+}
+
+#[derive(Debug)]
+pub enum Operator {
+    /// a + b
+    Add,
+}
+
+#[derive(Debug)]
+pub struct BinaryExpression {
+    pub left: Box<Expression>,
+    pub operator: Operator,
+    pub right: Box<Expression>,
 }
 
 #[derive(Debug)]
