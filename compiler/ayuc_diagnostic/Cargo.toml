@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 ariadne = { version = "0.6.0", default-features = false }
+ayuc_span = { path = "../ayuc_span" }
+ayuc_source = { path = "../ayuc_source" }
