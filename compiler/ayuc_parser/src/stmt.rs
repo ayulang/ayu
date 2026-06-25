@@ -11,13 +11,7 @@ impl Parser<'_> {
 
         let ident = self.parse_ident().unwrap();
 
-        if !matches!(
-            self.stream.consume(),
-            Some(StructuredToken::Token(Token {
-                kind: TokenKind::Equals,
-                ..
-            }))
-        ) {
+        if !self.maybe(TokenKind::Equals) {
             return Err(());
         }
 
@@ -51,8 +45,10 @@ impl Parser<'_> {
                 Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, _))
             ) =>
             {
+                let prefix = self.parse_expr_prefix()?;
+
                 Ok(Statement::Expr(ayuc_ast::Expression::Call(
-                    self.parse_call_expr()?,
+                    self.parse_call_expr(prefix)?,
                 )))
             }
             StructuredToken::Token(Token {

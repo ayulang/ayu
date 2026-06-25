@@ -1,5 +1,5 @@
 use ayuc_ast::{
-    ExternFnDecl, Item, ItemKind,
+    ExternFnDecl, Item, ItemKind, Ty, TyKind,
     item::{FnDecl, ParameterList},
 };
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
@@ -47,13 +47,24 @@ impl Parser<'_> {
             p => p,
         };*/
 
-        if self.maybe(TokenKind::Arrow) {
-            let _path = self.parse_path()?;
-        }
+        let snapshot = self.stream.snapshot();
+
+        let ty_kind = if self.maybe(TokenKind::Arrow) {
+            let path = self.parse_path()?;
+
+            TyKind::Path(path)
+        } else {
+            TyKind::Unit
+        };
 
         Ok(ExternFnDecl {
             ident,
             parameters: params,
+            return_ty: Ty {
+                id: self.node_id_allocator.allocate(),
+                span: self.stream.span_since(snapshot),
+                kind: ty_kind,
+            },
         })
     }
 
@@ -94,9 +105,15 @@ impl Parser<'_> {
             .parse_parameter_list()
             .unwrap_or(ParameterList::default());
 
-        if self.maybe(TokenKind::Arrow) {
-            let _path = self.parse_path()?;
-        }
+        let snapshot = self.stream.snapshot();
+
+        let ty_kind = if self.maybe(TokenKind::Arrow) {
+            let path = self.parse_path()?;
+
+            TyKind::Path(path)
+        } else {
+            TyKind::Unit
+        };
 
         let block = self.parse_block_expr()?;
 
@@ -104,6 +121,11 @@ impl Parser<'_> {
             ident,
             block,
             parameters: params,
+            return_ty: Ty {
+                id: self.node_id_allocator.allocate(),
+                span: self.stream.span_since(snapshot),
+                kind: ty_kind,
+            },
         })
     }
 

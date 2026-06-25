@@ -1,6 +1,5 @@
 pub mod expr;
 pub mod item;
-pub mod parsable;
 pub mod path;
 pub mod session;
 pub mod stmt;
@@ -91,8 +90,6 @@ impl<'a> Parser<'a> {
 
         let ty = self.parse_ty().unwrap();
 
-        println!("{ty:#?}");
-
         Ok(Parameter { ident, ty })
     }
 
@@ -147,6 +144,8 @@ impl<'a> Parser<'a> {
                 Err(_) => return (None, self.session),
             }
         }
+
+        println!("{:#?}", items);
 
         (Some(Ast { items }), self.session)
     }
