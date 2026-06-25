@@ -65,6 +65,9 @@ dependencies = [
 [[package]]
 name = "ayuc_diagnostic"
 version = "0.1.0"
+dependencies = [
+ "ariadne",
+]
 
 [[package]]
 name = "ayuc_driver"
