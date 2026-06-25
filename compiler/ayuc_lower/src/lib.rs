@@ -80,12 +80,10 @@ impl<'a> AstLowering<'a> {
     fn lower_stmt(&mut self, stmt: &ast::Statement) -> hir::Statement {
         match stmt {
             ast::Statement::Expr(expr) => hir::Statement::Expr(self.lower_expr(expr)),
-            ast::Statement::VarDecl(var_decl) => {
-                hir::Statement::VarDecl(hir::VariableDeclaration {
-                    ident: var_decl.ident.sym,
-                    init: self.lower_expr(&var_decl.init),
-                })
-            }
+            ast::Statement::Let(var_decl) => hir::Statement::VarDecl(hir::VariableDeclaration {
+                ident: var_decl.ident.sym,
+                init: self.lower_expr(&var_decl.init),
+            }),
             _ => todo!(),
         }
     }

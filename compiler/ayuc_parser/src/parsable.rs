@@ -2,6 +2,7 @@ use ayuc_span::Span;
 
 use crate::Parser;
 
+#[deprecated]
 pub trait Parsable: Sized {
     /// The name of the parsable for automatic diagnostic creation.
     const NAME: &str;
