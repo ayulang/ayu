@@ -26,6 +26,7 @@ pub struct BinaryExpression {
 #[derive(Debug)]
 pub enum Literal {
     Str { span: Span, data: Symbol },
+    Integer { span: Span, value: i64 },
 }
 
 #[derive(Debug)]

@@ -24,12 +24,14 @@ pub struct FnDecl {
     pub parameters: ParameterList,
     pub ident: Ident,
     pub block: Block,
+    pub return_ty: Ty,
 }
 
 #[derive(Debug)]
 pub struct ExternFnDecl {
     pub parameters: ParameterList,
     pub ident: Ident,
+    pub return_ty: Ty,
 }
 
 #[derive(Debug, Default)]

@@ -3,12 +3,12 @@ use crate::{Ident, expr::Expression};
 #[derive(Debug)]
 pub enum Statement {
     Expr(Expression),
-    VarDecl(VariableDeclaration),
+    Let(LetStatement),
     Return(ReturnStatement),
 }
 
 #[derive(Debug)]
-pub struct VariableDeclaration {
+pub struct LetStatement {
     pub ident: Ident,
     pub init: Expression,
 }
