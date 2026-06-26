@@ -1,13 +1,13 @@
-use ayuc_hir::{BinaryOp, Expression, Item, Literal, Stmt};
+use ayuc_hir::{BinaryOp, Expr, ExprKind, ItemKind, Literal, Stmt, StmtKind};
 use ayuc_id::hir::PackageId;
 use ayuc_tyctx::TyCtx;
 use std::fmt::Write;
 
 pub struct LuauCodegen;
 
-fn write_expr(buf: &mut String, expr: &Expression) {
-    match expr {
-        Expression::Call(call) => {
+fn write_expr(buf: &mut String, expr: &Expr) {
+    match &expr.kind {
+        ExprKind::Call(call) => {
             write_expr(buf, &call.callee);
 
             let _ = write!(buf, "(");
@@ -22,16 +22,16 @@ fn write_expr(buf: &mut String, expr: &Expression) {
 
             let _ = write!(buf, ")");
         }
-        Expression::Ident(ident) => {
+        ExprKind::Ident(ident) => {
             let _ = write!(buf, "{}", ident.as_str());
         }
-        Expression::Lit(Literal::Str(str)) => {
+        ExprKind::Lit(Literal::Str(str)) => {
             let _ = write!(buf, "\"{}\"", str.as_str());
         }
-        Expression::Lit(Literal::Integer(value)) => {
+        ExprKind::Lit(Literal::Integer(value)) => {
             let _ = write!(buf, "{}", value);
         }
-        Expression::Binary(bin) => {
+        ExprKind::Binary(bin) => {
             write_expr(buf, &bin.left);
 
             let _ = write!(
@@ -48,14 +48,14 @@ fn write_expr(buf: &mut String, expr: &Expression) {
 }
 
 fn write_stmt(buf: &mut String, stmt: &Stmt) {
-    match stmt {
-        Stmt::Expr(expr) => write_expr(buf, expr),
-        Stmt::VarDecl(var_decl) => {
+    match &stmt.kind {
+        StmtKind::Expr(expr) => write_expr(buf, expr),
+        StmtKind::Let(var_decl) => {
             let _ = write!(buf, "local {} = ", var_decl.ident.as_str());
 
             write_expr(buf, &var_decl.init);
         }
-        Stmt::Return(ret) => {
+        StmtKind::Return(ret) => {
             let _ = write!(buf, "return");
 
             if let Some(expr) = &ret.expr {
@@ -78,8 +78,8 @@ impl LuauCodegen {
         let module = ty_ctx.package(module_id);
 
         for item in &module.items {
-            match item {
-                Item::Fn(fn_item) => {
+            match &item.kind {
+                ItemKind::Fn(fn_item) => {
                     if fn_item.name.as_str() == "main" {
                         contains_main = true;
                     }
@@ -102,7 +102,7 @@ impl LuauCodegen {
 
                     let _ = writeln!(buf, "end");
                 }
-                Item::ExternFn(_) => {}
+                ItemKind::ExternFn(_) => {}
             }
         }
 

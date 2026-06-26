@@ -12,7 +12,7 @@ pub struct Stmt {
 #[derive(Debug)]
 pub enum StmtKind {
     Expr(Expr),
-    VarDecl(LetStmt),
+    Let(LetStmt),
     Return(ReturnStmt),
 }
 
