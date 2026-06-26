@@ -195,8 +195,6 @@ impl<'a> AstLowering<'a> {
             }),
         };
 
-        println!("{:?} | {:?}", kind, expr.kind);
-
         hir::Expr { id, kind }
     }
 
