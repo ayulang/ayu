@@ -15,7 +15,10 @@ use ayuc_lexer::{
 
 use crate::session::ParseSession;
 
-pub type PResult<T> = Result<T, ()>;
+#[derive(Debug)]
+pub struct DummyError;
+
+pub type PResult<T> = Result<T, DummyError>;
 
 /// Used for parsing an input file into an abstract syntax tree.
 pub struct Parser<'a> {
@@ -77,7 +80,7 @@ impl<'a> Parser<'a> {
                 span: *span,
             })
         } else {
-            Err(())
+            Err(DummyError)
         }
     }
 
@@ -85,7 +88,7 @@ impl<'a> Parser<'a> {
         let ident = self.parse_ident().unwrap();
 
         if !self.maybe(TokenKind::Colon) {
-            return Err(());
+            return Err(DummyError);
         }
 
         let ty = self.parse_ty().unwrap();

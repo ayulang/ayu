@@ -6,13 +6,13 @@ use crate::{PResult, Parser};
 impl Parser<'_> {
     pub fn parse_let_stmt(&mut self) -> PResult<LetStmt> {
         if !self.maybe(TokenKind::Keyword(Keyword::Let)) {
-            return Err(());
+            return Err(crate::DummyError);
         }
 
         let ident = self.parse_ident().unwrap();
 
         if !self.maybe(TokenKind::Equals) {
-            return Err(());
+            return Err(crate::DummyError);
         }
 
         let expr = self.parse_expression()?;
@@ -22,7 +22,7 @@ impl Parser<'_> {
 
     pub fn parse_return_stmt(&mut self) -> PResult<ReturnStmt> {
         if !self.maybe(TokenKind::Keyword(Keyword::Return)) {
-            return Err(());
+            return Err(crate::DummyError);
         }
 
         let expr = self.parse_expression()?; // make it try to parse an expression instead.
@@ -32,7 +32,7 @@ impl Parser<'_> {
 
     pub fn parse_statement(&mut self) -> PResult<Stmt> {
         let Some(first) = self.stream.first() else {
-            return Err(());
+            return Err(crate::DummyError);
         };
 
         let snapshot = self.stream.snapshot();

@@ -1,7 +1,4 @@
-use ayuc_ast::{
-    ExternFnDecl, Item, ItemKind, Ty, TyKind,
-    item::{FnDecl, ParameterList},
-};
+use ayuc_ast::{ExternFnDecl, Item, ItemKind, Ty, TyKind, item::FnDecl};
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 
 use crate::{PResult, Parser};
@@ -9,43 +6,15 @@ use crate::{PResult, Parser};
 impl Parser<'_> {
     pub fn parse_extern_fn_item(&mut self) -> PResult<ExternFnDecl> {
         if !self.maybe(TokenKind::Keyword(Keyword::Extern)) {
-            return Err(());
+            return Err(crate::DummyError);
         }
 
         if !self.maybe(TokenKind::Keyword(Keyword::Fn)) {
-            return Err(());
+            return Err(crate::DummyError);
         }
 
         let ident = self.parse_ident()?;
-        let params = self
-            .parse_parameter_list()
-            .unwrap_or(ParameterList::default());
-
-        /*let params = match ParameterList::parse_with_rollback(parser)? {
-            p @ Parsed::Missing(span) => {
-                let span = parser.sourced_span(span);
-
-                parser.session.emit(
-                    SourceReport::build(ariadne::ReportKind::Error, span)
-                        .with_config(ARIADNE_CONFIG)
-                        .with_message("extern function declarations require a parameter list")
-                        .with_label(
-                            Label::new(span)
-                                .with_color(ariadne::Color::BrightRed)
-                                .with_message("missing parameter list".fg(Color::BrightRed)),
-                        )
-                        .with_help(format!(
-                            "add a parameter list: `{}{}`",
-                            ident.sym.as_str(),
-                            "()".fg(Color::BrightGreen)
-                        ))
-                        .finish(),
-                );
-
-                p
-            }
-            p => p,
-        };*/
+        let params = self.parse_parameter_list().unwrap_or_default();
 
         let snapshot = self.stream.snapshot();
 
@@ -70,40 +39,11 @@ impl Parser<'_> {
 
     pub fn parse_fn_item(&mut self) -> PResult<FnDecl> {
         if !self.maybe(TokenKind::Keyword(Keyword::Fn)) {
-            return Err(());
+            return Err(crate::DummyError);
         }
 
         let ident = self.parse_ident()?;
-
-        /*let params = match ParameterList::parse_with_rollback(self).unwrap() {
-            p @ Parsed::Missing(span) => {
-                let span = self.sourced_span(span);
-
-                parser.session.emit(
-                    SourceReport::build(ariadne::ReportKind::Error, span)
-                        .with_config(ARIADNE_CONFIG)
-                        .with_message("function declarations require a parameter list")
-                        .with_label(
-                            Label::new(span)
-                                .with_color(ariadne::Color::BrightRed)
-                                .with_message("missing parameter list".fg(Color::BrightRed)),
-                        )
-                        .with_help(format!(
-                            "add a parameter list: `{}{}`",
-                            ident.sym.as_str(),
-                            "()".fg(Color::BrightGreen)
-                        ))
-                        .finish(),
-                );
-
-                p
-            }
-            p => ,
-        };*/
-
-        let params = self
-            .parse_parameter_list()
-            .unwrap_or(ParameterList::default());
+        let params = self.parse_parameter_list().unwrap_or_default();
 
         let snapshot = self.stream.snapshot();
 
@@ -131,7 +71,7 @@ impl Parser<'_> {
 
     pub fn parse_item(&mut self) -> PResult<Item> {
         let Some(first) = self.stream.first() else {
-            return Err(());
+            return Err(crate::DummyError);
         };
 
         let snapshot = self.stream.snapshot();

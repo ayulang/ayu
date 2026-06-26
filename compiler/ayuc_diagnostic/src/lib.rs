@@ -75,6 +75,12 @@ impl DiagnosticContext {
     }
 }
 
+impl Default for DiagnosticContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl From<Severity> for ariadne::ReportKind<'_> {
     fn from(value: Severity) -> Self {
         match value {

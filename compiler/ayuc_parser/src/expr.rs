@@ -11,9 +11,7 @@ impl Parser<'_> {
     pub fn parse_call_expr(&mut self, prefix: Expr) -> PResult<CallExpr> {
         let tokens = match self.stream.consume() {
             Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens)) => tokens,
-            _ => {
-                todo!()
-            }
+            _ => return Err(crate::DummyError),
         };
 
         let mut inner = self.branch(TokenStream::new(tokens));
@@ -40,7 +38,7 @@ impl Parser<'_> {
         let operator = if self.maybe(TokenKind::Plus) {
             Operator::Add
         } else {
-            return Err(());
+            return Err(crate::DummyError);
         };
 
         let right = self.parse_expression()?;
@@ -55,9 +53,7 @@ impl Parser<'_> {
     pub fn parse_block_expr(&mut self) -> PResult<Block> {
         let (span, tokens) = match self.stream.consume() {
             Some(StructuredToken::Delimited(span, Delimiter::Braces, tokens)) => (*span, tokens),
-            _ => {
-                todo!()
-            }
+            _ => return Err(crate::DummyError),
         };
 
         let mut inner = self.branch(TokenStream::new(tokens));
@@ -72,7 +68,7 @@ impl Parser<'_> {
 
     pub fn parse_expr_prefix(&mut self) -> PResult<Expr> {
         let Some(first) = self.stream.consume() else {
-            return Err(());
+            return Err(crate::DummyError);
         };
 
         Ok(match first {
@@ -90,7 +86,7 @@ impl Parser<'_> {
 
                         Literal::Integer {
                             span: *span,
-                            value: data.parse().map_err(|_| ())?,
+                            value: data.parse().map_err(|_| crate::DummyError)?,
                         }
                     }
                 };
@@ -112,7 +108,7 @@ impl Parser<'_> {
                     sym: *sym,
                 }),
             },
-            _ => return Err(()),
+            _ => return Err(crate::DummyError),
         })
     }
 
@@ -131,18 +127,16 @@ impl Parser<'_> {
                     kind: ExprKind::Call(self.parse_call_expr(prefix)?),
                 });
             }
-            StructuredToken::Token(Token { kind, .. }) => match kind {
-                TokenKind::Plus => {
-                    let bin = self.parse_bin_expr(prefix)?;
+            StructuredToken::Token(Token { kind, .. }) if *kind == TokenKind::Plus => {
+                let bin = self.parse_bin_expr(prefix)?;
 
-                    return Ok(Expr {
-                        span: bin.left.span.merged(bin.right.span),
-                        id: self.node_id_allocator.allocate(),
-                        kind: ExprKind::Binary(bin),
-                    });
-                }
-                _ => {}
-            },
+                return Ok(Expr {
+                    span: bin.left.span.merged(bin.right.span),
+                    id: self.node_id_allocator.allocate(),
+                    kind: ExprKind::Binary(bin),
+                });
+            }
+
             _ => {}
         };
 

@@ -13,7 +13,7 @@ impl Parser<'_> {
                 kind: TyKind::Path(path),
             })
         } else {
-            Err(())
+            Err(crate::DummyError)
         }
     }
 }

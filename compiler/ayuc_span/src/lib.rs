@@ -37,7 +37,7 @@ impl Span {
     }
 
     pub fn merged(&self, other: Span) -> Span {
-        let mut span = self.clone();
+        let mut span = *self;
 
         span.merge(other);
 
