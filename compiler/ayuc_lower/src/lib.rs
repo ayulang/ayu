@@ -5,21 +5,24 @@ use ayuc_id::{
     ast::NodeId,
     hir::{DefIdAllocator, HirId, HirIdAllocator},
 };
+use ayuc_resolve::Resolver;
 use ayuc_tyctx::TyCtx;
 use bimap::BiHashMap;
 
 pub struct AstLowering<'a> {
     _ty_ctx: &'a mut TyCtx,
+    resolver: &'a Resolver,
     package: hir::Package,
     id_mappings: BiHashMap<NodeId, HirId>,
 }
 
 impl<'a> AstLowering<'a> {
-    pub fn new(_ty_ctx: &'a mut TyCtx) -> Self {
+    pub fn new(_ty_ctx: &'a mut TyCtx, resolver: &'a Resolver) -> Self {
         let id = _ty_ctx.mint_package_id();
 
         Self {
             _ty_ctx,
+            resolver,
             package: Package {
                 id,
                 items: Vec::new(),
@@ -67,7 +70,10 @@ impl<'a> AstLowering<'a> {
                     .parameters
                     .parameters
                     .iter()
-                    .map(|p| hir::Parameter { name: p.ident.sym })
+                    .map(|p| hir::Parameter {
+                        name: p.ident.sym,
+                        ty: self.lower_ty(&p.ty),
+                    })
                     .collect(),
             }),
             ast::ItemKind::ExternFn(extern_fun) => hir::ItemKind::ExternFn(hir::ExternFnItem {
@@ -77,7 +83,10 @@ impl<'a> AstLowering<'a> {
                     .parameters
                     .parameters
                     .iter()
-                    .map(|p| hir::Parameter { name: p.ident.sym })
+                    .map(|p| hir::Parameter {
+                        name: p.ident.sym,
+                        ty: self.lower_ty(&p.ty),
+                    })
                     .collect(),
             }),
         };
@@ -132,7 +141,7 @@ impl<'a> AstLowering<'a> {
     }
 
     // TODO
-    fn lower_ty(&mut self, _ty: &ast::Ty) -> hir::Ty {
-        hir::Ty::Unit
+    fn lower_ty(&mut self, ty: &ast::Ty) -> hir::Ty {
+        self.resolver.get_res(ty.id)
     }
 }

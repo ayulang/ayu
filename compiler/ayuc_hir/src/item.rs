@@ -19,6 +19,7 @@ pub enum ItemKind {
 #[derive(Debug)]
 pub struct Parameter {
     pub name: Symbol,
+    pub ty: Ty,
 }
 
 #[derive(Debug)]

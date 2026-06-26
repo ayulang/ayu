@@ -81,6 +81,7 @@ dependencies = [
  "ayuc_lexer",
  "ayuc_lower",
  "ayuc_parser",
+ "ayuc_resolve",
  "ayuc_sema",
  "ayuc_source",
  "ayuc_tyctx",
@@ -117,6 +118,7 @@ dependencies = [
  "ayuc_ast",
  "ayuc_hir",
  "ayuc_id",
+ "ayuc_resolve",
  "ayuc_tyctx",
  "bimap",
 ]
@@ -141,6 +143,11 @@ version = "0.1.0"
 [[package]]
 name = "ayuc_resolve"
 version = "0.1.0"
+dependencies = [
+ "ayuc_ast",
+ "ayuc_hir",
+ "ayuc_id",
+]
 
 [[package]]
 name = "ayuc_scanner"

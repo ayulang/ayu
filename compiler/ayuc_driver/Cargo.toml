@@ -13,3 +13,4 @@ ayuc_codegen = { path = "../ayuc_codegen" }
 ayuc_hir = { path = "../ayuc_hir" }
 ayuc_sema = { path = "../ayuc_sema" }
 ayuc_id = { path = "../ayuc_id" }
+ayuc_resolve = { path = "../ayuc_resolve" }
