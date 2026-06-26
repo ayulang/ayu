@@ -55,28 +55,34 @@ impl<'a> AstLowering<'a> {
     }
 
     fn lower_item(&mut self, item: &ast::Item) -> hir::Item {
-        match &item.kind {
-            ast::ItemKind::Fn(fn_decl) => hir::Item::Fn(hir::FnItem {
-                id: self.package.def_id_allocator.allocate(),
-                hir_id: self.lower_id(item.id),
-                name: fn_decl.ident.sym,
-                return_ty: hir::Ty::None,
-                block: self.lower_block(&fn_decl.block),
-                params: fn_decl
+        let id = self.package.def_id_allocator.allocate();
+        let hir_id = self.lower_id(item.id);
+
+        let kind = match &item.kind {
+            ast::ItemKind::Fn(fun) => hir::ItemKind::Fn(hir::FnItem {
+                name: fun.ident.sym,
+                block: self.lower_block(&fun.block),
+                return_ty: self.lower_ty(&fun.return_ty),
+                params: fun
                     .parameters
                     .parameters
                     .iter()
-                    .map(|param| hir::Parameter {
-                        name: param.ident.sym,
-                    })
+                    .map(|p| hir::Parameter { name: p.ident.sym })
                     .collect(),
             }),
-            ast::ItemKind::ExternFn(extern_fn) => hir::Item::ExternFn(hir::ExternFnItem {
-                id: self.package.def_id_allocator.allocate(),
-                hir_id: self.lower_id(item.id),
-                name: extern_fn.ident.sym,
+            ast::ItemKind::ExternFn(extern_fun) => hir::ItemKind::ExternFn(hir::ExternFnItem {
+                name: extern_fun.ident.sym,
+                return_ty: self.lower_ty(&extern_fun.return_ty),
+                params: extern_fun
+                    .parameters
+                    .parameters
+                    .iter()
+                    .map(|p| hir::Parameter { name: p.ident.sym })
+                    .collect(),
             }),
-        }
+        };
+
+        hir::Item { id, hir_id, kind }
     }
 
     fn lower_block(&mut self, block: &ast::Block) -> hir::Block {
@@ -85,37 +91,48 @@ impl<'a> AstLowering<'a> {
         }
     }
 
-    fn lower_stmt(&mut self, stmt: &ast::Statement) -> hir::Stmt {
-        match stmt {
-            ast::Statement::Expr(expr) => hir::Stmt::Expr(self.lower_expr(expr)),
-            ast::Statement::Let(var_decl) => hir::Stmt::VarDecl(hir::LetStmt {
-                ident: var_decl.ident.sym,
-                init: self.lower_expr(&var_decl.init),
+    fn lower_stmt(&mut self, stmt: &ast::Stmt) -> hir::Stmt {
+        let id = self.lower_id(stmt.id);
+        let kind = match &stmt.kind {
+            ast::StmtKind::Expr(expr) => hir::StmtKind::Expr(self.lower_expr(expr)),
+            ast::StmtKind::Let(decl) => hir::StmtKind::Let(hir::LetStmt {
+                ident: decl.ident.sym,
+                init: self.lower_expr(&decl.init),
             }),
-            ast::Statement::Return(ret) => hir::Stmt::Return(hir::ReturnStmt {
+            ast::StmtKind::Return(ret) => hir::StmtKind::Return(hir::ReturnStmt {
                 expr: ret.expr.as_ref().map(|expr| self.lower_expr(expr)),
             }),
-        }
+        };
+
+        hir::Stmt { id, kind }
     }
 
-    fn lower_expr(&mut self, expr: &ast::Expression) -> hir::Expression {
-        match expr {
-            ast::Expression::Identifier(ident) => hir::Expression::Ident(ident.sym),
-            ast::Expression::Call(call) => hir::Expression::Call(ayuc_hir::CallExpr {
+    fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {
+        let id = self.lower_id(expr.id);
+        let kind = match &expr.kind {
+            ast::ExprKind::Identifier(ident) => hir::ExprKind::Ident(ident.sym),
+            ast::ExprKind::Call(call) => hir::ExprKind::Call(ayuc_hir::CallExpr {
                 callee: Box::new(self.lower_expr(&call.callee)),
                 args: call.args.iter().map(|e| self.lower_expr(e)).collect(),
             }),
-            ast::Expression::Lit(lit) => hir::Expression::Lit(match lit {
+            ast::ExprKind::Lit(lit) => hir::ExprKind::Lit(match lit {
                 ast::Literal::Str { span: _, data } => hir::Literal::Str(*data),
                 ast::Literal::Integer { span: _, value } => hir::Literal::Integer(*value),
             }),
-            ast::Expression::Binary(bin) => hir::Expression::Binary(hir::BinExpr {
+            ast::ExprKind::Binary(bin) => hir::ExprKind::Binary(hir::BinExpr {
                 left: Box::new(self.lower_expr(&bin.left)),
                 operator: match bin.operator {
                     ast::Operator::Add => hir::BinaryOp::Add,
                 },
                 right: Box::new(self.lower_expr(&bin.right)),
             }),
-        }
+        };
+
+        hir::Expr { id, kind }
+    }
+
+    // TODO
+    fn lower_ty(&mut self, _ty: &ast::Ty) -> hir::Ty {
+        hir::Ty::Unit
     }
 }
