@@ -1,13 +1,21 @@
+use ayuc_id::ast::NodeId;
 use ayuc_span::{Span, symbol::Symbol};
 
-use crate::stmt::Statement;
+use crate::Stmt;
 
 #[derive(Debug)]
-pub enum Expression {
+pub struct Expr {
+    pub span: Span,
+    pub id: NodeId,
+    pub kind: ExprKind,
+}
+
+#[derive(Debug)]
+pub enum ExprKind {
     Lit(Literal),
     Identifier(Ident),
-    Call(Call),
-    Binary(BinaryExpression),
+    Call(CallExpr),
+    Binary(BinExpr),
 }
 
 #[derive(Debug)]
@@ -17,10 +25,10 @@ pub enum Operator {
 }
 
 #[derive(Debug)]
-pub struct BinaryExpression {
-    pub left: Box<Expression>,
+pub struct BinExpr {
+    pub left: Box<Expr>,
     pub operator: Operator,
-    pub right: Box<Expression>,
+    pub right: Box<Expr>,
 }
 
 #[derive(Debug)]
@@ -38,11 +46,11 @@ pub struct Ident {
 #[derive(Debug)]
 pub struct Block {
     pub span: Span,
-    pub children: Vec<Statement>,
+    pub children: Vec<Stmt>,
 }
 
 #[derive(Debug)]
-pub struct Call {
-    pub callee: Box<Expression>,
-    pub args: Vec<Expression>,
+pub struct CallExpr {
+    pub callee: Box<Expr>,
+    pub args: Vec<Expr>,
 }

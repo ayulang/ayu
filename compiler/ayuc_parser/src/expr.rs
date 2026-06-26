@@ -1,4 +1,4 @@
-use ayuc_ast::{BinaryExpression, Call, Expression, Ident, Literal, Operator, expr::Block};
+use ayuc_ast::{BinExpr, CallExpr, Expr, ExprKind, Ident, Literal, Operator, expr::Block};
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, StructuredToken, Token, TokenKind},
@@ -8,7 +8,7 @@ use ayuc_span::symbol::Symbol;
 use crate::{PResult, Parser};
 
 impl Parser<'_> {
-    pub fn parse_call_expr(&mut self, prefix: Expression) -> PResult<Call> {
+    pub fn parse_call_expr(&mut self, prefix: Expr) -> PResult<CallExpr> {
         let tokens = match self.stream.consume() {
             Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens)) => tokens,
             _ => {
@@ -30,13 +30,13 @@ impl Parser<'_> {
             expect_expr = inner.maybe(TokenKind::Comma);
         }
 
-        Ok(Call {
+        Ok(CallExpr {
             callee: Box::new(prefix),
             args,
         })
     }
 
-    pub fn parse_bin_expr(&mut self, left: Expression) -> PResult<BinaryExpression> {
+    pub fn parse_bin_expr(&mut self, left: Expr) -> PResult<BinExpr> {
         let operator = if self.maybe(TokenKind::Plus) {
             Operator::Add
         } else {
@@ -45,7 +45,7 @@ impl Parser<'_> {
 
         let right = self.parse_expression()?;
 
-        Ok(BinaryExpression {
+        Ok(BinExpr {
             left: Box::new(left),
             operator,
             right: Box::new(right),
@@ -70,43 +70,53 @@ impl Parser<'_> {
         Ok(Block { span, children })
     }
 
-    pub fn parse_expr_prefix(&mut self) -> PResult<Expression> {
+    pub fn parse_expr_prefix(&mut self) -> PResult<Expr> {
         let Some(first) = self.stream.consume() else {
             return Err(());
         };
 
-        match first {
+        Ok(match first {
             StructuredToken::Token(Token {
                 kind: TokenKind::Literal(lit),
                 span,
-            }) => match lit {
-                ayuc_lexer::token::Literal::Str { data_span } => {
-                    Ok(Expression::Lit(Literal::Str {
+            }) => {
+                let kind = match lit {
+                    ayuc_lexer::token::Literal::Str { data_span } => Literal::Str {
                         span: *span,
                         data: Symbol::intern(&self.source[data_span]),
-                    }))
-                }
-                ayuc_lexer::token::Literal::Integer { data_span } => {
-                    let data = &self.source[data_span]; // TODO: PROCESS
+                    },
+                    ayuc_lexer::token::Literal::Integer { data_span } => {
+                        let data = &self.source[data_span];
 
-                    Ok(Expression::Lit(Literal::Integer {
-                        span: *data_span,
-                        value: data.parse().unwrap(),
-                    }))
+                        Literal::Integer {
+                            span: *span,
+                            value: data.parse().map_err(|_| ())?,
+                        }
+                    }
+                };
+
+                Expr {
+                    span: *span,
+                    id: self.node_id_allocator.allocate(),
+                    kind: ExprKind::Lit(kind),
                 }
-            },
+            }
             StructuredToken::Token(Token {
                 kind: TokenKind::Ident(sym),
                 span,
-            }) => Ok(Expression::Identifier(Ident {
+            }) => Expr {
                 span: *span,
-                sym: *sym,
-            })),
-            _ => Err(()),
-        }
+                id: self.node_id_allocator.allocate(),
+                kind: ExprKind::Identifier(Ident {
+                    span: *span,
+                    sym: *sym,
+                }),
+            },
+            _ => return Err(()),
+        })
     }
 
-    pub fn parse_expression(&mut self) -> PResult<Expression> {
+    pub fn parse_expression(&mut self) -> PResult<Expr> {
         let prefix = self.parse_expr_prefix()?;
 
         let Some(first) = self.stream.first() else {
@@ -114,11 +124,23 @@ impl Parser<'_> {
         };
 
         match first {
-            StructuredToken::Delimited(_, Delimiter::Parenthesis, _) => {
-                return Ok(Expression::Call(self.parse_call_expr(prefix)?));
+            StructuredToken::Delimited(span, Delimiter::Parenthesis, _) => {
+                return Ok(Expr {
+                    span: prefix.span.merged(*span),
+                    id: self.node_id_allocator.allocate(),
+                    kind: ExprKind::Call(self.parse_call_expr(prefix)?),
+                });
             }
             StructuredToken::Token(Token { kind, .. }) => match kind {
-                TokenKind::Plus => return Ok(Expression::Binary(self.parse_bin_expr(prefix)?)),
+                TokenKind::Plus => {
+                    let bin = self.parse_bin_expr(prefix)?;
+
+                    return Ok(Expr {
+                        span: bin.left.span.merged(bin.right.span),
+                        id: self.node_id_allocator.allocate(),
+                        kind: ExprKind::Binary(bin),
+                    });
+                }
                 _ => {}
             },
             _ => {}

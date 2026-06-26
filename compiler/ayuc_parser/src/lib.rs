@@ -127,6 +127,20 @@ impl<'a> Parser<'a> {
         })
     }
 
+    pub fn with_rollback<F, T>(&mut self, parse_fn: F) -> PResult<T>
+    where
+        F: FnOnce(&mut Self) -> PResult<T>,
+    {
+        let snapshot = self.stream.snapshot();
+        let res = parse_fn(self);
+
+        if res.is_err() {
+            self.stream.restore(snapshot);
+        }
+
+        res
+    }
+
     pub fn parse_full(mut self) -> (Option<Ast>, ParseSession<'a>) {
         let mut items = Vec::new();
 

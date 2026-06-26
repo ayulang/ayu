@@ -35,6 +35,14 @@ impl Span {
             self.end = other.end;
         }
     }
+
+    pub fn merged(&self, other: Span) -> Span {
+        let mut span = self.clone();
+
+        span.merge(other);
+
+        span
+    }
 }
 
 impl Default for Span {
