@@ -74,3 +74,9 @@ impl Resolver {
         self.resolutions.insert(ty.id, resolved);
     }
 }
+
+impl Default for Resolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -1,7 +1,7 @@
 use ayuc_id::hir::HirId;
 use ayuc_span::symbol::Symbol;
 
-use crate::stmt::Stmt;
+use crate::{Def, stmt::Stmt};
 
 #[derive(Debug)]
 pub struct Expr {
@@ -13,7 +13,7 @@ pub struct Expr {
 pub enum ExprKind {
     Call(CallExpr),
     Lit(Literal),
-    Ident(Symbol),
+    Ref(Def),
     Binary(BinExpr),
 }
 

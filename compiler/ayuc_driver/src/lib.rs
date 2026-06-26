@@ -82,7 +82,6 @@ pub fn drive() -> ExitCode {
 
     let lowering = AstLowering::new(&mut ty_ctx, &resolver);
     let package = lowering.lower(&ast);
-    println!("{:#?}", package);
     let package_id = ty_ctx.register_package(package);
 
     println!();
