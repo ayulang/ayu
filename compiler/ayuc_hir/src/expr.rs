@@ -7,6 +7,19 @@ pub enum Expression {
     Call(CallExpr),
     Lit(Literal),
     Ident(Symbol),
+    Binary(BinaryExpression),
+}
+
+#[derive(Debug)]
+pub enum BinaryOp {
+    Add,
+}
+
+#[derive(Debug)]
+pub struct BinaryExpression {
+    pub left: Box<Expression>,
+    pub operator: BinaryOp,
+    pub right: Box<Expression>,
 }
 
 #[derive(Debug)]
@@ -18,6 +31,7 @@ pub struct CallExpr {
 #[derive(Debug)]
 pub enum Literal {
     Str(Symbol),
+    Integer(i64),
 }
 
 #[derive(Debug)]

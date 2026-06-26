@@ -145,8 +145,6 @@ impl<'a> Parser<'a> {
             }
         }
 
-        println!("{:#?}", items);
-
         (Some(Ast { items }), self.session)
     }
 }

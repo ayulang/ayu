@@ -1,4 +1,4 @@
-use ayuc_hir::{Expression, Item, Literal, Statement};
+use ayuc_hir::{BinaryOp, Expression, Item, Literal, Statement};
 use ayuc_id::hir::PackageId;
 use ayuc_tyctx::TyCtx;
 use std::fmt::Write;
@@ -28,6 +28,22 @@ fn write_expr(buf: &mut String, expr: &Expression) {
         Expression::Lit(Literal::Str(str)) => {
             let _ = write!(buf, "\"{}\"", str.as_str());
         }
+        Expression::Lit(Literal::Integer(value)) => {
+            let _ = write!(buf, "{}", value);
+        }
+        Expression::Binary(bin) => {
+            write_expr(buf, &bin.left);
+
+            let _ = write!(
+                buf,
+                " {} ",
+                match bin.operator {
+                    BinaryOp::Add => "+",
+                }
+            );
+
+            write_expr(buf, &bin.right);
+        }
     }
 }
 
@@ -38,6 +54,15 @@ fn write_stmt(buf: &mut String, stmt: &Statement) {
             let _ = write!(buf, "local {} = ", var_decl.ident.as_str());
 
             write_expr(buf, &var_decl.init);
+        }
+        Statement::Return(ret) => {
+            let _ = write!(buf, "return");
+
+            if let Some(expr) = &ret.expr {
+                let _ = write!(buf, " ");
+
+                write_expr(buf, expr);
+            }
         }
     };
 
@@ -59,7 +84,17 @@ impl LuauCodegen {
                         contains_main = true;
                     }
 
-                    let _ = writeln!(buf, "function {}()", fn_item.name.as_str());
+                    let _ = write!(buf, "function {}(", fn_item.name.as_str());
+
+                    for (i, param) in fn_item.params.iter().enumerate() {
+                        if i > 0 {
+                            let _ = write!(buf, ", {}", param.name.as_str());
+                        } else {
+                            let _ = write!(buf, "{}", param.name.as_str());
+                        }
+                    }
+
+                    let _ = writeln!(buf, ")");
 
                     for stmt in &fn_item.block.stmts {
                         write_stmt(&mut buf, stmt);

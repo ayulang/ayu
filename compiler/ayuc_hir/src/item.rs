@@ -10,12 +10,18 @@ pub enum Item {
 }
 
 #[derive(Debug)]
+pub struct Parameter {
+    pub name: Symbol,
+}
+
+#[derive(Debug)]
 pub struct FnItem {
     pub id: DefId,
     pub hir_id: HirId,
     pub name: Symbol,
     pub return_ty: Ty,
     pub block: Block,
+    pub params: Vec<Parameter>,
 }
 
 #[derive(Debug)]

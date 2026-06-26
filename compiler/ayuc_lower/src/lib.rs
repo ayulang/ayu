@@ -62,6 +62,14 @@ impl<'a> AstLowering<'a> {
                 name: fn_decl.ident.sym,
                 return_ty: hir::Ty::None,
                 block: self.lower_block(&fn_decl.block),
+                params: fn_decl
+                    .parameters
+                    .parameters
+                    .iter()
+                    .map(|param| hir::Parameter {
+                        name: param.ident.sym,
+                    })
+                    .collect(),
             }),
             ast::ItemKind::ExternFn(extern_fn) => hir::Item::ExternFn(hir::ExternFnItem {
                 id: self.package.def_id_allocator.allocate(),
@@ -84,7 +92,9 @@ impl<'a> AstLowering<'a> {
                 ident: var_decl.ident.sym,
                 init: self.lower_expr(&var_decl.init),
             }),
-            _ => todo!(),
+            ast::Statement::Return(ret) => hir::Statement::Return(hir::ReturnStatement {
+                expr: ret.expr.as_ref().map(|expr| self.lower_expr(expr)),
+            }),
         }
     }
 
@@ -97,9 +107,15 @@ impl<'a> AstLowering<'a> {
             }),
             ast::Expression::Lit(lit) => hir::Expression::Lit(match lit {
                 ast::Literal::Str { span: _, data } => hir::Literal::Str(*data),
-                ast::Literal::Integer { span, value } => todo!(),
+                ast::Literal::Integer { span: _, value } => hir::Literal::Integer(*value),
             }),
-            _ => todo!(),
+            ast::Expression::Binary(bin) => hir::Expression::Binary(hir::BinaryExpression {
+                left: Box::new(self.lower_expr(&bin.left)),
+                operator: match bin.operator {
+                    ast::Operator::Add => hir::BinaryOp::Add,
+                },
+                right: Box::new(self.lower_expr(&bin.right)),
+            }),
         }
     }
 }
