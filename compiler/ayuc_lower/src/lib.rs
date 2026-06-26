@@ -85,14 +85,14 @@ impl<'a> AstLowering<'a> {
         }
     }
 
-    fn lower_stmt(&mut self, stmt: &ast::Statement) -> hir::Statement {
+    fn lower_stmt(&mut self, stmt: &ast::Statement) -> hir::Stmt {
         match stmt {
-            ast::Statement::Expr(expr) => hir::Statement::Expr(self.lower_expr(expr)),
-            ast::Statement::Let(var_decl) => hir::Statement::VarDecl(hir::VariableDeclaration {
+            ast::Statement::Expr(expr) => hir::Stmt::Expr(self.lower_expr(expr)),
+            ast::Statement::Let(var_decl) => hir::Stmt::VarDecl(hir::LetStmt {
                 ident: var_decl.ident.sym,
                 init: self.lower_expr(&var_decl.init),
             }),
-            ast::Statement::Return(ret) => hir::Statement::Return(hir::ReturnStatement {
+            ast::Statement::Return(ret) => hir::Stmt::Return(hir::ReturnStmt {
                 expr: ret.expr.as_ref().map(|expr| self.lower_expr(expr)),
             }),
         }
@@ -109,7 +109,7 @@ impl<'a> AstLowering<'a> {
                 ast::Literal::Str { span: _, data } => hir::Literal::Str(*data),
                 ast::Literal::Integer { span: _, value } => hir::Literal::Integer(*value),
             }),
-            ast::Expression::Binary(bin) => hir::Expression::Binary(hir::BinaryExpression {
+            ast::Expression::Binary(bin) => hir::Expression::Binary(hir::BinExpr {
                 left: Box::new(self.lower_expr(&bin.left)),
                 operator: match bin.operator {
                     ast::Operator::Add => hir::BinaryOp::Add,

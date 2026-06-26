@@ -1,21 +1,28 @@
+use ayuc_id::hir::HirId;
 use ayuc_span::symbol::Symbol;
 
-use crate::expr::Expression;
+use crate::Expr;
 
 #[derive(Debug)]
-pub enum Statement {
-    Expr(Expression),
-    VarDecl(VariableDeclaration),
-    Return(ReturnStatement),
+pub struct Stmt {
+    pub id: HirId,
+    pub kind: StmtKind,
 }
 
 #[derive(Debug)]
-pub struct VariableDeclaration {
+pub enum StmtKind {
+    Expr(Expr),
+    VarDecl(LetStmt),
+    Return(ReturnStmt),
+}
+
+#[derive(Debug)]
+pub struct LetStmt {
     pub ident: Symbol,
-    pub init: Expression,
+    pub init: Expr,
 }
 
 #[derive(Debug)]
-pub struct ReturnStatement {
-    pub expr: Option<Expression>,
+pub struct ReturnStmt {
+    pub expr: Option<Expr>,
 }

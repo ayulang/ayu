@@ -4,7 +4,14 @@ use ayuc_span::symbol::Symbol;
 use crate::{expr::Block, ty::Ty};
 
 #[derive(Debug)]
-pub enum Item {
+pub struct Item {
+    pub id: DefId,
+    pub hir_id: HirId,
+    pub kind: ItemKind,
+}
+
+#[derive(Debug)]
+pub enum ItemKind {
     Fn(FnItem),
     ExternFn(ExternFnItem),
 }
@@ -16,8 +23,6 @@ pub struct Parameter {
 
 #[derive(Debug)]
 pub struct FnItem {
-    pub id: DefId,
-    pub hir_id: HirId,
     pub name: Symbol,
     pub return_ty: Ty,
     pub block: Block,
@@ -26,7 +31,7 @@ pub struct FnItem {
 
 #[derive(Debug)]
 pub struct ExternFnItem {
-    pub id: DefId,
-    pub hir_id: HirId,
     pub name: Symbol,
+    pub params: Vec<Parameter>,
+    pub return_ty: Ty,
 }

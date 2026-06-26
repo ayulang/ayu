@@ -1,4 +1,4 @@
-use ayuc_hir::{BinaryOp, Expression, Item, Literal, Statement};
+use ayuc_hir::{BinaryOp, Expression, Item, Literal, Stmt};
 use ayuc_id::hir::PackageId;
 use ayuc_tyctx::TyCtx;
 use std::fmt::Write;
@@ -47,15 +47,15 @@ fn write_expr(buf: &mut String, expr: &Expression) {
     }
 }
 
-fn write_stmt(buf: &mut String, stmt: &Statement) {
+fn write_stmt(buf: &mut String, stmt: &Stmt) {
     match stmt {
-        Statement::Expr(expr) => write_expr(buf, expr),
-        Statement::VarDecl(var_decl) => {
+        Stmt::Expr(expr) => write_expr(buf, expr),
+        Stmt::VarDecl(var_decl) => {
             let _ = write!(buf, "local {} = ", var_decl.ident.as_str());
 
             write_expr(buf, &var_decl.init);
         }
-        Statement::Return(ret) => {
+        Stmt::Return(ret) => {
             let _ = write!(buf, "return");
 
             if let Some(expr) = &ret.expr {

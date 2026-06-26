@@ -1,13 +1,20 @@
+use ayuc_id::hir::HirId;
 use ayuc_span::symbol::Symbol;
 
-use crate::stmt::Statement;
+use crate::stmt::Stmt;
 
 #[derive(Debug)]
-pub enum Expression {
+pub struct Expr {
+    pub id: HirId,
+    pub kind: ExprKind,
+}
+
+#[derive(Debug)]
+pub enum ExprKind {
     Call(CallExpr),
     Lit(Literal),
     Ident(Symbol),
-    Binary(BinaryExpression),
+    Binary(BinExpr),
 }
 
 #[derive(Debug)]
@@ -16,16 +23,16 @@ pub enum BinaryOp {
 }
 
 #[derive(Debug)]
-pub struct BinaryExpression {
-    pub left: Box<Expression>,
+pub struct BinExpr {
+    pub left: Box<Expr>,
     pub operator: BinaryOp,
-    pub right: Box<Expression>,
+    pub right: Box<Expr>,
 }
 
 #[derive(Debug)]
 pub struct CallExpr {
-    pub callee: Box<Expression>,
-    pub args: Vec<Expression>,
+    pub callee: Box<Expr>,
+    pub args: Vec<Expr>,
 }
 
 #[derive(Debug)]
@@ -36,5 +43,5 @@ pub enum Literal {
 
 #[derive(Debug)]
 pub struct Block {
-    pub stmts: Vec<Statement>,
+    pub stmts: Vec<Stmt>,
 }
