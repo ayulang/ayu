@@ -1,62 +1,41 @@
-pub mod cache;
+use std::rc::Rc;
 
-use std::ops::{Deref, DerefMut, Index};
+use ariadne::Source;
 
-use ayuc_span::Span;
+pub type FileId = usize;
 
-use crate::cache::FileId;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct SourceSpan {
-    pub file_id: FileId,
-
-    span: Span,
+#[derive(Default)]
+pub struct SourceCache {
+    /// A vector of file names and source texts.
+    files: Vec<(Rc<String>, Source)>,
 }
 
-impl SourceSpan {
-    pub const fn new(file_id: usize, span: Span) -> Self {
-        Self { file_id, span }
+impl SourceCache {
+    pub fn add<N: Into<String>, S: Into<String>>(&mut self, name: N, source: S) -> FileId {
+        self.files
+            .push((Rc::new(name.into()), Source::from(source.into())));
+
+        self.files.len() - 1
     }
 
-    pub const fn as_span(&self) -> Span {
-        self.span
+    pub fn source_of(&self, file_id: FileId) -> Option<&Source> {
+        self.files.get(file_id).map(|(_, source)| source)
     }
-}
 
-impl Deref for SourceSpan {
-    type Target = Span;
-
-    fn deref(&self) -> &Self::Target {
-        &self.span
+    pub fn name_of(&self, file_id: FileId) -> Option<Rc<String>> {
+        self.files.get(file_id).map(|(name, _)| name).cloned()
     }
 }
 
-impl DerefMut for SourceSpan {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.span
-    }
-}
+impl ariadne::Cache<FileId> for &SourceCache {
+    type Storage = String;
 
-impl ariadne::Span for SourceSpan {
-    type SourceId = usize;
-
-    fn source(&self) -> &Self::SourceId {
-        &self.file_id
+    fn display<'a>(&self, id: &'a FileId) -> Option<impl std::fmt::Display + 'a> {
+        self.name_of(*id)
     }
 
-    fn start(&self) -> usize {
-        self.start
-    }
-
-    fn end(&self) -> usize {
-        self.end
-    }
-}
-
-impl Index<SourceSpan> for str {
-    type Output = str;
-
-    fn index(&self, index: SourceSpan) -> &Self::Output {
-        &self[index.span]
+    fn fetch(&mut self, id: &FileId) -> Result<&Source<Self::Storage>, impl std::fmt::Debug> {
+        self.source_of(*id)
+            .ok_or_else(|| format!("source with id {id} is not present in source list"))
     }
 }

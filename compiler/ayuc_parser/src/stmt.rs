@@ -3,7 +3,7 @@ use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 
 use crate::{PResult, Parser};
 
-impl Parser<'_> {
+impl Parser<'_, '_> {
     pub fn parse_let_stmt(&mut self) -> PResult<LetStmt> {
         if !self.maybe(TokenKind::Keyword(Keyword::Let)) {
             return Err(crate::DummyError);

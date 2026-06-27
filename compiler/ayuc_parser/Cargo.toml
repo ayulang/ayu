@@ -7,7 +7,6 @@ edition = "2024"
 ayuc_lexer = { path = "../ayuc_lexer" }
 ayuc_source = { path = "../ayuc_source" }
 ayuc_span = { path = "../ayuc_span" }
-ayuc_common = { path = "../ayuc_common" }
+ayuc_diagnostic = { path = "../ayuc_diagnostic" }
 ayuc_ast = { path = "../ayuc_ast" }
 ayuc_id = { path = "../ayuc_id" }
-ariadne = { version = "0.6.0", default-features = false }

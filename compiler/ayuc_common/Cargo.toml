@@ -1,8 +1,0 @@
-[package]
-name = "ayuc_common"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-ayuc_source = { path = "../ayuc_source" }
-ariadne = { version = "0.6.0", default-features = false }

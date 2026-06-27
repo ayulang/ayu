@@ -1,19 +1,16 @@
 pub mod expr;
 pub mod item;
 pub mod path;
-pub mod session;
 pub mod stmt;
 pub mod ty;
 
 use ayuc_ast::{Ast, Ident, Parameter, ParameterList};
-use ayuc_common::SourceReport;
+use ayuc_diagnostic::DiagnosticContext;
 use ayuc_id::ast::NodeIdAllocator;
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, StructuredToken, Token, TokenKind},
 };
-
-use crate::session::ParseSession;
 
 #[derive(Debug)]
 pub struct DummyError;
@@ -21,39 +18,39 @@ pub struct DummyError;
 pub type PResult<T> = Result<T, DummyError>;
 
 /// Used for parsing an input file into an abstract syntax tree.
-pub struct Parser<'a> {
+pub struct Parser<'src, 'ctx> {
     /// The input token stream.
-    pub(crate) stream: TokenStream<'a>,
+    pub(crate) stream: TokenStream<'src>,
 
     file_id: usize,
-    source: &'a str,
+    source: &'src str,
     node_id_allocator: NodeIdAllocator,
-
-    pub(crate) session: ParseSession<'a>,
+    dcx: &'ctx mut DiagnosticContext,
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(file_id: usize, source: &'a str, stream: TokenStream<'a>) -> Self {
+impl<'src, 'ctx> Parser<'src, 'ctx> {
+    pub fn new(
+        dcx: &'ctx mut DiagnosticContext,
+        file_id: usize,
+        source: &'src str,
+        stream: TokenStream<'src>,
+    ) -> Self {
         Self {
             stream,
             file_id,
             source,
             node_id_allocator: NodeIdAllocator::default(),
-            session: ParseSession::default(),
+            dcx,
         }
     }
 
-    pub fn extend_diagnostics(&mut self, diagnostics: Vec<SourceReport<'a>>) {
-        self.session.extend(diagnostics);
-    }
-
-    pub fn branch(&mut self, stream: TokenStream<'a>) -> Self {
-        Self {
+    pub fn branch<'b>(&'b mut self, stream: TokenStream<'src>) -> Parser<'src, 'b> {
+        Parser {
             stream,
             file_id: self.file_id,
             source: self.source,
             node_id_allocator: self.node_id_allocator.clone(),
-            session: ParseSession::default(),
+            dcx: self.dcx,
         }
     }
 
@@ -144,7 +141,7 @@ impl<'a> Parser<'a> {
         res
     }
 
-    pub fn parse_full(mut self) -> (Option<Ast>, ParseSession<'a>) {
+    pub fn parse_full(mut self) -> Option<Ast> {
         let mut items = Vec::new();
 
         while !self.stream.is_exhausted()
@@ -158,10 +155,10 @@ impl<'a> Parser<'a> {
         {
             match self.parse_item() {
                 Ok(node) => items.push(node),
-                Err(_) => return (None, self.session),
+                Err(_) => return None,
             }
         }
 
-        (Some(Ast { items }), self.session)
+        Some(Ast { items })
     }
 }
