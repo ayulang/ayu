@@ -7,3 +7,4 @@ edition = "2024"
 ariadne = { version = "0.6.0", default-features = false }
 ayuc_span = { path = "../ayuc_span" }
 ayuc_source = { path = "../ayuc_source" }
+colored = "3.1.1"

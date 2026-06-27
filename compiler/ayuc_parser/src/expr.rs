@@ -7,7 +7,7 @@ use ayuc_span::symbol::Symbol;
 
 use crate::{PResult, Parser};
 
-impl Parser<'_> {
+impl Parser<'_, '_> {
     pub fn parse_call_expr(&mut self, prefix: Expr) -> PResult<CallExpr> {
         let tokens = match self.stream.consume() {
             Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens)) => tokens,

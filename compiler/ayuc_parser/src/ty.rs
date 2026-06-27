@@ -2,7 +2,7 @@ use ayuc_ast::{Ty, TyKind};
 
 use crate::{PResult, Parser};
 
-impl Parser<'_> {
+impl Parser<'_, '_> {
     pub fn parse_ty(&mut self) -> PResult<Ty> {
         let snapshot = self.stream.snapshot();
 

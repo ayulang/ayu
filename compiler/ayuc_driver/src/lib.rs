@@ -6,12 +6,27 @@ use std::{
 };
 
 use ayuc_codegen::LuauCodegen;
+use ayuc_diagnostic::DiagnosticContext;
 use ayuc_lexer::{LexedFile, stream::TokenStream};
 use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
 use ayuc_resolve::Resolver;
-use ayuc_source::cache::SourceCache;
+use ayuc_source::SourceCache;
 use ayuc_tyctx::TyCtx;
+
+fn print_diagnostics(dcx: DiagnosticContext, source_cache: &SourceCache) {
+    for advice in dcx.advice() {
+        let _ = advice.to_ariadne().eprint(source_cache);
+    }
+
+    for warning in dcx.warnings() {
+        let _ = warning.to_ariadne().eprint(source_cache);
+    }
+
+    for error in dcx.errors() {
+        let _ = error.to_ariadne().eprint(source_cache);
+    }
+}
 
 pub fn drive() -> ExitCode {
     let mut source_cache = SourceCache::default();
@@ -44,30 +59,27 @@ pub fn drive() -> ExitCode {
         source_cache.name_of(file_id).expect("inaccessible source")
     );
 
-    let LexedFile {
-        diagnostics,
-        tokens,
-    } = ayuc_lexer::lex(file_id, source).expect("unable to lex");
+    let mut dcx = DiagnosticContext::new();
+    let Some(LexedFile { tokens }) = ayuc_lexer::lex(&mut dcx, file_id, source) else {
+        print_diagnostics(dcx, &source_cache);
 
-    let mut parser = Parser::new(file_id, source, TokenStream::new(&tokens));
+        return ExitCode::FAILURE;
+    };
 
-    parser.extend_diagnostics(diagnostics);
+    let parser = Parser::new(&mut dcx, file_id, source, TokenStream::new(&tokens));
+    let ast = parser.parse_full();
 
-    let (ast, diagnostics) = parser.parse_full();
-    let diagnostics = diagnostics.unwrap();
+    if ast.is_none() || !dcx.errors().is_empty() {
+        let errors = dcx.errors().len();
 
-    if !diagnostics.is_empty() {
-        for diagnostic in &diagnostics {
-            let _ = diagnostic.eprint(&source_cache);
-        }
+        print_diagnostics(dcx, &source_cache);
 
-        println!(
-            "> Unable to compile because of {} diagnostics",
-            diagnostics.len()
+        eprintln!(
+            "> Unable to compile due to {} error{}",
+            errors,
+            if errors == 1 { "" } else { "s" }
         );
-    }
 
-    if ast.is_none() || !diagnostics.is_empty() {
         return ExitCode::FAILURE;
     }
 
