@@ -9,6 +9,7 @@ use ayuc_codegen::LuauCodegen;
 use ayuc_lexer::{LexedFile, stream::TokenStream};
 use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
+use ayuc_resolve::Resolver;
 use ayuc_source::cache::SourceCache;
 use ayuc_tyctx::TyCtx;
 
@@ -77,7 +78,9 @@ pub fn drive() -> ExitCode {
         next_package_id: 0,
     };
 
-    let lowering = AstLowering::new(&mut ty_ctx);
+    let resolver = Resolver::resolve(&ast);
+
+    let lowering = AstLowering::new(&mut ty_ctx, &resolver);
     let package = lowering.lower(&ast);
     let package_id = ty_ctx.register_package(package);
 

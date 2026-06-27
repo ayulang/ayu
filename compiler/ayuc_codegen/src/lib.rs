@@ -1,19 +1,21 @@
-use ayuc_hir::{BinaryOp, Expr, ExprKind, ItemKind, Literal, Stmt, StmtKind};
+use ayuc_hir::{
+    BinaryOp, Def, Expr, ExprKind, ExternFnItem, FnItem, ItemKind, Literal, Package, Stmt, StmtKind,
+};
 use ayuc_id::hir::PackageId;
 use ayuc_tyctx::TyCtx;
 use std::fmt::Write;
 
 pub struct LuauCodegen;
 
-fn write_expr(buf: &mut String, expr: &Expr) {
+fn write_expr(pkg: &Package, buf: &mut String, expr: &Expr) {
     match &expr.kind {
         ExprKind::Call(call) => {
-            write_expr(buf, &call.callee);
+            write_expr(pkg, buf, &call.callee);
 
             let _ = write!(buf, "(");
 
             for (i, x) in call.args.iter().enumerate() {
-                write_expr(buf, x);
+                write_expr(pkg, buf, x);
 
                 if i != call.args.len() - 1 {
                     let _ = write!(buf, ", ");
@@ -22,7 +24,16 @@ fn write_expr(buf: &mut String, expr: &Expr) {
 
             let _ = write!(buf, ")");
         }
-        ExprKind::Ident(ident) => {
+        ExprKind::Ref(def) => {
+            let ident = match def {
+                Def::Def(def) => match &pkg.items[*def].kind {
+                    ItemKind::Fn(FnItem { name, .. })
+                    | ItemKind::ExternFn(ExternFnItem { name, .. }) => *name,
+                    _ => unreachable!(),
+                },
+                Def::Local(local) => pkg.locals[*local].name,
+            };
+
             let _ = write!(buf, "{}", ident.as_str());
         }
         ExprKind::Lit(Literal::Str(str)) => {
@@ -32,7 +43,7 @@ fn write_expr(buf: &mut String, expr: &Expr) {
             let _ = write!(buf, "{}", value);
         }
         ExprKind::Binary(bin) => {
-            write_expr(buf, &bin.left);
+            write_expr(pkg, buf, &bin.left);
 
             let _ = write!(
                 buf,
@@ -42,18 +53,18 @@ fn write_expr(buf: &mut String, expr: &Expr) {
                 }
             );
 
-            write_expr(buf, &bin.right);
+            write_expr(pkg, buf, &bin.right);
         }
     }
 }
 
-fn write_stmt(buf: &mut String, stmt: &Stmt) {
+fn write_stmt(pkg: &Package, buf: &mut String, stmt: &Stmt) {
     match &stmt.kind {
-        StmtKind::Expr(expr) => write_expr(buf, expr),
+        StmtKind::Expr(expr) => write_expr(pkg, buf, expr),
         StmtKind::Let(var_decl) => {
             let _ = write!(buf, "local {} = ", var_decl.ident.as_str());
 
-            write_expr(buf, &var_decl.init);
+            write_expr(pkg, buf, &var_decl.init);
         }
         StmtKind::Return(ret) => {
             let _ = write!(buf, "return");
@@ -61,7 +72,7 @@ fn write_stmt(buf: &mut String, stmt: &Stmt) {
             if let Some(expr) = &ret.expr {
                 let _ = write!(buf, " ");
 
-                write_expr(buf, expr);
+                write_expr(pkg, buf, expr);
             }
         }
     };
@@ -75,9 +86,9 @@ impl LuauCodegen {
 
         let mut buf = String::new();
         let mut contains_main = false;
-        let module = ty_ctx.package(module_id);
+        let pkg = ty_ctx.package(module_id);
 
-        for item in &module.items {
+        for item in pkg.items.values() {
             match &item.kind {
                 ItemKind::Fn(fn_item) => {
                     if fn_item.name.as_str() == "main" {
@@ -97,12 +108,13 @@ impl LuauCodegen {
                     let _ = writeln!(buf, ")");
 
                     for stmt in &fn_item.block.stmts {
-                        write_stmt(&mut buf, stmt);
+                        write_stmt(pkg, &mut buf, stmt);
                     }
 
                     let _ = writeln!(buf, "end");
                 }
                 ItemKind::ExternFn(_) => {}
+                ItemKind::Dummy => panic!("dummy items are not allowed to exist"),
             }
         }
 

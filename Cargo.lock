@@ -81,6 +81,7 @@ dependencies = [
  "ayuc_lexer",
  "ayuc_lower",
  "ayuc_parser",
+ "ayuc_resolve",
  "ayuc_sema",
  "ayuc_source",
  "ayuc_tyctx",
@@ -92,11 +93,15 @@ version = "0.1.0"
 dependencies = [
  "ayuc_id",
  "ayuc_span",
+ "slotmap",
 ]
 
 [[package]]
 name = "ayuc_id"
 version = "0.1.0"
+dependencies = [
+ "slotmap",
+]
 
 [[package]]
 name = "ayuc_lexer"
@@ -117,6 +122,8 @@ dependencies = [
  "ayuc_ast",
  "ayuc_hir",
  "ayuc_id",
+ "ayuc_resolve",
+ "ayuc_span",
  "ayuc_tyctx",
  "bimap",
 ]
@@ -141,6 +148,11 @@ version = "0.1.0"
 [[package]]
 name = "ayuc_resolve"
 version = "0.1.0"
+dependencies = [
+ "ayuc_ast",
+ "ayuc_hir",
+ "ayuc_id",
+]
 
 [[package]]
 name = "ayuc_scanner"
@@ -307,6 +319,15 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "slotmap"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdd58c3c93c3d278ca835519292445cb4b0d4dc59ccfdf7ceadaab3f8aeb4038"
+dependencies = [
+ "version_check",
+]
 
 [[package]]
 name = "smallvec"

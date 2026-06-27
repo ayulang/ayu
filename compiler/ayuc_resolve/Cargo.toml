@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+ayuc_id = { path = "../ayuc_id" }
+ayuc_ast = { path = "../ayuc_ast" }
+ayuc_hir = { path = "../ayuc_hir" }
