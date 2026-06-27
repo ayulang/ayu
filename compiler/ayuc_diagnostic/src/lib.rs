@@ -1,6 +1,9 @@
 use ayuc_source::cache::FileId;
 use ayuc_span::Span;
 
+const ARIADNE_CONFIG: ariadne::Config =
+    ariadne::Config::new().with_index_type(ariadne::IndexType::Byte);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
     Error,
