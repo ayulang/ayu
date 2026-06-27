@@ -49,6 +49,14 @@ impl<'a> AstLowering<'a> {
                 },
                 def_id,
             );
+        }
+
+        for item in &ast.items {
+            let def_id = self
+                .def_mappings
+                .get_by_left(&item.id)
+                .copied()
+                .expect("item escaped two-pass");
 
             self.package.items[def_id] = self.lower_item(item);
         }
@@ -176,7 +184,7 @@ impl<'a> AstLowering<'a> {
             ast::ExprKind::Identifier(ident) => hir::ExprKind::Ref(
                 self.stack
                     .lookup(ident.sym)
-                    .expect("unable to find identifier"),
+                    .expect("unable to find identifier"), // TODO: make this a diagnostic instead
             ),
             ast::ExprKind::Call(call) => hir::ExprKind::Call(ayuc_hir::CallExpr {
                 callee: Box::new(self.lower_expr(&call.callee)),
@@ -198,7 +206,6 @@ impl<'a> AstLowering<'a> {
         hir::Expr { id, kind }
     }
 
-    // TODO
     fn lower_ty(&mut self, ty: &ast::Ty) -> hir::Ty {
         self.resolver.get_res(ty.id)
     }
