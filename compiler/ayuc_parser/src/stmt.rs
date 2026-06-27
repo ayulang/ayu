@@ -25,9 +25,9 @@ impl Parser<'_, '_> {
             return Err(crate::DummyError);
         }
 
-        let expr = self.parse_expression()?; // make it try to parse an expression instead.
+        let expr = self.with_rollback(|this| this.parse_expression()).ok();
 
-        Ok(ReturnStmt { expr: Some(expr) })
+        Ok(ReturnStmt { expr })
     }
 
     pub fn parse_statement(&mut self) -> PResult<Stmt> {
