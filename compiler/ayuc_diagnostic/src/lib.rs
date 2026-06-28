@@ -4,9 +4,22 @@ use ayuc_source::FileId;
 use ayuc_span::Span;
 
 pub use colored;
+use colored::{ColoredString, Colorize};
 
 const ARIADNE_CONFIG: ariadne::Config =
     ariadne::Config::new().with_index_type(ariadne::IndexType::Byte);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Color {
+    BrightRed,
+    BrightYellow,
+    BrightBlue,
+    BrightCyan,
+    BrightGreen,
+    Red,
+    Yellow,
+    Blue,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
@@ -133,16 +146,16 @@ impl Diagnostic {
 
         for label in &self.labels {
             let color = match label.kind {
-                LabelKind::Primary => self.severity.ariadne_color(),
-                LabelKind::Secondary => self.severity.secondary_ariadne_color(),
-                LabelKind::Help => ariadne::Color::BrightCyan,
-                LabelKind::Note => ariadne::Color::BrightGreen,
+                LabelKind::Primary => self.severity.color(),
+                LabelKind::Secondary => self.severity.secondary_color(),
+                LabelKind::Help => Color::BrightCyan,
+                LabelKind::Note => Color::BrightGreen,
             };
 
             builder.add_label(
                 ariadne::Label::new((self.file_id, label.span.range()))
-                    .with_message(&label.message)
-                    .with_color(color),
+                    .with_message(color.colorize(&label.message))
+                    .with_color(color.into()),
             );
         }
 
@@ -195,19 +208,36 @@ impl DiagnosticContext {
 }
 
 impl Severity {
-    pub(crate) fn ariadne_color(&self) -> ariadne::Color {
+    pub(crate) fn color(&self) -> Color {
         match self {
-            Self::Error => ariadne::Color::BrightRed,
-            Self::Warning => ariadne::Color::BrightYellow,
-            Self::Advice => ariadne::Color::BrightBlue,
+            Self::Error => Color::BrightRed,
+            Self::Warning => Color::BrightYellow,
+            Self::Advice => Color::BrightBlue,
         }
     }
 
-    pub(crate) fn secondary_ariadne_color(&self) -> ariadne::Color {
+    pub(crate) fn secondary_color(&self) -> Color {
         match self {
-            Self::Error => ariadne::Color::Red,
-            Self::Warning => ariadne::Color::Yellow,
-            Self::Advice => ariadne::Color::Blue,
+            Self::Error => Color::Red,
+            Self::Warning => Color::Yellow,
+            Self::Advice => Color::Blue,
+        }
+    }
+}
+
+impl Color {
+    pub fn colorize<S: AsRef<str>>(&self, s: S) -> ColoredString {
+        let s = s.as_ref();
+
+        match self {
+            Color::BrightRed => s.bright_red(),
+            Color::BrightBlue => s.bright_blue(),
+            Color::BrightCyan => s.bright_cyan(),
+            Color::BrightGreen => s.bright_green(),
+            Color::BrightYellow => s.bright_yellow(),
+            Color::Blue => s.blue(),
+            Color::Red => s.red(),
+            Color::Yellow => s.yellow(),
         }
     }
 }
@@ -224,6 +254,21 @@ impl From<Severity> for ariadne::ReportKind<'_> {
             Severity::Error => Self::Error,
             Severity::Warning => Self::Warning,
             Severity::Advice => Self::Advice,
+        }
+    }
+}
+
+impl From<Color> for ariadne::Color {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Blue => Self::Blue,
+            Color::Yellow => Self::Yellow,
+            Color::Red => Self::Red,
+            Color::BrightBlue => Self::BrightBlue,
+            Color::BrightCyan => Self::BrightCyan,
+            Color::BrightGreen => Self::BrightGreen,
+            Color::BrightRed => Self::BrightRed,
+            Color::BrightYellow => Self::BrightYellow,
         }
     }
 }
