@@ -257,11 +257,7 @@ impl<'a> Lexer<'a> {
     pub fn lex_into_structured(mut self) -> Option<Vec<StructuredToken>> {
         let mut buf = Vec::new();
 
-        loop {
-            let Some(token) = self.next_token() else {
-                break;
-            };
-
+        while let Some(token) = self.next_token() {
             match token.kind {
                 TokenKind::CloseParen | TokenKind::CloseBrace => {
                     let pair = match token.kind {
