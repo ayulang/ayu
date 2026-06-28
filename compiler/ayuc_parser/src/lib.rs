@@ -64,21 +64,33 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
         }
     }
 
-    pub fn require_token(&mut self) -> PResult<&'src StructuredToken> {
+    pub fn require_token_with_diag<D>(&mut self, diag_fn: D) -> PResult<&'src StructuredToken>
+    where
+        D: FnOnce(Diagnostic, Span) -> Diagnostic,
+    {
         self.stream.consume().ok_or_else(|| {
             let span = self
                 .stream
                 .past_span(1)
                 .unwrap_or(Span::from(self.source.len()));
 
-            Diagnostic::error(self.file_id, span)
-                .with_message("unexpected end of file")
-                .with_label(Label::primary(Span::from(span.end), "expected token"))
+            diag_fn(
+                Diagnostic::error(self.file_id, span).with_message("unexpected end of input"),
+                Span::from(span.end),
+            )
+        })
+    }
+
+    pub fn require_token(&mut self) -> PResult<&'src StructuredToken> {
+        self.require_token_with_diag(|diag, span| {
+            diag.with_label(Label::primary(span, "expected token"))
         })
     }
 
     pub fn parse_ident(&mut self) -> PResult<Ident> {
-        let token = self.require_token()?;
+        let token = self.require_token_with_diag(|diag, span| {
+            diag.with_label(Label::primary(span, "expected an identifier"))
+        })?;
 
         match token {
             StructuredToken::Token(Token {
@@ -99,7 +111,7 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
     }
 
     pub fn parse_parameter(&mut self) -> PResult<Parameter> {
-        let ident = self.parse_ident().unwrap();
+        let ident = self.parse_ident()?;
 
         if !self.maybe(TokenKind::Colon) {
             todo!();
