@@ -6,11 +6,11 @@ use crate::{PResult, Parser};
 impl Parser<'_, '_> {
     pub fn parse_extern_fn_item(&mut self) -> PResult<ExternFnDecl> {
         if !self.maybe(TokenKind::Keyword(Keyword::Extern)) {
-            return Err(crate::DummyError);
+            todo!()
         }
 
         if !self.maybe(TokenKind::Keyword(Keyword::Fn)) {
-            return Err(crate::DummyError);
+            todo!()
         }
 
         let ident = self.parse_ident()?;
@@ -39,7 +39,7 @@ impl Parser<'_, '_> {
 
     pub fn parse_fn_item(&mut self) -> PResult<FnDecl> {
         if !self.maybe(TokenKind::Keyword(Keyword::Fn)) {
-            return Err(crate::DummyError);
+            todo!()
         }
 
         let ident = self.parse_ident()?;
@@ -71,7 +71,7 @@ impl Parser<'_, '_> {
 
     pub fn parse_item(&mut self) -> PResult<Item> {
         let Some(first) = self.stream.first() else {
-            return Err(crate::DummyError);
+            todo!()
         };
 
         let snapshot = self.stream.snapshot();

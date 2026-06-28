@@ -11,7 +11,7 @@ impl Parser<'_, '_> {
     pub fn parse_call_expr(&mut self, prefix: Expr) -> PResult<CallExpr> {
         let tokens = match self.stream.consume() {
             Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens)) => tokens,
-            _ => return Err(crate::DummyError),
+            _ => todo!(),
         };
 
         let mut inner = self.branch(TokenStream::new(tokens));
@@ -38,7 +38,7 @@ impl Parser<'_, '_> {
         let operator = if self.maybe(TokenKind::Plus) {
             Operator::Add
         } else {
-            return Err(crate::DummyError);
+            todo!()
         };
 
         let right = self.parse_expression()?;
@@ -53,7 +53,7 @@ impl Parser<'_, '_> {
     pub fn parse_block_expr(&mut self) -> PResult<Block> {
         let (span, tokens) = match self.stream.consume() {
             Some(StructuredToken::Delimited(span, Delimiter::Braces, tokens)) => (*span, tokens),
-            _ => return Err(crate::DummyError),
+            _ => todo!(),
         };
 
         let mut inner = self.branch(TokenStream::new(tokens));
@@ -68,7 +68,7 @@ impl Parser<'_, '_> {
 
     pub fn parse_expr_prefix(&mut self) -> PResult<Expr> {
         let Some(first) = self.stream.consume() else {
-            return Err(crate::DummyError);
+            todo!()
         };
 
         Ok(match first {
@@ -86,7 +86,7 @@ impl Parser<'_, '_> {
 
                         Literal::Integer {
                             span: *span,
-                            value: data.parse().map_err(|_| crate::DummyError)?,
+                            value: data.parse().unwrap(),
                         }
                     }
                 };
@@ -108,7 +108,7 @@ impl Parser<'_, '_> {
                     sym: *sym,
                 }),
             },
-            _ => return Err(crate::DummyError),
+            _ => todo!(),
         })
     }
 

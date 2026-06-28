@@ -5,17 +5,15 @@ pub mod stmt;
 pub mod ty;
 
 use ayuc_ast::{Ast, Ident, Parameter, ParameterList};
-use ayuc_diagnostic::DiagnosticContext;
+use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label};
 use ayuc_id::ast::NodeIdAllocator;
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, StructuredToken, Token, TokenKind},
 };
+use ayuc_span::Span;
 
-#[derive(Debug)]
-pub struct DummyError;
-
-pub type PResult<T> = Result<T, DummyError>;
+pub type PResult<T> = Result<T, Diagnostic>;
 
 /// Used for parsing an input file into an abstract syntax tree.
 pub struct Parser<'src, 'ctx> {
@@ -66,18 +64,37 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
         }
     }
 
+    pub fn require_token(&mut self) -> PResult<&StructuredToken> {
+        self.stream.consume().ok_or_else(|| {
+            let span = self
+                .stream
+                .past_span(1)
+                .unwrap_or(Span::from(self.source.len()));
+
+            Diagnostic::error(self.file_id, span)
+                .with_message("unexpected end of file")
+                .with_label(Label::primary(Span::from(span.end), "expected token"))
+        })
+    }
+
     pub fn parse_ident(&mut self) -> PResult<Ident> {
-        if let Some(StructuredToken::Token(Token {
-            kind: TokenKind::Ident(sym),
-            span,
-        })) = self.stream.consume()
-        {
-            Ok(Ident {
+        let token = self.require_token()?;
+
+        match token {
+            StructuredToken::Token(Token {
+                kind: TokenKind::Ident(sym),
+                span,
+            }) => Ok(Ident {
                 sym: *sym,
                 span: *span,
-            })
-        } else {
-            Err(DummyError)
+            }),
+            _ => {
+                let span = token.span();
+
+                Err(Diagnostic::error(self.file_id, span)
+                    .with_message("expected identifier")
+                    .with_label(Label::primary(span, "expected identifier")))
+            }
         }
     }
 
@@ -85,7 +102,7 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
         let ident = self.parse_ident().unwrap();
 
         if !self.maybe(TokenKind::Colon) {
-            return Err(DummyError);
+            todo!();
         }
 
         let ty = self.parse_ty().unwrap();
@@ -144,18 +161,14 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
     pub fn parse_full(mut self) -> Option<Ast> {
         let mut items = Vec::new();
 
-        while !self.stream.is_exhausted()
-            && !matches!(
-                self.stream.first(),
-                Some(StructuredToken::Token(Token {
-                    kind: TokenKind::Eof,
-                    ..
-                }))
-            )
-        {
+        while !self.stream.is_exhausted() {
             match self.parse_item() {
                 Ok(node) => items.push(node),
-                Err(_) => return None,
+                Err(diag) => {
+                    self.dcx.emit(diag);
+
+                    return None;
+                }
             }
         }
 
