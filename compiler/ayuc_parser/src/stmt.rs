@@ -1,9 +1,20 @@
-use ayuc_ast::{LetStmt, ReturnStmt, Stmt, StmtKind};
+use ayuc_ast::{IfStmt, LetStmt, ReturnStmt, Stmt, StmtKind};
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 
 use crate::{PResult, Parser};
 
 impl Parser<'_, '_> {
+    pub fn parse_if_stmt(&mut self) -> PResult<IfStmt> {
+        if !self.maybe(TokenKind::Keyword(Keyword::If)) {
+            unreachable!()
+        }
+
+        let expr = self.parse_expression()?;
+        let block = self.parse_block_expr()?;
+
+        Ok(IfStmt { expr, block })
+    }
+
     pub fn parse_let_stmt(&mut self) -> PResult<LetStmt> {
         if !self.maybe(TokenKind::Keyword(Keyword::Let)) {
             todo!()
@@ -38,6 +49,11 @@ impl Parser<'_, '_> {
         let snapshot = self.stream.snapshot();
 
         let kind = match first {
+            StructuredToken::Token(Token {
+                kind: TokenKind::Keyword(Keyword::If),
+                ..
+            }) => StmtKind::If(self.parse_if_stmt()?),
+
             StructuredToken::Token(Token {
                 kind: TokenKind::Keyword(Keyword::Return),
                 ..

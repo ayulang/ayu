@@ -35,10 +35,16 @@ impl Parser<'_, '_> {
     }
 
     pub fn parse_bin_expr(&mut self, left: Expr) -> PResult<BinExpr> {
-        let operator = if self.maybe(TokenKind::Plus) {
-            Operator::Add
-        } else {
-            todo!()
+        let operator = match self.require_token()? {
+            StructuredToken::Token(Token {
+                kind: TokenKind::Plus,
+                ..
+            }) => Operator::Add,
+            StructuredToken::Token(Token {
+                kind: TokenKind::Gt,
+                ..
+            }) => Operator::Gt,
+            _ => todo!(),
         };
 
         let right = self.parse_expression()?;
@@ -127,7 +133,9 @@ impl Parser<'_, '_> {
                     kind: ExprKind::Call(self.parse_call_expr(prefix)?),
                 });
             }
-            StructuredToken::Token(Token { kind, .. }) if *kind == TokenKind::Plus => {
+            StructuredToken::Token(Token { kind, .. })
+                if *kind == TokenKind::Plus || *kind == TokenKind::Gt =>
+            {
                 let bin = self.parse_bin_expr(prefix)?;
 
                 return Ok(Expr {

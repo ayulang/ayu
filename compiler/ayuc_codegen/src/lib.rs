@@ -50,6 +50,7 @@ fn write_expr(pkg: &Package, buf: &mut String, expr: &Expr) {
                 " {} ",
                 match bin.operator {
                     BinaryOp::Add => "+",
+                    BinaryOp::Gt => ">",
                 }
             );
 
@@ -60,6 +61,19 @@ fn write_expr(pkg: &Package, buf: &mut String, expr: &Expr) {
 
 fn write_stmt(pkg: &Package, buf: &mut String, stmt: &Stmt) {
     match &stmt.kind {
+        StmtKind::If(if_stmt) => {
+            let _ = write!(buf, "if ");
+
+            write_expr(pkg, buf, &if_stmt.expr);
+
+            let _ = writeln!(buf, " then");
+
+            for stmt in &if_stmt.block.stmts {
+                write_stmt(pkg, buf, stmt);
+            }
+
+            let _ = write!(buf, "end");
+        }
         StmtKind::Expr(expr) => write_expr(pkg, buf, expr),
         StmtKind::Let(var_decl) => {
             let _ = write!(buf, "local {} = ", var_decl.ident.as_str());

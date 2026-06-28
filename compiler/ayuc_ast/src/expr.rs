@@ -22,6 +22,8 @@ pub enum ExprKind {
 pub enum Operator {
     /// a + b
     Add,
+    /// a > b
+    Gt,
 }
 
 #[derive(Debug)]
