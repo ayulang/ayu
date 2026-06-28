@@ -53,6 +53,7 @@ impl<'a> Lexer<'a> {
             "let" => Some(Keyword::Let),
             "extern" => Some(Keyword::Extern),
             "return" => Some(Keyword::Return),
+            "if" => Some(Keyword::If),
             _ => None,
         };
 
