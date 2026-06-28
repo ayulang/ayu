@@ -20,6 +20,7 @@ pub enum ExprKind {
 #[derive(Debug)]
 pub enum BinaryOp {
     Add,
+    Gt,
 }
 
 #[derive(Debug)]

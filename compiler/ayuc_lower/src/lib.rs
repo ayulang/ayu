@@ -163,6 +163,10 @@ impl<'a> AstLowering<'a> {
             ast::StmtKind::Return(ret) => hir::StmtKind::Return(hir::ReturnStmt {
                 expr: ret.expr.as_ref().map(|expr| self.lower_expr(expr)),
             }),
+            ayuc_ast::StmtKind::If(if_stmt) => hir::StmtKind::If(hir::IfStmt {
+                expr: self.lower_expr(&if_stmt.expr),
+                block: self.lower_block(&if_stmt.block),
+            }),
         };
 
         if let hir::StmtKind::Let(decl) = &kind {
@@ -198,6 +202,7 @@ impl<'a> AstLowering<'a> {
                 left: Box::new(self.lower_expr(&bin.left)),
                 operator: match bin.operator {
                     ast::Operator::Add => hir::BinaryOp::Add,
+                    ayuc_ast::Operator::Gt => hir::BinaryOp::Gt,
                 },
                 right: Box::new(self.lower_expr(&bin.right)),
             }),

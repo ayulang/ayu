@@ -1,7 +1,7 @@
 use ayuc_id::ast::NodeId;
 use ayuc_span::Span;
 
-use crate::{Expr, Ident};
+use crate::{Block, Expr, Ident};
 
 #[derive(Debug)]
 pub struct Stmt {
@@ -15,6 +15,7 @@ pub enum StmtKind {
     Expr(Expr),
     Let(LetStmt),
     Return(ReturnStmt),
+    If(IfStmt),
 }
 
 #[derive(Debug)]
@@ -26,4 +27,10 @@ pub struct LetStmt {
 #[derive(Debug)]
 pub struct ReturnStmt {
     pub expr: Option<Expr>,
+}
+
+#[derive(Debug)]
+pub struct IfStmt {
+    pub expr: Expr,
+    pub block: Block,
 }
