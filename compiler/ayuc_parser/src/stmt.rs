@@ -9,7 +9,7 @@ impl Parser<'_, '_> {
             todo!()
         }
 
-        let ident = self.parse_ident().unwrap();
+        let ident = self.parse_ident()?;
 
         if !self.maybe(TokenKind::Equals) {
             todo!()
