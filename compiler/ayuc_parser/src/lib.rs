@@ -5,17 +5,15 @@ pub mod stmt;
 pub mod ty;
 
 use ayuc_ast::{Ast, Ident, Parameter, ParameterList};
-use ayuc_diagnostic::DiagnosticContext;
+use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label};
 use ayuc_id::ast::NodeIdAllocator;
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, StructuredToken, Token, TokenKind},
 };
+use ayuc_span::Span;
 
-#[derive(Debug)]
-pub struct DummyError;
-
-pub type PResult<T> = Result<T, DummyError>;
+pub type PResult<T> = Result<T, Diagnostic>;
 
 /// Used for parsing an input file into an abstract syntax tree.
 pub struct Parser<'src, 'ctx> {
@@ -66,26 +64,57 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
         }
     }
 
+    pub fn require_token_with_diag<D>(&mut self, diag_fn: D) -> PResult<&'src StructuredToken>
+    where
+        D: FnOnce(Diagnostic, Span) -> Diagnostic,
+    {
+        self.stream.consume().ok_or_else(|| {
+            let span = self
+                .stream
+                .past_span(1)
+                .unwrap_or(Span::from(self.source.len()));
+
+            diag_fn(
+                Diagnostic::error(self.file_id, span).with_message("unexpected end of input"),
+                Span::from(span.end),
+            )
+        })
+    }
+
+    pub fn require_token(&mut self) -> PResult<&'src StructuredToken> {
+        self.require_token_with_diag(|diag, span| {
+            diag.with_label(Label::primary(span, "expected token"))
+        })
+    }
+
     pub fn parse_ident(&mut self) -> PResult<Ident> {
-        if let Some(StructuredToken::Token(Token {
-            kind: TokenKind::Ident(sym),
-            span,
-        })) = self.stream.consume()
-        {
-            Ok(Ident {
+        let token = self.require_token_with_diag(|diag, span| {
+            diag.with_label(Label::primary(span, "expected an identifier"))
+        })?;
+
+        match token {
+            StructuredToken::Token(Token {
+                kind: TokenKind::Ident(sym),
+                span,
+            }) => Ok(Ident {
                 sym: *sym,
                 span: *span,
-            })
-        } else {
-            Err(DummyError)
+            }),
+            _ => {
+                let span = token.span();
+
+                Err(Diagnostic::error(self.file_id, span)
+                    .with_message("expected identifier")
+                    .with_label(Label::primary(span, "expected identifier")))
+            }
         }
     }
 
     pub fn parse_parameter(&mut self) -> PResult<Parameter> {
-        let ident = self.parse_ident().unwrap();
+        let ident = self.parse_ident()?;
 
         if !self.maybe(TokenKind::Colon) {
-            return Err(DummyError);
+            todo!();
         }
 
         let ty = self.parse_ty().unwrap();
@@ -95,11 +124,17 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
 
     pub fn parse_parameter_list(&mut self) -> PResult<ParameterList> {
         let snapshot = self.stream.snapshot();
+        let token = self.require_token()?;
 
-        let tokens = match self.stream.consume() {
-            Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens)) => tokens,
+        let tokens = match token {
+            StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens) => tokens,
             _ => {
-                todo!()
+                return Err(Diagnostic::error(self.file_id, token.span())
+                    .with_message("expected parenthesized list of parameters")
+                    .with_label(Label::primary(
+                        token.span(),
+                        "expected a list in the shape of `(name: type)`",
+                    )));
             }
         };
 
@@ -144,18 +179,14 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
     pub fn parse_full(mut self) -> Option<Ast> {
         let mut items = Vec::new();
 
-        while !self.stream.is_exhausted()
-            && !matches!(
-                self.stream.first(),
-                Some(StructuredToken::Token(Token {
-                    kind: TokenKind::Eof,
-                    ..
-                }))
-            )
-        {
+        while !self.stream.is_exhausted() {
             match self.parse_item() {
                 Ok(node) => items.push(node),
-                Err(_) => return None,
+                Err(diag) => {
+                    self.dcx.emit(diag);
+
+                    return None;
+                }
             }
         }
 

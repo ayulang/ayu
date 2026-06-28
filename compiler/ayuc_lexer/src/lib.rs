@@ -106,25 +106,9 @@ impl<'a> Lexer<'a> {
         let closing_kind = delimiter.closing_kind();
 
         loop {
-            let token = self.next_token();
-
-            match token.kind {
-                kind if kind == closing_kind => {
-                    full_span.end = token.span.end;
-
-                    break;
-                }
-
-                TokenKind::OpenParen | TokenKind::OpenBrace => {
-                    let delimiter = token
-                        .kind
-                        .to_delimiter()
-                        .expect("failed to convert token kind to delimiter");
-
-                    buf.push(self.lex_structured_until_delimiter(token.span, delimiter)?)
-                }
-
-                TokenKind::Eof => {
+            let token = match self.next_token() {
+                Some(t) => t,
+                None => {
                     let pair = match delimiter.closing_kind() {
                         TokenKind::CloseBrace => "}",
                         TokenKind::CloseParen => "}",
@@ -145,6 +129,23 @@ impl<'a> Lexer<'a> {
 
                     return None;
                 }
+            };
+
+            match token.kind {
+                kind if kind == closing_kind => {
+                    full_span.end = token.span.end;
+
+                    break;
+                }
+
+                TokenKind::OpenParen | TokenKind::OpenBrace => {
+                    let delimiter = token
+                        .kind
+                        .to_delimiter()
+                        .expect("failed to convert token kind to delimiter");
+
+                    buf.push(self.lex_structured_until_delimiter(token.span, delimiter)?)
+                }
 
                 _ => buf.push(StructuredToken::Token(token)),
             }
@@ -153,15 +154,12 @@ impl<'a> Lexer<'a> {
         Some(StructuredToken::Delimited(full_span, delimiter, buf))
     }
 
-    pub fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Option<Token> {
         loop {
-            let Some(RawToken {
+            let RawToken {
                 kind: raw_kind,
                 mut span,
-            }) = self.raw_stream.consume()
-            else {
-                todo!("have to add unexpected EOF to Lexer::next_token")
-            };
+            } = self.raw_stream.consume()?;
 
             let kind = match raw_kind {
                 RawTokenKind::Whitespace => {
@@ -249,19 +247,17 @@ impl<'a> Lexer<'a> {
                     continue;
                 }
 
-                RawTokenKind::Eof => TokenKind::Eof,
+                RawTokenKind::Eof => return None,
             };
 
-            return Token::new(kind, span);
+            return Some(Token::new(kind, span));
         }
     }
 
     pub fn lex_into_structured(mut self) -> Option<Vec<StructuredToken>> {
         let mut buf = Vec::new();
 
-        loop {
-            let token = self.next_token();
-
+        while let Some(token) = self.next_token() {
             match token.kind {
                 TokenKind::CloseParen | TokenKind::CloseBrace => {
                     let pair = match token.kind {
@@ -289,12 +285,6 @@ impl<'a> Lexer<'a> {
                         .expect("failed to convert token kind to delimiter");
 
                     buf.push(self.lex_structured_until_delimiter(token.span, delimiter)?)
-                }
-
-                TokenKind::Eof => {
-                    buf.push(StructuredToken::Token(token));
-
-                    break;
                 }
 
                 _ => {

@@ -63,9 +63,6 @@ pub enum TokenKind {
     Arrow,
     /// ,
     Comma,
-
-    /// The end of the input.
-    Eof,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,11 +85,6 @@ impl StructuredToken {
 impl Token {
     pub const fn new(kind: TokenKind, span: Span) -> Self {
         Self { kind, span }
-    }
-
-    #[inline]
-    pub fn is_eof(&self) -> bool {
-        self.kind == TokenKind::Eof
     }
 }
 
