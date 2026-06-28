@@ -64,7 +64,7 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
         }
     }
 
-    pub fn require_token(&mut self) -> PResult<&StructuredToken> {
+    pub fn require_token(&mut self) -> PResult<&'src StructuredToken> {
         self.stream.consume().ok_or_else(|| {
             let span = self
                 .stream
@@ -112,11 +112,17 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
 
     pub fn parse_parameter_list(&mut self) -> PResult<ParameterList> {
         let snapshot = self.stream.snapshot();
+        let token = self.require_token()?;
 
-        let tokens = match self.stream.consume() {
-            Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens)) => tokens,
+        let tokens = match token {
+            StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens) => tokens,
             _ => {
-                todo!()
+                return Err(Diagnostic::error(self.file_id, token.span())
+                    .with_message("expected parenthesized list of parameters")
+                    .with_label(Label::primary(
+                        token.span(),
+                        "expected a list in the shape of `(name: type)`",
+                    )));
             }
         };
 
