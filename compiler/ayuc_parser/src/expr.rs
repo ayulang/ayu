@@ -14,18 +14,21 @@ impl Parser<'_, '_> {
             _ => todo!(),
         };
 
-        let mut inner = self.branch(TokenStream::new(tokens));
         let mut args = Vec::new();
-        let mut expect_expr = true;
 
-        while expect_expr {
-            if let Ok(expr) = inner.parse_expression() {
-                args.push(expr);
-            } else {
-                break;
+        if !tokens.is_empty() {
+            let mut inner = self.branch(TokenStream::new(tokens));
+            let mut expect_expr = true;
+
+            while expect_expr {
+                if let Ok(expr) = inner.parse_expression() {
+                    args.push(expr);
+                } else {
+                    break;
+                }
+
+                expect_expr = inner.maybe(TokenKind::Comma);
             }
-
-            expect_expr = inner.maybe(TokenKind::Comma);
         }
 
         Ok(CallExpr {

@@ -111,6 +111,38 @@ impl<'a> Scanner<'a> {
         RawToken::new(kind, (self.position - 1, self.position))
     }
 
+    pub(crate) fn comment(&mut self) -> RawToken {
+        let start = self.position - 1;
+
+        self.bump(); // Slash
+
+        while let Some(c) = self.bump() {
+            if c == '\n' {
+                break;
+            }
+        }
+
+        RawToken::new(RawTokenKind::Comment, (start, self.position))
+    }
+
+    pub(crate) fn multiline_comment(&mut self) -> RawToken {
+        let start = self.position - 1;
+
+        self.bump(); // Asterisk
+
+        while let Some(c) = self.bump() {
+            if c == '*'
+                && let Some('/') = self.first()
+            {
+                self.bump();
+
+                break;
+            }
+        }
+
+        RawToken::new(RawTokenKind::Comment, (start, self.position))
+    }
+
     pub fn next_token(&mut self) -> RawToken {
         let Some(first_char) = self.bump() else {
             return RawToken::new(RawTokenKind::Eof, self.source_len);
@@ -119,6 +151,9 @@ impl<'a> Scanner<'a> {
         match first_char {
             c if c.is_whitespace() => self.whitespace(),
             c if predicate::is_ident_start(c) => self.ident(),
+
+            '/' if matches!(self.first(), Some('/')) => self.comment(),
+            '/' if matches!(self.first(), Some('*')) => self.multiline_comment(),
 
             ';' => self.single(RawTokenKind::Semi),
             ':' => self.single(RawTokenKind::Colon),

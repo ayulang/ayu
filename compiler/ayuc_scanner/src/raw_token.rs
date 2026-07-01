@@ -29,8 +29,11 @@ pub struct RawToken {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RawTokenKind {
-    /// Any sequence of whitespace characters.
+    /// Any sequence of whitespace characters. This token is usually skipped.
     Whitespace,
+
+    /// A comment. This token is usually skipped.
+    Comment,
 
     /// An identifier or keyword.
     Ident,
