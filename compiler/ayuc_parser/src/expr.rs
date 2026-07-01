@@ -142,7 +142,14 @@ impl Parser<'_, '_> {
                 });
             }
             StructuredToken::Token(Token { kind, .. })
-                if *kind == TokenKind::Plus || *kind == TokenKind::Gt =>
+                if *kind == TokenKind::Plus
+                    || *kind == TokenKind::Minus
+                    || *kind == TokenKind::EqualsEquals
+                    || *kind == TokenKind::NotEquals
+                    || *kind == TokenKind::Gt
+                    || *kind == TokenKind::GtOrEqual
+                    || *kind == TokenKind::Lt
+                    || *kind == TokenKind::LtOrEqual =>
             {
                 let bin = self.parse_bin_expr(prefix)?;
 
