@@ -163,7 +163,7 @@ impl<'a> Lexer<'a> {
             } = self.raw_stream.consume()?;
 
             let kind = match raw_kind {
-                RawTokenKind::Whitespace => {
+                RawTokenKind::Whitespace | RawTokenKind::Comment => {
                     continue;
                 }
 
