@@ -204,13 +204,72 @@ impl<'a> Lexer<'a> {
                     }
                     _ => TokenKind::Colon,
                 },
-                RawTokenKind::Equals => TokenKind::Equals,
+                RawTokenKind::Equals => match self.raw_stream.peek() {
+                    Some(RawToken {
+                        kind: RawTokenKind::Equals,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::EqualsEquals
+                    }
+                    _ => TokenKind::Equals,
+                },
                 RawTokenKind::OpenParen => TokenKind::OpenParen,
                 RawTokenKind::CloseParen => TokenKind::CloseParen,
                 RawTokenKind::OpenBrace => TokenKind::OpenBrace,
                 RawTokenKind::CloseBrace => TokenKind::CloseBrace,
-                RawTokenKind::Gt => TokenKind::Gt,
+                RawTokenKind::Gt => match self.raw_stream.peek() {
+                    Some(RawToken {
+                        kind: RawTokenKind::Equals,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::GtOrEqual
+                    }
+                    _ => TokenKind::Gt,
+                },
+                RawTokenKind::Lt => match self.raw_stream.peek() {
+                    Some(RawToken {
+                        kind: RawTokenKind::Equals,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::LtOrEqual
+                    }
+                    _ => TokenKind::Lt,
+                },
                 RawTokenKind::Comma => TokenKind::Comma,
+
+                RawTokenKind::Exclamation => match self.raw_stream.peek() {
+                    Some(RawToken {
+                        kind: RawTokenKind::Equals,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::NotEquals
+                    }
+                    _ => {
+                        self.dcx.emit(
+                            Diagnostic::error(self.file_id, span)
+                                .with_message("exclamation tokens cannot be standalone")
+                                .with_label(Label::primary(span, "expected `=` after this `!`")),
+                        );
+
+                        continue;
+                    }
+                },
 
                 // Provide a diagnostic about the invalid identifier. We return [TokenKind::Ident] anyway, so the parser can continue.
                 RawTokenKind::InvalidIdent => {

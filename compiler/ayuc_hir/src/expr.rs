@@ -20,7 +20,13 @@ pub enum ExprKind {
 #[derive(Debug)]
 pub enum BinaryOp {
     Add,
+    Minus,
     Gt,
+    GtOrEqual,
+    Lt,
+    LtOrEqual,
+    EqualsEquals,
+    NotEquals,
 }
 
 #[derive(Debug)]

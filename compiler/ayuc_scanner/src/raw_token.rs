@@ -65,8 +65,12 @@ pub enum RawTokenKind {
     CloseBrace,
     /// >
     Gt,
+    /// <
+    Lt,
     /// ,
     Comma,
+    /// !
+    Exclamation,
 
     /// An unknown token.
     Unknown,

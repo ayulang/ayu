@@ -38,15 +38,20 @@ impl Parser<'_, '_> {
     }
 
     pub fn parse_bin_expr(&mut self, left: Expr) -> PResult<BinExpr> {
-        let operator = match self.require_token()? {
-            StructuredToken::Token(Token {
-                kind: TokenKind::Plus,
-                ..
-            }) => Operator::Add,
-            StructuredToken::Token(Token {
-                kind: TokenKind::Gt,
-                ..
-            }) => Operator::Gt,
+        let kind = match self.require_token()? {
+            StructuredToken::Token(Token { kind, .. }) => kind,
+            _ => todo!(),
+        };
+
+        let operator = match kind {
+            TokenKind::Plus => Operator::Add,
+            TokenKind::Gt => Operator::Gt,
+            TokenKind::GtOrEqual => Operator::GtOrEqual,
+            TokenKind::Lt => Operator::Lt,
+            TokenKind::LtOrEqual => Operator::LtOrEqual,
+            TokenKind::Minus => Operator::Minus,
+            TokenKind::EqualsEquals => Operator::EqualsEquals,
+            TokenKind::NotEquals => Operator::NotEquals,
             _ => todo!(),
         };
 
@@ -128,18 +133,31 @@ impl Parser<'_, '_> {
             return Ok(prefix);
         };
 
-        match first {
-            StructuredToken::Delimited(span, Delimiter::Parenthesis, _) => {
-                return Ok(Expr {
-                    span: prefix.span.merged(*span),
-                    id: self.node_id_allocator.allocate(),
-                    kind: ExprKind::Call(self.parse_call_expr(prefix)?),
-                });
-            }
+        let mut expr = match first {
+            StructuredToken::Delimited(span, Delimiter::Parenthesis, _) => Expr {
+                span: prefix.span.merged(*span),
+                id: self.node_id_allocator.allocate(),
+                kind: ExprKind::Call(self.parse_call_expr(prefix)?),
+            },
+            _ => prefix,
+        };
+
+        let Some(first) = self.stream.first() else {
+            return Ok(expr);
+        };
+
+        expr = match first {
             StructuredToken::Token(Token { kind, .. })
-                if *kind == TokenKind::Plus || *kind == TokenKind::Gt =>
+                if *kind == TokenKind::Plus
+                    || *kind == TokenKind::Minus
+                    || *kind == TokenKind::EqualsEquals
+                    || *kind == TokenKind::NotEquals
+                    || *kind == TokenKind::Gt
+                    || *kind == TokenKind::GtOrEqual
+                    || *kind == TokenKind::Lt
+                    || *kind == TokenKind::LtOrEqual =>
             {
-                let bin = self.parse_bin_expr(prefix)?;
+                let bin = self.parse_bin_expr(expr)?;
 
                 return Ok(Expr {
                     span: bin.left.span.merged(bin.right.span),
@@ -148,9 +166,9 @@ impl Parser<'_, '_> {
                 });
             }
 
-            _ => {}
+            _ => expr,
         };
 
-        Ok(prefix)
+        Ok(expr)
     }
 }

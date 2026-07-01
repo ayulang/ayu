@@ -24,6 +24,18 @@ pub enum Operator {
     Add,
     /// a > b
     Gt,
+    // a >= b
+    GtOrEqual,
+    // a - b
+    Minus,
+    // a < b
+    Lt,
+    // a <= b
+    LtOrEqual,
+    /// a == b
+    EqualsEquals,
+    /// a != b
+    NotEquals,
 }
 
 #[derive(Debug)]

@@ -105,7 +105,7 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
 
                 Err(Diagnostic::error(self.file_id, span)
                     .with_message("expected identifier")
-                    .with_label(Label::primary(span, "expected identifier")))
+                    .with_label(Label::primary(span, "expected identifier, got this")))
             }
         }
     }
