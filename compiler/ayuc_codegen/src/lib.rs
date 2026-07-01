@@ -51,6 +51,12 @@ fn write_expr(pkg: &Package, buf: &mut String, expr: &Expr) {
                 match bin.operator {
                     BinaryOp::Add => "+",
                     BinaryOp::Gt => ">",
+                    BinaryOp::EqualsEquals => "==",
+                    BinaryOp::GtOrEqual => ">=",
+                    BinaryOp::Lt => "<",
+                    BinaryOp::LtOrEqual => "<=",
+                    BinaryOp::Minus => "-",
+                    BinaryOp::NotEquals => "~=",
                 }
             );
 
