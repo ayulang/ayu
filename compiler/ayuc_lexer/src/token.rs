@@ -49,6 +49,10 @@ pub enum TokenKind {
     Minus,
     /// =
     Equals,
+    /// ==
+    EqualsEquals,
+    /// !=
+    NotEquals,
     /// (
     OpenParen,
     /// )
@@ -57,8 +61,14 @@ pub enum TokenKind {
     OpenBrace,
     /// }
     CloseBrace,
+    /// <
+    Lt,
+    /// <=
+    LtOrEqual,
     /// >
     Gt,
+    /// >=
+    GtOrEqual,
     /// ->
     Arrow,
     /// ,

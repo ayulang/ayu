@@ -164,8 +164,10 @@ impl<'a> Scanner<'a> {
             ')' => self.single(RawTokenKind::CloseParen),
             '{' => self.single(RawTokenKind::OpenBrace),
             '}' => self.single(RawTokenKind::CloseBrace),
+            '<' => self.single(RawTokenKind::Lt),
             '>' => self.single(RawTokenKind::Gt),
             ',' => self.single(RawTokenKind::Comma),
+            '!' => self.single(RawTokenKind::Exclamation),
 
             '"' => self.string(),
             c if c.is_ascii_digit() => self.integer(),
