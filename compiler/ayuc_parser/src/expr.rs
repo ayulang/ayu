@@ -133,14 +133,20 @@ impl Parser<'_, '_> {
             return Ok(prefix);
         };
 
-        match first {
-            StructuredToken::Delimited(span, Delimiter::Parenthesis, _) => {
-                return Ok(Expr {
-                    span: prefix.span.merged(*span),
-                    id: self.node_id_allocator.allocate(),
-                    kind: ExprKind::Call(self.parse_call_expr(prefix)?),
-                });
-            }
+        let mut expr = match first {
+            StructuredToken::Delimited(span, Delimiter::Parenthesis, _) => Expr {
+                span: prefix.span.merged(*span),
+                id: self.node_id_allocator.allocate(),
+                kind: ExprKind::Call(self.parse_call_expr(prefix)?),
+            },
+            _ => prefix,
+        };
+
+        let Some(first) = self.stream.first() else {
+            return Ok(expr);
+        };
+
+        expr = match first {
             StructuredToken::Token(Token { kind, .. })
                 if *kind == TokenKind::Plus
                     || *kind == TokenKind::Minus
@@ -151,7 +157,7 @@ impl Parser<'_, '_> {
                     || *kind == TokenKind::Lt
                     || *kind == TokenKind::LtOrEqual =>
             {
-                let bin = self.parse_bin_expr(prefix)?;
+                let bin = self.parse_bin_expr(expr)?;
 
                 return Ok(Expr {
                     span: bin.left.span.merged(bin.right.span),
@@ -160,9 +166,9 @@ impl Parser<'_, '_> {
                 });
             }
 
-            _ => {}
+            _ => expr,
         };
 
-        Ok(prefix)
+        Ok(expr)
     }
 }
