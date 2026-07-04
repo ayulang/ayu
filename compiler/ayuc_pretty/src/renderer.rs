@@ -23,7 +23,7 @@ impl Renderer {
         self
     }
 
-    pub fn render(&mut self, doc: Doc) -> String {
+    pub fn render(mut self, doc: Doc) -> String {
         let mut buf = String::new();
 
         self.render_to(&mut buf, &doc);
@@ -33,29 +33,41 @@ impl Renderer {
 
     fn render_to(&mut self, buf: &mut String, doc: &Doc) {
         match doc {
-            Doc::Hardline => {
-                buf.push('\n');
-                buf.push_str(&self.full_indent());
-            }
-            Doc::Indent(doc) => {
-                self.current_indentation += 1;
+            Doc::Hardline => match self.config.mode {
+                Mode::OneLine => {
+                    buf.push(' ');
+                }
+                Mode::Pretty => {
+                    buf.push('\n');
+                    buf.push_str(&self.full_indent());
+                }
+            },
+            Doc::Indent(doc) => match self.config.mode {
+                Mode::Pretty => {
+                    self.current_indentation += 1;
 
-                buf.push_str(&self.another_indent());
+                    buf.push_str(&self.another_indent());
 
-                self.render_to(buf, doc);
+                    self.render_to(buf, doc);
 
-                self.current_indentation -= 1;
-            }
-            Doc::Text(t) => buf.push_str(&t),
+                    self.current_indentation -= 1;
+                }
+                Mode::OneLine => self.render_to(buf, doc),
+            },
+            Doc::Text(t) => buf.push_str(t),
             Doc::Concat(docs) => {
                 for doc in docs {
                     self.render_to(buf, doc);
                 }
             }
-            Doc::StmtSep => buf.push(match self.config.mode {
-                Mode::Pretty => '\n',
-                Mode::OneLine => ';',
-            }),
+            Doc::StmtSep => {
+                buf.push(match self.config.mode {
+                    Mode::Pretty => '\n',
+                    Mode::OneLine => ';',
+                });
+
+                buf.push_str(&self.full_indent());
+            }
         }
     }
 
@@ -65,5 +77,11 @@ impl Renderer {
 
     fn another_indent(&self) -> String {
         " ".repeat(self.config.indent_level)
+    }
+}
+
+impl Default for Renderer {
+    fn default() -> Self {
+        Self::new()
     }
 }

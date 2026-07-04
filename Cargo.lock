@@ -51,6 +51,7 @@ version = "0.1.0"
 dependencies = [
  "ayuc_hir",
  "ayuc_id",
+ "ayuc_pretty",
  "ayuc_tyctx",
 ]
 
