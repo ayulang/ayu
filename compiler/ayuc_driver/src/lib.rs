@@ -110,7 +110,6 @@ pub fn drive() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    println!();
     println!("{}", LuauCodegen::emit(package_id, &ty_ctx));
 
     ExitCode::SUCCESS
