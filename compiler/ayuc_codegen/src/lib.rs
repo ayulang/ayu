@@ -32,6 +32,7 @@ fn write_expr(pkg: &Package, buf: &mut String, expr: &Expr) {
                     _ => unreachable!(),
                 },
                 Def::Local(local) => pkg.locals[*local].name,
+                Def::Error => unreachable!(),
             };
 
             let _ = write!(buf, "{}", ident.as_str());

@@ -7,3 +7,5 @@ edition = "2024"
 ayuc_id = { path = "../ayuc_id" }
 ayuc_ast = { path = "../ayuc_ast" }
 ayuc_hir = { path = "../ayuc_hir" }
+ayuc_span = { path = "../ayuc_span" }
+slotmap = "1.1.1"

@@ -218,6 +218,6 @@ impl<'a> AstLowering<'a> {
     }
 
     fn lower_ty(&mut self, ty: &ast::Ty) -> hir::Ty {
-        self.resolver.get_res(ty.id)
+        self.resolver.get_ty_res(ty.id)
     }
 }

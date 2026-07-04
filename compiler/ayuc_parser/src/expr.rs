@@ -118,6 +118,7 @@ impl Parser<'_, '_> {
                 span: *span,
                 id: self.node_id_allocator.allocate(),
                 kind: ExprKind::Identifier(Ident {
+                    id: self.node_id_allocator.allocate(),
                     span: *span,
                     sym: *sym,
                 }),
