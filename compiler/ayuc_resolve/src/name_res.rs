@@ -76,6 +76,9 @@ impl Resolver {
     fn n2_walk_stmt(&mut self, stmt: &ast::Stmt) {
         match &stmt.kind {
             ast::StmtKind::Let(decl) => {
+                // Walk the expression first, so stuff like `let x = x` won't reference itself.
+                self.n2_walk_expr(&decl.init);
+
                 let local_id = self.locals.insert(stmt.id);
 
                 self.register_local(decl.ident.sym, local_id, stmt.id);
