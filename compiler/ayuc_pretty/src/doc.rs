@@ -3,6 +3,8 @@ pub enum Doc {
     Text(String),
     /// Concatenates a list of docs together.
     Concat(Vec<Doc>),
+    /// An optional newline for beauty purposes.
+    Blankline,
     /// Newline in pretty mode, whitespace in one-line mode.
     Hardline,
     /// Used for explicitly separating statements. The mode decides what character it is.

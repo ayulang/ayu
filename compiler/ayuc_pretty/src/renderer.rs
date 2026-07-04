@@ -33,6 +33,10 @@ impl Renderer {
 
     fn render_to(&mut self, buf: &mut String, doc: &Doc) {
         match doc {
+            Doc::Blankline => match self.config.mode {
+                Mode::OneLine => {}
+                Mode::Pretty => buf.push('\n'),
+            },
             Doc::Hardline => match self.config.mode {
                 Mode::OneLine => {
                     buf.push(' ');
