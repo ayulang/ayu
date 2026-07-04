@@ -1,6 +1,8 @@
 use crate::Resolver;
 
 use ayuc_ast as ast;
+use ayuc_diagnostic::{Diagnostic, Label};
+use ayuc_hir as hir;
 use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
@@ -8,7 +10,7 @@ use ayuc_id::{
 use ayuc_span::symbol::Symbol;
 
 // General implementations
-impl Resolver {
+impl Resolver<'_> {
     pub(crate) fn resolve_names(&mut self, ast: &ast::Ast) {
         self.first_pass(ast);
         self.second_pass(ast);
@@ -27,7 +29,7 @@ impl Resolver {
 
 // First pass for assigning `DefId`s to Item's `NodeId`s
 // n1 = name resolution 1st pass (for avoiding conflicts with the type resolver's or 2nd pass's impl)
-impl Resolver {
+impl Resolver<'_> {
     fn first_pass(&mut self, ast: &ast::Ast) {
         for item in &ast.items {
             self.n1_walk_item(item);
@@ -48,7 +50,7 @@ impl Resolver {
 
 // Second pass for resolving identifiers
 // n2 = name resolution 2nd pass (for avoiding conflicts with the type resolver's or 1st pass's impl)
-impl Resolver {
+impl Resolver<'_> {
     fn second_pass(&mut self, ast: &ast::Ast) {
         for item in &ast.items {
             self.n2_walk_item(item);
@@ -128,7 +130,16 @@ impl Resolver {
         if let Some(def) = self.stack.lookup(ident.sym) {
             self.name_resolutions.insert(ident.id, def);
         } else {
-            eprintln!("unresolved symbol: {}", ident.sym);
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, ident.span)
+                    .with_message(format!(
+                        "unresolved symbol in current scope: `{}`",
+                        ident.sym.as_str()
+                    ))
+                    .with_label(Label::primary(ident.span, "not found in current scope")),
+            );
+
+            self.name_resolutions.insert(ident.id, hir::Def::Error);
         }
     }
 }

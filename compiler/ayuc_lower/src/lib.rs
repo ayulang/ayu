@@ -8,7 +8,7 @@ use bimap::BiHashMap;
 
 pub struct AstLowering<'a> {
     _ty_ctx: &'a mut TyCtx,
-    resolver: &'a Resolver,
+    resolver: &'a Resolver<'a>,
     package: hir::Package,
     id_mappings: BiHashMap<NodeId, HirId>,
 }

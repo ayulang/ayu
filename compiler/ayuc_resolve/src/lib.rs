@@ -5,6 +5,7 @@ pub mod type_res;
 use std::collections::HashMap;
 
 use ayuc_ast as ast;
+use ayuc_diagnostic::DiagnosticContext;
 use ayuc_hir as hir;
 use ayuc_id::{
     ast::NodeId,
@@ -14,7 +15,7 @@ use slotmap::SlotMap;
 
 use crate::scope::ScopeStack;
 
-pub struct Resolver {
+pub struct Resolver<'dcx> {
     /// Stores the resolved HIR `Ty`s of AST `Ty`s
     pub ty_resolutions: HashMap<NodeId, hir::Ty>,
 
@@ -31,10 +32,14 @@ pub struct Resolver {
 
     /// For the name resolver.
     stack: ScopeStack,
+
+    /// For diagnostics.
+    dcx: &'dcx mut DiagnosticContext,
+    file_id: usize,
 }
 
-impl Resolver {
-    pub fn new() -> Self {
+impl<'dcx> Resolver<'dcx> {
+    pub fn new(dcx: &'dcx mut DiagnosticContext, file_id: usize) -> Self {
         Self {
             ty_resolutions: HashMap::default(),
             name_resolutions: HashMap::default(),
@@ -43,13 +48,15 @@ impl Resolver {
             locals: SlotMap::default(),
             locals_by_node: HashMap::default(),
             stack: ScopeStack::new(),
+            dcx,
+            file_id,
         }
     }
 
     /// Constructs a new [Resolver], performs name and type resolution and returns the [Resolver].
     #[inline]
-    pub fn resolve(ast: &ast::Ast) -> Self {
-        let mut this = Self::new();
+    pub fn resolve(dcx: &'dcx mut DiagnosticContext, file_id: usize, ast: &ast::Ast) -> Self {
+        let mut this = Self::new(dcx, file_id);
 
         this.resolve_names(ast);
         this.resolve_types(ast);
@@ -69,11 +76,5 @@ impl Resolver {
             .get(&id)
             .copied()
             .unwrap_or(hir::Def::Error)
-    }
-}
-
-impl Default for Resolver {
-    fn default() -> Self {
-        Self::new()
     }
 }

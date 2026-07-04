@@ -3,7 +3,7 @@ use crate::Resolver;
 use ayuc_ast as ast;
 use ayuc_hir as hir;
 
-impl Resolver {
+impl Resolver<'_> {
     pub(crate) fn resolve_types(&mut self, ast: &ast::Ast) {
         for item in &ast.items {
             self.tr_walk_item(item);
