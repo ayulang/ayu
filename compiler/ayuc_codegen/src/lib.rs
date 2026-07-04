@@ -29,9 +29,9 @@ fn write_expr(pkg: &Package, buf: &mut String, expr: &Expr) {
                 Def::Def(def) => match &pkg.items[*def].kind {
                     ItemKind::Fn(FnItem { name, .. })
                     | ItemKind::ExternFn(ExternFnItem { name, .. }) => *name,
-                    _ => unreachable!(),
                 },
                 Def::Local(local) => pkg.locals[*local].name,
+                Def::Error => unreachable!(),
             };
 
             let _ = write!(buf, "{}", ident.as_str());
@@ -134,7 +134,6 @@ impl LuauCodegen {
                     let _ = writeln!(buf, "end");
                 }
                 ItemKind::ExternFn(_) => {}
-                ItemKind::Dummy => panic!("dummy items are not allowed to exist"),
             }
         }
 

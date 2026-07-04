@@ -1,5 +1,5 @@
 use ayuc_id::hir::{DefId, HirIdAllocator, LocalId, PackageId};
-use slotmap::SlotMap;
+use slotmap::SecondaryMap;
 
 use crate::{Local, item::Item};
 
@@ -7,8 +7,8 @@ use crate::{Local, item::Item};
 pub struct Package {
     pub id: PackageId,
 
-    pub items: SlotMap<DefId, Item>,
-    pub locals: SlotMap<LocalId, Local>,
+    pub items: SecondaryMap<DefId, Item>,
+    pub locals: SecondaryMap<LocalId, Local>,
 
     pub hir_id_allocator: HirIdAllocator,
 }
@@ -17,8 +17,8 @@ impl Package {
     pub fn new(id: PackageId) -> Self {
         Self {
             id,
-            items: SlotMap::with_key(),
-            locals: SlotMap::with_key(),
+            items: SecondaryMap::new(),
+            locals: SecondaryMap::new(),
             hir_id_allocator: HirIdAllocator::new(),
         }
     }

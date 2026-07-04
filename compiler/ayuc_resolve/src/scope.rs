@@ -60,3 +60,15 @@ impl Scope {
         }
     }
 }
+
+impl Default for ScopeStack {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for Scope {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -53,6 +53,7 @@ pub enum Literal {
 
 #[derive(Debug)]
 pub struct Ident {
+    pub id: NodeId,
     pub span: Span,
     pub sym: Symbol,
 }

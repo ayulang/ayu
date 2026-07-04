@@ -97,6 +97,7 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
                 kind: TokenKind::Ident(sym),
                 span,
             }) => Ok(Ident {
+                id: self.node_id_allocator.allocate(),
                 sym: *sym,
                 span: *span,
             }),
@@ -119,7 +120,11 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
 
         let ty = self.parse_ty().unwrap();
 
-        Ok(Parameter { ident, ty })
+        Ok(Parameter {
+            id: self.node_id_allocator.allocate(),
+            ident,
+            ty,
+        })
     }
 
     pub fn parse_parameter_list(&mut self) -> PResult<ParameterList> {

@@ -1,25 +1,16 @@
-mod scope;
-
 use ayuc_ast::{self as ast};
 use ayuc_hir::{self as hir};
 
-use ayuc_id::{
-    ast::NodeId,
-    hir::{DefId, HirId},
-};
+use ayuc_id::{ast::NodeId, hir::HirId};
 use ayuc_resolve::Resolver;
 use ayuc_tyctx::TyCtx;
 use bimap::BiHashMap;
 
-use crate::scope::ScopeStack;
-
 pub struct AstLowering<'a> {
     _ty_ctx: &'a mut TyCtx,
-    resolver: &'a Resolver,
+    resolver: &'a Resolver<'a>,
     package: hir::Package,
-    def_mappings: BiHashMap<NodeId, DefId>,
     id_mappings: BiHashMap<NodeId, HirId>,
-    stack: ScopeStack,
 }
 
 impl<'a> AstLowering<'a> {
@@ -30,35 +21,17 @@ impl<'a> AstLowering<'a> {
             _ty_ctx,
             resolver,
             package: hir::Package::new(id),
-            def_mappings: BiHashMap::new(),
             id_mappings: BiHashMap::new(),
-            stack: ScopeStack::new(),
         }
     }
 
     #[must_use]
     pub fn lower(mut self, ast: &ayuc_ast::Ast) -> hir::Package {
         for item in &ast.items {
-            let def_id = self.package.items.insert(hir::Item::dummy());
+            let def_id = self.resolver.defs_by_node[&item.id];
+            let lowered = self.lower_item(item);
 
-            self.def_mappings.insert(item.id, def_id);
-            self.stack.register_def(
-                match &item.kind {
-                    ast::ItemKind::Fn(ast::FnDecl { ident, .. })
-                    | ast::ItemKind::ExternFn(ast::ExternFnDecl { ident, .. }) => ident.sym,
-                },
-                def_id,
-            );
-        }
-
-        for item in &ast.items {
-            let def_id = self
-                .def_mappings
-                .get_by_left(&item.id)
-                .copied()
-                .expect("item escaped two-pass");
-
-            self.package.items[def_id] = self.lower_item(item);
+            self.package.items.insert(def_id, lowered);
         }
 
         self.package
@@ -92,21 +65,16 @@ impl<'a> AstLowering<'a> {
 
         let return_ty = self.lower_ty(&fun.return_ty);
 
-        self.stack.enter();
+        for param in &fun.parameters.parameters {
+            let name = param.ident.sym;
+            let local_id = self.resolver.locals_by_node[&param.id];
 
-        for param in &params {
-            let name = param.name;
-            let local_id = self
-                .package
+            self.package
                 .locals
-                .insert_with_key(move |k| hir::Local { id: k, name });
-
-            self.stack.register_local(name, local_id);
+                .insert(local_id, hir::Local { id: local_id, name });
         }
 
         let block = self.lower_block(&fun.block);
-
-        self.stack.leave();
 
         hir::FnItem {
             name,
@@ -117,12 +85,7 @@ impl<'a> AstLowering<'a> {
     }
 
     fn lower_item(&mut self, item: &ast::Item) -> hir::Item {
-        let id = self
-            .def_mappings
-            .get_by_left(&item.id)
-            .copied()
-            .expect("unable to find DefId in mappings");
-
+        let id = self.resolver.defs_by_node[&item.id];
         let hir_id = self.lower_id(item.id);
 
         let kind = match &item.kind {
@@ -171,12 +134,11 @@ impl<'a> AstLowering<'a> {
 
         if let hir::StmtKind::Let(decl) = &kind {
             let name = decl.ident;
-            let local_id = self
-                .package
-                .locals
-                .insert_with_key(move |k| hir::Local { id: k, name });
+            let local_id = self.resolver.locals_by_node[&stmt.id];
 
-            self.stack.register_local(name, local_id);
+            self.package
+                .locals
+                .insert(local_id, hir::Local { id: local_id, name });
         }
 
         hir::Stmt { id, kind }
@@ -185,11 +147,9 @@ impl<'a> AstLowering<'a> {
     fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {
         let id = self.lower_id(expr.id);
         let kind = match &expr.kind {
-            ast::ExprKind::Identifier(ident) => hir::ExprKind::Ref(
-                self.stack
-                    .lookup(ident.sym)
-                    .expect("unable to find identifier"), // TODO: make this a diagnostic instead
-            ),
+            ast::ExprKind::Identifier(ident) => {
+                hir::ExprKind::Ref(self.resolver.name_resolutions[&ident.id])
+            }
             ast::ExprKind::Call(call) => hir::ExprKind::Call(ayuc_hir::CallExpr {
                 callee: Box::new(self.lower_expr(&call.callee)),
                 args: call.args.iter().map(|e| self.lower_expr(e)).collect(),
@@ -218,6 +178,6 @@ impl<'a> AstLowering<'a> {
     }
 
     fn lower_ty(&mut self, ty: &ast::Ty) -> hir::Ty {
-        self.resolver.get_res(ty.id)
+        self.resolver.get_ty_res(ty.id)
     }
 }

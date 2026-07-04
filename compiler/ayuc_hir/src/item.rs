@@ -1,6 +1,5 @@
 use ayuc_id::hir::{DefId, HirId};
 use ayuc_span::symbol::Symbol;
-use slotmap::Key;
 
 use crate::{expr::Block, ty::Ty};
 
@@ -13,7 +12,6 @@ pub struct Item {
 
 #[derive(Debug)]
 pub enum ItemKind {
-    Dummy,
     Fn(FnItem),
     ExternFn(ExternFnItem),
 }
@@ -38,15 +36,4 @@ pub struct ExternFnItem {
     pub name: Symbol,
     pub params: Vec<Parameter>,
     pub return_ty: Ty,
-}
-
-impl Item {
-    #[must_use]
-    pub fn dummy() -> Self {
-        Self {
-            hir_id: HirId::MAX,
-            id: DefId::null(),
-            kind: ItemKind::Dummy,
-        }
-    }
 }

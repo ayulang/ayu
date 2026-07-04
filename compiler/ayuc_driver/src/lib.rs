@@ -90,11 +90,25 @@ pub fn drive() -> ExitCode {
         next_package_id: 0,
     };
 
-    let resolver = Resolver::resolve(&ast);
+    let resolver = Resolver::resolve(&mut dcx, file_id, &ast);
 
     let lowering = AstLowering::new(&mut ty_ctx, &resolver);
     let package = lowering.lower(&ast);
     let package_id = ty_ctx.register_package(package);
+
+    if !dcx.errors().is_empty() {
+        let errors = dcx.errors().len();
+
+        print_diagnostics(dcx, &source_cache);
+
+        eprintln!(
+            "> Unable to compile due to {} error{}",
+            errors,
+            if errors == 1 { "" } else { "s" }
+        );
+
+        return ExitCode::FAILURE;
+    }
 
     println!();
     println!("{}", LuauCodegen::emit(package_id, &ty_ctx));
