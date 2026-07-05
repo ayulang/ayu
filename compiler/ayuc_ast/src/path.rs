@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use ayuc_id::ast::NodeId;
 use ayuc_span::Span;
 
@@ -15,12 +17,16 @@ pub struct PathSegment {
     pub ident: Ident,
 }
 
-impl Path {
-    pub fn to_string(&self) -> String {
-        self.segments
-            .iter()
-            .map(|s| s.ident.sym.as_str())
-            .collect::<Vec<_>>()
-            .join("::")
+impl Display for Path {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, segment) in self.segments.iter().enumerate() {
+            if i > 0 {
+                write!(f, "::")?;
+            }
+
+            write!(f, "{}", segment.ident.sym)?;
+        }
+
+        Ok(())
     }
 }

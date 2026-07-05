@@ -66,10 +66,7 @@ impl Resolver<'_> {
         {
             self.dcx.emit(
                 Diagnostic::error(self.file_id, ty.span)
-                    .with_message(format!(
-                        "cannot find type `{}` in this scope",
-                        p.to_string()
-                    ))
+                    .with_message(format!("cannot find type `{}` in this scope", p))
                     .with_label(Label::primary(ty.span, "not found in this scope")),
             );
         }
