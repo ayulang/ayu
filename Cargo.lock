@@ -167,7 +167,8 @@ dependencies = [
 name = "ayuc_sema"
 version = "0.1.0"
 dependencies = [
- "ayuc_hir",
+ "ayuc_ast",
+ "ayuc_resolve",
  "ayuc_span",
  "ayuc_tyctx",
 ]
