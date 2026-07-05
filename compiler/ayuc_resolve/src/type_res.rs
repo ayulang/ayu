@@ -64,7 +64,6 @@ impl Resolver<'_> {
         if resolved == hir::Ty::Error
             && let ast::TyKind::Path(p) = &ty.kind
         {
-            println!("{:?} {:?}", ty.span, p.span);
             self.dcx.emit(
                 Diagnostic::error(self.file_id, ty.span)
                     .with_message(format!(
