@@ -121,6 +121,7 @@ impl<'a> AstLowering<'a> {
             ast::StmtKind::Expr(expr) => hir::StmtKind::Expr(self.lower_expr(expr)),
             ast::StmtKind::Let(decl) => hir::StmtKind::Let(hir::LetStmt {
                 ident: decl.ident.sym,
+                ty: self.lower_ty(&decl.ty),
                 init: self.lower_expr(&decl.init),
             }),
             ast::StmtKind::Return(ret) => hir::StmtKind::Return(hir::ReturnStmt {

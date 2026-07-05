@@ -1,6 +1,7 @@
 use crate::Resolver;
 
 use ayuc_ast as ast;
+use ayuc_diagnostic::{Diagnostic, Label};
 use ayuc_hir as hir;
 
 impl Resolver<'_> {
@@ -18,6 +19,10 @@ impl Resolver<'_> {
                 }
 
                 self.tr_resolve_ty(&fun.return_ty);
+
+                for stmt in &fun.block.children {
+                    self.tr_walk_stmt(stmt);
+                }
             }
             ast::ItemKind::ExternFn(extern_fun) => {
                 for param in &extern_fun.parameters.parameters {
@@ -26,6 +31,15 @@ impl Resolver<'_> {
 
                 self.tr_resolve_ty(&extern_fun.return_ty);
             }
+        }
+    }
+
+    fn tr_walk_stmt(&mut self, stmt: &ast::Stmt) {
+        match &stmt.kind {
+            ast::StmtKind::Let(decl) => {
+                self.tr_resolve_ty(&decl.ty);
+            }
+            ast::StmtKind::Expr(_) | ast::StmtKind::If(_) | ast::StmtKind::Return(_) => {}
         }
     }
 
@@ -46,6 +60,20 @@ impl Resolver<'_> {
                 }
             }
         };
+
+        if resolved == hir::Ty::Error
+            && let ast::TyKind::Path(p) = &ty.kind
+        {
+            println!("{:?} {:?}", ty.span, p.span);
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, ty.span)
+                    .with_message(format!(
+                        "cannot find type `{}` in this scope",
+                        p.to_string()
+                    ))
+                    .with_label(Label::primary(ty.span, "not found in this scope")),
+            );
+        }
 
         self.ty_resolutions.insert(ty.id, resolved);
     }

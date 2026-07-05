@@ -1,7 +1,7 @@
 use ayuc_id::hir::HirId;
 use ayuc_span::symbol::Symbol;
 
-use crate::{Block, Expr};
+use crate::{Block, Expr, Ty};
 
 #[derive(Debug)]
 pub struct Stmt {
@@ -20,6 +20,7 @@ pub enum StmtKind {
 #[derive(Debug)]
 pub struct LetStmt {
     pub ident: Symbol,
+    pub ty: Ty,
     pub init: Expr,
 }
 

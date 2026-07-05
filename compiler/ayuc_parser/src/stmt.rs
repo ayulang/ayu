@@ -1,4 +1,5 @@
 use ayuc_ast::{IfStmt, LetStmt, ReturnStmt, Stmt, StmtKind};
+use ayuc_diagnostic::{Diagnostic, Label, colored::Colorize};
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 
 use crate::{PResult, Parser};
@@ -16,19 +17,40 @@ impl Parser<'_, '_> {
     }
 
     pub fn parse_let_stmt(&mut self) -> PResult<LetStmt> {
+        let snapshot = self.stream.snapshot();
+
         if !self.maybe(TokenKind::Keyword(Keyword::Let)) {
             todo!()
         }
 
         let ident = self.parse_ident()?;
 
+        if !self.maybe(TokenKind::Colon) {
+            let span = self.stream.span_since(snapshot);
+
+            return Err(Diagnostic::error(self.file_id, span)
+                .with_message("`let` statements require a type annotation")
+                .with_label(Label::primary(span, "doesn't have a type annotation"))
+                .with_help(format!(
+                    "add a type annotation in the form of {}",
+                    format!("`let {}: SomeType = ...`", ident.sym.as_str())
+                        .as_str()
+                        .bright_green()
+                )));
+        }
+
+        let ty = self.parse_ty()?;
+
         if !self.maybe(TokenKind::Equals) {
             todo!()
         }
-
         let expr = self.parse_expression()?;
 
-        Ok(LetStmt { ident, init: expr })
+        Ok(LetStmt {
+            ty,
+            ident,
+            init: expr,
+        })
     }
 
     pub fn parse_return_stmt(&mut self) -> PResult<ReturnStmt> {

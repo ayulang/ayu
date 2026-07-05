@@ -14,3 +14,13 @@ pub struct PathSegment {
     pub id: NodeId,
     pub ident: Ident,
 }
+
+impl Path {
+    pub fn to_string(&self) -> String {
+        self.segments
+            .iter()
+            .map(|s| s.ident.sym.as_str())
+            .collect::<Vec<_>>()
+            .join("::")
+    }
+}

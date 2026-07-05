@@ -1,13 +1,13 @@
 use ayuc_span::symbol::Symbol;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Ty {
     Unit,
     Primitive(PrimTy),
     Error,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrimTy {
     Integer,
     Str,
