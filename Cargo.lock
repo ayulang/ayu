@@ -51,6 +51,7 @@ version = "0.1.0"
 dependencies = [
  "ayuc_hir",
  "ayuc_id",
+ "ayuc_pretty",
  "ayuc_tyctx",
 ]
 
@@ -132,6 +133,10 @@ dependencies = [
  "ayuc_source",
  "ayuc_span",
 ]
+
+[[package]]
+name = "ayuc_pretty"
+version = "0.1.0"
 
 [[package]]
 name = "ayuc_printer"

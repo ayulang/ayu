@@ -11,6 +11,7 @@ members = [
     "compiler/ayuc_lexer",
     "compiler/ayuc_lower",
     "compiler/ayuc_parser",
+    "compiler/ayuc_pretty",
     "compiler/ayuc_printer",
     "compiler/ayuc_resolve",
     "compiler/ayuc_scanner",
