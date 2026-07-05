@@ -10,7 +10,7 @@ use ayuc_diagnostic::DiagnosticContext;
 use ayuc_lexer::{LexedFile, stream::TokenStream};
 use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
-use ayuc_resolve::Resolver;
+use ayuc_resolve::resolver::Resolver;
 use ayuc_source::SourceCache;
 use ayuc_tyctx::TyCtx;
 
@@ -60,6 +60,7 @@ pub fn drive() -> ExitCode {
     );
 
     let mut dcx = DiagnosticContext::new();
+
     let Some(LexedFile { tokens }) = ayuc_lexer::lex(&mut dcx, file_id, source) else {
         print_diagnostics(dcx, &source_cache);
 
@@ -90,11 +91,7 @@ pub fn drive() -> ExitCode {
         next_package_id: 0,
     };
 
-    let resolver = Resolver::resolve(&mut dcx, file_id, &ast);
-
-    let lowering = AstLowering::new(&mut ty_ctx, &resolver);
-    let package = lowering.lower(&ast);
-    let package_id = ty_ctx.register_package(package);
+    let rcx = Resolver::resolve(&mut dcx, file_id, &ast);
 
     if !dcx.errors().is_empty() {
         let errors = dcx.errors().len();
@@ -109,6 +106,10 @@ pub fn drive() -> ExitCode {
 
         return ExitCode::FAILURE;
     }
+
+    let lowering = AstLowering::new(&mut ty_ctx, &rcx);
+    let package = lowering.lower(&ast);
+    let package_id = ty_ctx.register_package(package);
 
     println!("{}", LuauCodegen::emit(package_id, &ty_ctx));
 

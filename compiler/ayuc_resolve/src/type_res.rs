@@ -1,8 +1,10 @@
-use crate::Resolver;
+use crate::{
+    resolver::Resolver,
+    ty::{PrimTy, Ty},
+};
 
 use ayuc_ast as ast;
 use ayuc_diagnostic::{Diagnostic, Label};
-use ayuc_hir as hir;
 
 impl Resolver<'_> {
     pub(crate) fn resolve_types(&mut self, ast: &ast::Ast) {
@@ -45,23 +47,23 @@ impl Resolver<'_> {
 
     fn tr_resolve_ty(&mut self, ty: &ast::Ty) {
         let resolved = match &ty.kind {
-            ast::TyKind::Unit => hir::Ty::Unit,
+            ast::TyKind::Unit => Ty::Unit,
             ast::TyKind::Path(p) => {
                 if p.segments.len() == 1 {
                     let segment = &p.segments[0];
 
-                    if let Some(prim) = hir::PrimTy::from_name(segment.ident.sym) {
-                        hir::Ty::Primitive(prim)
+                    if let Some(prim) = PrimTy::from_name(segment.ident.sym) {
+                        Ty::Prim(prim)
                     } else {
-                        hir::Ty::Error
+                        Ty::Error
                     }
                 } else {
-                    hir::Ty::Error // not yet.
+                    Ty::Error // not yet.
                 }
             }
         };
 
-        if resolved == hir::Ty::Error
+        if resolved == Ty::Error
             && let ast::TyKind::Path(p) = &ty.kind
         {
             self.dcx.emit(
@@ -71,6 +73,6 @@ impl Resolver<'_> {
             );
         }
 
-        self.ty_resolutions.insert(ty.id, resolved);
+        self.rcx.ty_resolutions.insert(ty.id, resolved);
     }
 }

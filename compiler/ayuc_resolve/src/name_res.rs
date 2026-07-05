@@ -1,8 +1,7 @@
-use crate::Resolver;
+use crate::{def::Def, resolver::Resolver};
 
 use ayuc_ast as ast;
 use ayuc_diagnostic::{Diagnostic, Label};
-use ayuc_hir as hir;
 use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
@@ -18,12 +17,12 @@ impl Resolver<'_> {
 
     fn register_def(&mut self, sym: Symbol, def_id: DefId, node_id: NodeId) {
         self.stack.register_def(sym, def_id);
-        self.defs_by_node.insert(node_id, def_id);
+        self.rcx.defs_by_node.insert(node_id, def_id);
     }
 
     fn register_local(&mut self, sym: Symbol, local_id: LocalId, node_id: NodeId) {
         self.stack.register_local(sym, local_id);
-        self.locals_by_node.insert(node_id, local_id);
+        self.rcx.locals_by_node.insert(node_id, local_id);
     }
 }
 
@@ -42,7 +41,7 @@ impl Resolver<'_> {
             ast::ItemKind::ExternFn(decl) => decl.ident.sym,
         };
 
-        let def_id = self.def_ids.insert(item.id);
+        let def_id = self.rcx.def_ids.insert(item.id);
 
         self.register_def(sym, def_id, item.id);
     }
@@ -62,7 +61,7 @@ impl Resolver<'_> {
             self.stack.enter();
 
             for param in &decl.parameters.parameters {
-                let local_id = self.locals.insert(param.id);
+                let local_id = self.rcx.locals.insert(param.id);
 
                 self.register_local(param.ident.sym, local_id, param.id);
             }
@@ -81,7 +80,7 @@ impl Resolver<'_> {
                 // Walk the expression first, so stuff like `let x = x` won't reference itself.
                 self.n2_walk_expr(&decl.init);
 
-                let local_id = self.locals.insert(stmt.id);
+                let local_id = self.rcx.locals.insert(stmt.id);
 
                 self.register_local(decl.ident.sym, local_id, stmt.id);
             }
@@ -128,7 +127,7 @@ impl Resolver<'_> {
 
     fn n2_resolve_ident(&mut self, ident: &ast::Ident) {
         if let Some(def) = self.stack.lookup(ident.sym) {
-            self.name_resolutions.insert(ident.id, def);
+            self.rcx.name_resolutions.insert(ident.id, def);
         } else {
             self.dcx.emit(
                 Diagnostic::error(self.file_id, ident.span)
@@ -139,7 +138,7 @@ impl Resolver<'_> {
                     .with_label(Label::primary(ident.span, "not found in current scope")),
             );
 
-            self.name_resolutions.insert(ident.id, hir::Def::Error);
+            self.rcx.name_resolutions.insert(ident.id, Def::Error);
         }
     }
 }

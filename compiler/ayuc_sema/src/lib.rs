@@ -1,5 +1,5 @@
 use ayuc_ast::Ast;
-use ayuc_resolve::Resolver;
+use ayuc_resolve::resolver::Resolver;
 
 pub struct SemanticAnalyzer;
 

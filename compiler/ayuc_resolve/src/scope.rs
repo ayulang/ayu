@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use ayuc_hir::Def;
 use ayuc_id::hir::{DefId, LocalId};
 use ayuc_span::symbol::Symbol;
+
+use crate::def::Def;
 
 #[derive(Debug)]
 pub struct ScopeStack {

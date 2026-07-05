@@ -171,7 +171,6 @@ impl LuauCodegen {
                         | ItemKind::ExternFn(ExternFnItem { name, .. }) => *name,
                     },
                     Def::Local(local) => package.locals[*local].name,
-                    Def::Error => unreachable!(),
                 };
 
                 Doc::text(ident.as_str())
