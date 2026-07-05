@@ -5,20 +5,32 @@ use crate::{
 
 pub struct Renderer {
     config: Config,
+
     current_indentation: usize,
+
+    full_indent_str: String,
+    single_indent_str: String,
 }
 
 impl Renderer {
     pub fn new() -> Self {
+        let config = Config::default();
+        let single_indent_str = " ".repeat(config.indent_level);
+
         Self {
-            config: Config::default(),
+            config,
             current_indentation: 0,
+            single_indent_str,
+            full_indent_str: String::new(),
         }
     }
 
     #[inline]
     pub fn with_config(mut self, config: Config) -> Self {
+        self.single_indent_str = " ".repeat(config.indent_level);
         self.config = config;
+
+        self.compute_indentation();
 
         self
     }
@@ -43,18 +55,17 @@ impl Renderer {
                 }
                 Mode::Pretty => {
                     buf.push('\n');
-                    buf.push_str(&self.full_indent());
+                    buf.push_str(&self.full_indent_str);
                 }
             },
             Doc::Indent(doc) => match self.config.mode {
                 Mode::Pretty => {
-                    self.current_indentation += 1;
+                    self.bump_indentation();
 
-                    buf.push_str(&self.another_indent());
+                    buf.push_str(&self.single_indent_str);
 
                     self.render_to(buf, doc);
-
-                    self.current_indentation -= 1;
+                    self.pop_indentation();
                 }
                 Mode::OneLine => self.render_to(buf, doc),
             },
@@ -70,17 +81,23 @@ impl Renderer {
                     Mode::OneLine => ';',
                 });
 
-                buf.push_str(&self.full_indent());
+                buf.push_str(&self.full_indent_str);
             }
         }
     }
 
-    fn full_indent(&self) -> String {
-        " ".repeat(self.current_indentation * self.config.indent_level)
+    fn bump_indentation(&mut self) {
+        self.current_indentation += 1;
+        self.compute_indentation();
     }
 
-    fn another_indent(&self) -> String {
-        " ".repeat(self.config.indent_level)
+    fn pop_indentation(&mut self) {
+        self.current_indentation -= 1;
+        self.compute_indentation();
+    }
+
+    fn compute_indentation(&mut self) {
+        self.full_indent_str = self.single_indent_str.repeat(self.current_indentation);
     }
 }
 
