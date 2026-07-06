@@ -36,10 +36,21 @@ impl Resolver<'_> {
     }
 
     fn n1_walk_item(&mut self, item: &ast::Item) {
-        let sym = match &item.kind {
-            ast::ItemKind::Fn(decl) => decl.ident.sym,
-            ast::ItemKind::ExternFn(decl) => decl.ident.sym,
+        let ident = match &item.kind {
+            ast::ItemKind::Fn(decl) => &decl.ident,
+            ast::ItemKind::ExternFn(decl) => &decl.ident,
         };
+        let sym = ident.sym;
+
+        if let Some(_def) = self.stack.lookup_top(sym) {
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, ident.span)
+                    .with_message(format!("the name `{}` is defined multiple times", sym))
+                    .with_label(Label::primary(ident.span, "name is already defined")),
+            );
+
+            return;
+        }
 
         let def_id = self.rcx.def_ids.insert(item.id);
 

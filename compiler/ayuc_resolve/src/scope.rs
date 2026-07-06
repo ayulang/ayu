@@ -36,6 +36,10 @@ impl ScopeStack {
         self.stack.last_mut().unwrap_or(&mut self.top)
     }
 
+    pub fn lookup_top(&self, sym: Symbol) -> Option<Def> {
+        self.top.symbols.get(&sym).copied()
+    }
+
     pub fn lookup(&self, sym: Symbol) -> Option<Def> {
         self.stack
             .iter()
