@@ -6,10 +6,11 @@ use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
 };
+use ayuc_session::item::ItemInfo;
 use ayuc_span::symbol::Symbol;
 
 // General implementations
-impl Resolver<'_> {
+impl Resolver<'_, '_> {
     pub(crate) fn resolve_names(&mut self, ast: &ast::Ast) {
         self.first_pass(ast);
         self.second_pass(ast);
@@ -28,7 +29,7 @@ impl Resolver<'_> {
 
 // First pass for assigning `DefId`s to Item's `NodeId`s
 // n1 = name resolution 1st pass (for avoiding conflicts with the type resolver's or 2nd pass's impl)
-impl Resolver<'_> {
+impl Resolver<'_, '_> {
     fn first_pass(&mut self, ast: &ast::Ast) {
         for item in &ast.items {
             self.n1_walk_item(item);
@@ -52,7 +53,18 @@ impl Resolver<'_> {
             return;
         }
 
-        let def_id = self.rcx.def_ids.insert(item.id);
+        // let def_id = self.rcx.def_ids.insert(item.id);
+        let def_id = self.sess.register_item(ItemInfo {
+            name: sym,
+            kind: match &item.kind {
+                ast::ItemKind::Fn(decl) => ayuc_session::item::ItemKind::Fn {
+                    n_args: decl.parameters.parameters.len(),
+                },
+                ast::ItemKind::ExternFn(decl) => ayuc_session::item::ItemKind::ExternFn {
+                    n_args: decl.parameters.parameters.len(),
+                },
+            },
+        });
 
         self.register_def(sym, def_id, item.id);
     }
@@ -60,7 +72,7 @@ impl Resolver<'_> {
 
 // Second pass for resolving identifiers
 // n2 = name resolution 2nd pass (for avoiding conflicts with the type resolver's or 1st pass's impl)
-impl Resolver<'_> {
+impl Resolver<'_, '_> {
     fn second_pass(&mut self, ast: &ast::Ast) {
         for item in &ast.items {
             self.n2_walk_item(item);

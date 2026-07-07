@@ -1,19 +1,17 @@
 use ayuc_hir::{
-    BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, Item, ItemKind, Literal, Package,
-    Parameter, Stmt, StmtKind,
+    BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, Item, ItemKind, Literal, Parameter,
+    Stmt, StmtKind,
 };
-use ayuc_id::hir::PackageId;
+use ayuc_lower::LoweringContext;
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
-use ayuc_tyctx::TyCtx;
 
 pub struct LuauCodegen;
 
 impl LuauCodegen {
-    pub fn emit(package_id: PackageId, ty_ctx: &TyCtx) -> String {
-        let package = ty_ctx.package(package_id);
-        let mut doc = Self::package_to_doc(package);
+    pub fn emit(lcx: &LoweringContext) -> String {
+        let mut doc = Self::lcx_to_doc(lcx);
 
-        for (_, item) in &package.items {
+        for (_, item) in &lcx.items {
             if let ItemKind::Fn(FnItem { name, .. }) = item.kind
                 && name.as_str() == "main"
             {
@@ -27,17 +25,16 @@ impl LuauCodegen {
         Renderer::new().render(doc)
     }
 
-    fn package_to_doc(package: &Package) -> Doc {
+    fn lcx_to_doc(lcx: &LoweringContext) -> Doc {
         Doc::Concat(
-            package
-                .items
+            lcx.items
                 .iter()
-                .map(|(_, item)| Self::item_to_doc(package, item))
+                .map(|(_, item)| Self::item_to_doc(lcx, item))
                 .collect(),
         )
     }
 
-    fn item_to_doc(package: &Package, item: &Item) -> Doc {
+    fn item_to_doc(lcx: &LoweringContext, item: &Item) -> Doc {
         match &item.kind {
             ItemKind::Fn(decl) => {
                 let mut params = Vec::new();
@@ -47,7 +44,7 @@ impl LuauCodegen {
                         params.push(Doc::text(", "));
                     }
 
-                    params.push(Self::param_to_doc(package, param));
+                    params.push(Self::param_to_doc(lcx, param));
                 }
 
                 Doc::Concat(Vec::from([
@@ -57,7 +54,7 @@ impl LuauCodegen {
                     Doc::Concat(params),
                     Doc::text(")"),
                     Doc::Hardline,
-                    Doc::indent(Self::block_to_doc(package, &decl.block)),
+                    Doc::indent(Self::block_to_doc(lcx, &decl.block)),
                     Doc::Hardline,
                     Doc::text("end"),
                     Doc::Hardline,
@@ -68,11 +65,11 @@ impl LuauCodegen {
         }
     }
 
-    fn param_to_doc(_package: &Package, param: &Parameter) -> Doc {
+    fn param_to_doc(_lcx: &LoweringContext, param: &Parameter) -> Doc {
         Doc::text(param.name.as_str())
     }
 
-    fn block_to_doc(package: &Package, block: &Block) -> Doc {
+    fn block_to_doc(lcx: &LoweringContext, block: &Block) -> Doc {
         let mut docs = Vec::new();
 
         for (i, stmt) in block.stmts.iter().enumerate() {
@@ -80,33 +77,30 @@ impl LuauCodegen {
                 docs.push(Doc::StmtSep);
             }
 
-            docs.push(Self::stmt_to_doc(package, stmt));
+            docs.push(Self::stmt_to_doc(lcx, stmt));
         }
 
         Doc::Concat(docs)
     }
 
-    fn stmt_to_doc(package: &Package, stmt: &Stmt) -> Doc {
+    fn stmt_to_doc(lcx: &LoweringContext, stmt: &Stmt) -> Doc {
         match &stmt.kind {
             StmtKind::Return(ret) => Doc::Concat(vec![
                 Doc::text("return"),
                 ret.expr
                     .as_ref()
                     .map(|expr| {
-                        Doc::Concat(Vec::from([
-                            Doc::text(" "),
-                            Self::expr_to_doc(package, expr),
-                        ]))
+                        Doc::Concat(Vec::from([Doc::text(" "), Self::expr_to_doc(lcx, expr)]))
                     })
                     .unwrap_or(Doc::Concat(Vec::new())),
             ]),
-            StmtKind::Expr(expr) => Self::expr_to_doc(package, expr),
+            StmtKind::Expr(expr) => Self::expr_to_doc(lcx, expr),
             StmtKind::If(cond) => Doc::Concat(Vec::from([
                 Doc::text("if "),
-                Self::expr_to_doc(package, &cond.expr),
+                Self::expr_to_doc(lcx, &cond.expr),
                 Doc::text(" then"),
                 Doc::Hardline,
-                Doc::indent(Self::block_to_doc(package, &cond.block)),
+                Doc::indent(Self::block_to_doc(lcx, &cond.block)),
                 Doc::Hardline,
                 Doc::text("end"),
                 Doc::Blankline,
@@ -115,12 +109,12 @@ impl LuauCodegen {
                 Doc::text("local "),
                 Doc::text(decl.ident.as_str()),
                 Doc::text(" = "),
-                Self::expr_to_doc(package, &decl.init),
+                Self::expr_to_doc(lcx, &decl.init),
             ])),
         }
     }
 
-    fn expr_to_doc(package: &Package, expr: &Expr) -> Doc {
+    fn expr_to_doc(lcx: &LoweringContext, expr: &Expr) -> Doc {
         match &expr.kind {
             ExprKind::Lit(lit) => match lit {
                 Literal::Integer(value) => Doc::text(value.to_string()),
@@ -131,7 +125,7 @@ impl LuauCodegen {
                 ])),
             },
             ExprKind::Binary(bin) => Doc::Concat(Vec::from([
-                Self::expr_to_doc(package, &bin.left),
+                Self::expr_to_doc(lcx, &bin.left),
                 Doc::text(" "),
                 Doc::text(match bin.operator {
                     BinaryOp::Add => "+",
@@ -144,10 +138,10 @@ impl LuauCodegen {
                     BinaryOp::NotEquals => "~=",
                 }),
                 Doc::text(" "),
-                Self::expr_to_doc(package, &bin.right),
+                Self::expr_to_doc(lcx, &bin.right),
             ])),
             ExprKind::Call(call) => Doc::Concat(Vec::from([
-                Self::expr_to_doc(package, &call.callee),
+                Self::expr_to_doc(lcx, &call.callee),
                 Doc::text("("),
                 Doc::Concat(
                     call.args
@@ -155,9 +149,9 @@ impl LuauCodegen {
                         .enumerate()
                         .flat_map(|(i, expr)| {
                             if i != 0 {
-                                Vec::from([Doc::text(", "), Self::expr_to_doc(package, expr)])
+                                Vec::from([Doc::text(", "), Self::expr_to_doc(lcx, expr)])
                             } else {
-                                Vec::from([Self::expr_to_doc(package, expr)])
+                                Vec::from([Self::expr_to_doc(lcx, expr)])
                             }
                         })
                         .collect(),
@@ -166,11 +160,11 @@ impl LuauCodegen {
             ])),
             ExprKind::Ref(def) => {
                 let ident = match def {
-                    Def::Def(def) => match &package.items[*def].kind {
+                    Def::Def(def) => match &lcx.items[*def].kind {
                         ItemKind::Fn(FnItem { name, .. })
                         | ItemKind::ExternFn(ExternFnItem { name, .. }) => *name,
                     },
-                    Def::Local(local) => package.locals[*local].name,
+                    Def::Local(local) => lcx.locals[*local].name,
                 };
 
                 Doc::text(ident.as_str())

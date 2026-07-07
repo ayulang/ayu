@@ -1,44 +1,52 @@
 use ayuc_ast::{self as ast};
 use ayuc_hir::{self as hir};
 
-use ayuc_id::{ast::NodeId, hir::HirId};
+use ayuc_id::{
+    ast::NodeId,
+    hir::{DefId, HirId, HirIdAllocator, LocalId},
+};
 use ayuc_resolve::{
     def::Def as RDef,
     resolver::ResolutionContext,
     ty::{PrimTy as RPrimTy, Ty as RTy},
 };
-use ayuc_tyctx::TyCtx;
 use bimap::BiHashMap;
+use slotmap::SecondaryMap;
+
+#[derive(Default)]
+pub struct LoweringContext {
+    pub items: SecondaryMap<DefId, hir::Item>,
+    pub locals: SecondaryMap<LocalId, hir::Local>,
+}
 
 pub struct AstLowering<'a> {
-    _ty_ctx: &'a mut TyCtx,
+    ctx: LoweringContext,
     rcx: &'a ResolutionContext,
-    package: hir::Package,
     id_mappings: BiHashMap<NodeId, HirId>,
+
+    hir_id_allocator: HirIdAllocator,
 }
 
 impl<'a> AstLowering<'a> {
-    pub fn new(_ty_ctx: &'a mut TyCtx, rcx: &'a ResolutionContext) -> Self {
-        let id = _ty_ctx.mint_package_id();
-
+    pub fn new(rcx: &'a ResolutionContext) -> Self {
         Self {
-            _ty_ctx,
+            ctx: LoweringContext::default(),
             rcx,
-            package: hir::Package::new(id),
             id_mappings: BiHashMap::new(),
+            hir_id_allocator: HirIdAllocator::new(),
         }
     }
 
     #[must_use]
-    pub fn lower(mut self, ast: &ayuc_ast::Ast) -> hir::Package {
+    pub fn lower(mut self, ast: &ayuc_ast::Ast) -> LoweringContext {
         for item in &ast.items {
             let def_id = self.rcx.defs_by_node[&item.id];
             let lowered = self.lower_item(item);
 
-            self.package.items.insert(def_id, lowered);
+            self.ctx.items.insert(def_id, lowered);
         }
 
-        self.package
+        self.ctx
     }
 
     #[must_use]
@@ -47,7 +55,7 @@ impl<'a> AstLowering<'a> {
             panic!("tried to lower NodeId ({id:?}) into HirId: it has already been lowered");
         }
 
-        let hir_id = self.package.hir_id_allocator.allocate();
+        let hir_id = self.hir_id_allocator.allocate();
 
         self.id_mappings.insert(id, hir_id);
 
@@ -61,7 +69,7 @@ impl<'a> AstLowering<'a> {
             .parameters
             .iter()
             .map(|p| hir::Parameter {
-                hir_id: self.package.hir_id_allocator.allocate(),
+                hir_id: self.hir_id_allocator.allocate(),
                 name: p.ident.sym,
                 ty: self.lower_ty(&p.ty),
             })
@@ -73,7 +81,7 @@ impl<'a> AstLowering<'a> {
             let name = param.ident.sym;
             let local_id = self.rcx.locals_by_node[&param.id];
 
-            self.package
+            self.ctx
                 .locals
                 .insert(local_id, hir::Local { id: local_id, name });
         }
@@ -102,7 +110,7 @@ impl<'a> AstLowering<'a> {
                     .parameters
                     .iter()
                     .map(|p| hir::Parameter {
-                        hir_id: self.package.hir_id_allocator.allocate(),
+                        hir_id: self.hir_id_allocator.allocate(),
                         name: p.ident.sym,
                         ty: self.lower_ty(&p.ty),
                     })
@@ -141,7 +149,7 @@ impl<'a> AstLowering<'a> {
             let name = decl.ident;
             let local_id = self.rcx.locals_by_node[&stmt.id];
 
-            self.package
+            self.ctx
                 .locals
                 .insert(local_id, hir::Local { id: local_id, name });
         }

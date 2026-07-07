@@ -6,6 +6,7 @@ use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
 };
+use ayuc_session::Session;
 use slotmap::SlotMap;
 
 use crate::{def::Def, scope::ScopeStack, ty::Ty};
@@ -40,7 +41,9 @@ impl ResolutionContext {
     }
 }
 
-pub struct Resolver<'dcx> {
+pub struct Resolver<'dcx, 'sess> {
+    pub(crate) sess: &'sess mut Session,
+
     pub rcx: ResolutionContext,
 
     /// For the name resolver.
@@ -51,9 +54,10 @@ pub struct Resolver<'dcx> {
     pub(crate) file_id: usize,
 }
 
-impl<'dcx> Resolver<'dcx> {
-    pub fn new(dcx: &'dcx mut DiagnosticContext, file_id: usize) -> Self {
+impl<'dcx, 'sess> Resolver<'dcx, 'sess> {
+    pub fn new(sess: &'sess mut Session, dcx: &'dcx mut DiagnosticContext, file_id: usize) -> Self {
         Self {
+            sess,
             rcx: ResolutionContext::default(),
             stack: ScopeStack::new(),
             dcx,
@@ -64,11 +68,12 @@ impl<'dcx> Resolver<'dcx> {
     /// Constructs a new [Resolver], performs name and type resolution and returns the [ResolutionContext].
     #[inline]
     pub fn resolve(
+        sess: &'sess mut Session,
         dcx: &'dcx mut DiagnosticContext,
         file_id: usize,
         ast: &ast::Ast,
     ) -> ResolutionContext {
-        let mut this = Self::new(dcx, file_id);
+        let mut this = Self::new(sess, dcx, file_id);
 
         this.resolve_names(ast);
         this.resolve_types(ast);

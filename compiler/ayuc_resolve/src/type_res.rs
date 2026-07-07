@@ -6,7 +6,7 @@ use crate::{
 use ayuc_ast as ast;
 use ayuc_diagnostic::{Diagnostic, Label};
 
-impl Resolver<'_> {
+impl Resolver<'_, '_> {
     pub(crate) fn resolve_types(&mut self, ast: &ast::Ast) {
         for item in &ast.items {
             self.tr_walk_item(item);

@@ -3,30 +3,38 @@ pub mod callcheck;
 use ayuc_ast::Ast;
 use ayuc_diagnostic::DiagnosticContext;
 use ayuc_resolve::resolver::ResolutionContext;
-use ayuc_tyctx::TyCtx;
+use ayuc_session::Session;
 
 pub struct SemanticAnalyzer<'a> {
-    rcx: &'a mut ResolutionContext,
+    file_id: usize,
+    rcx: &'a ResolutionContext,
     dcx: &'a mut DiagnosticContext,
-    tyctx: &'a TyCtx,
+    sess: &'a Session,
 }
 
 impl<'a> SemanticAnalyzer<'a> {
     pub fn new(
-        rcx: &'a mut ResolutionContext,
+        file_id: usize,
+        rcx: &'a ResolutionContext,
         dcx: &'a mut DiagnosticContext,
-        tyctx: &'a TyCtx,
+        sess: &'a Session,
     ) -> Self {
-        Self { rcx, dcx, tyctx }
+        Self {
+            file_id,
+            rcx,
+            dcx,
+            sess,
+        }
     }
 
     pub fn analyze(
         ast: &Ast,
-        rcx: &'a mut ResolutionContext,
+        file_id: usize,
+        rcx: &'a ResolutionContext,
         dcx: &'a mut DiagnosticContext,
-        tyctx: &'a TyCtx,
+        sess: &'a Session,
     ) {
-        let this = Self::new(rcx, dcx, tyctx);
+        let mut this = Self::new(file_id, rcx, dcx, sess);
 
         this.callcheck(ast);
     }

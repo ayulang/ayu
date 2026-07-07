@@ -51,8 +51,8 @@ version = "0.1.0"
 dependencies = [
  "ayuc_hir",
  "ayuc_id",
+ "ayuc_lower",
  "ayuc_pretty",
- "ayuc_tyctx",
 ]
 
 [[package]]
@@ -78,8 +78,8 @@ dependencies = [
  "ayuc_parser",
  "ayuc_resolve",
  "ayuc_sema",
+ "ayuc_session",
  "ayuc_source",
- "ayuc_tyctx",
 ]
 
 [[package]]
@@ -118,8 +118,8 @@ dependencies = [
  "ayuc_id",
  "ayuc_resolve",
  "ayuc_span",
- "ayuc_tyctx",
  "bimap",
+ "slotmap",
 ]
 
 [[package]]
@@ -149,6 +149,7 @@ dependencies = [
  "ayuc_ast",
  "ayuc_diagnostic",
  "ayuc_id",
+ "ayuc_session",
  "ayuc_span",
  "slotmap",
 ]
@@ -169,8 +170,17 @@ dependencies = [
  "ayuc_ast",
  "ayuc_diagnostic",
  "ayuc_resolve",
+ "ayuc_session",
  "ayuc_span",
- "ayuc_tyctx",
+]
+
+[[package]]
+name = "ayuc_session"
+version = "0.1.0"
+dependencies = [
+ "ayuc_id",
+ "ayuc_span",
+ "slotmap",
 ]
 
 [[package]]
@@ -186,14 +196,6 @@ name = "ayuc_span"
 version = "0.1.0"
 dependencies = [
  "lasso",
-]
-
-[[package]]
-name = "ayuc_tyctx"
-version = "0.1.0"
-dependencies = [
- "ayuc_hir",
- "ayuc_id",
 ]
 
 [[package]]
