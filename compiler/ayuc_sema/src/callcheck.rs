@@ -64,8 +64,8 @@ impl SemanticAnalyzer<'_> {
 
             let provided_args = call.args.len();
             let required_args = match &info.kind {
-                ayuc_session::item::ItemKind::ExternFn { n_args }
-                | ayuc_session::item::ItemKind::Fn { n_args } => *n_args,
+                ayuc_session::item::ItemKind::ExternFn { n_args, .. }
+                | ayuc_session::item::ItemKind::Fn { n_args, .. } => *n_args,
             };
 
             if provided_args != required_args {

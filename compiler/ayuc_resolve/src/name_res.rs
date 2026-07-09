@@ -7,7 +7,7 @@ use ayuc_id::{
     hir::{DefId, LocalId},
 };
 use ayuc_session::item::ItemInfo;
-use ayuc_span::symbol::Symbol;
+use ayuc_span::{Span, symbol::Symbol};
 
 // General implementations
 impl Resolver<'_, '_> {
@@ -43,24 +43,45 @@ impl Resolver<'_, '_> {
         };
         let sym = ident.sym;
 
-        if let Some(_def) = self.stack.lookup_top(sym) {
-            self.dcx.emit(
-                Diagnostic::error(self.file_id, ident.span)
-                    .with_message(format!("the name `{}` is defined multiple times", sym))
-                    .with_label(Label::primary(ident.span, "name is already defined")),
-            );
+        if let Some(def) = self.stack.lookup_top(sym) {
+            let mut diag = Diagnostic::error(self.file_id, ident.span)
+                .with_message(format!("the name `{}` is defined multiple times", sym));
+
+            if let Def::Def(id) = def {
+                let item = self.sess.item(id);
+
+                diag = diag.with_label(Label::help(
+                    match &item.kind {
+                        ayuc_session::item::ItemKind::ExternFn { signature_span, .. }
+                        | ayuc_session::item::ItemKind::Fn { signature_span, .. } => {
+                            *signature_span
+                        }
+                    },
+                    "first definition here",
+                ))
+            }
+
+            diag = diag.with_label(Label::primary(ident.span, "name is already defined"));
+
+            self.dcx.emit(diag);
 
             return;
         }
 
-        // let def_id = self.rcx.def_ids.insert(item.id);
+        let signature_span = Span::from(match &item.kind {
+            ast::ItemKind::Fn(decl) => (item.span.start, decl.return_ty.span.end),
+            ast::ItemKind::ExternFn(decl) => (item.span.start, decl.return_ty.span.end),
+        });
+
         let def_id = self.sess.register_item(ItemInfo {
             name: sym,
             kind: match &item.kind {
                 ast::ItemKind::Fn(decl) => ayuc_session::item::ItemKind::Fn {
+                    signature_span,
                     n_args: decl.parameters.parameters.len(),
                 },
                 ast::ItemKind::ExternFn(decl) => ayuc_session::item::ItemKind::ExternFn {
+                    signature_span,
                     n_args: decl.parameters.parameters.len(),
                 },
             },

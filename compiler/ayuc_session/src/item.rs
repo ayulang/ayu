@@ -1,4 +1,4 @@
-use ayuc_span::symbol::Symbol;
+use ayuc_span::{Span, symbol::Symbol};
 
 pub struct ItemInfo {
     pub name: Symbol,
@@ -6,6 +6,6 @@ pub struct ItemInfo {
 }
 
 pub enum ItemKind {
-    Fn { n_args: usize },
-    ExternFn { n_args: usize },
+    Fn { signature_span: Span, n_args: usize },
+    ExternFn { signature_span: Span, n_args: usize },
 }
