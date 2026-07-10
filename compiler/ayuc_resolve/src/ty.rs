@@ -7,6 +7,19 @@ pub enum Ty {
     Error,
 }
 
+impl Ty {
+    pub fn get_name(&self) -> &'static str {
+        match self {
+            Self::Prim(ty) => match ty {
+                PrimTy::Integer => "int",
+                PrimTy::Str => "str",
+            },
+            Self::Unit => "unit",
+            Self::Error => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrimTy {
     Integer,

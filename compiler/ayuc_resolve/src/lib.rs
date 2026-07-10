@@ -4,3 +4,5 @@ pub mod resolver;
 pub mod scope;
 pub mod ty;
 pub mod type_res;
+
+pub use ty::*;

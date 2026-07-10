@@ -1,4 +1,5 @@
-pub mod callcheck;
+pub(crate) mod callcheck;
+pub(crate) mod typecheck;
 
 use ayuc_ast::Ast;
 use ayuc_diagnostic::DiagnosticContext;
@@ -37,5 +38,6 @@ impl<'a> SemanticAnalyzer<'a> {
         let mut this = Self::new(file_id, rcx, dcx, sess);
 
         this.callcheck(ast);
+        this.typecheck(ast);
     }
 }
