@@ -6,7 +6,7 @@ use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
 };
-use ayuc_session::item::ItemInfo;
+use ayuc_session as session;
 use ayuc_span::{Span, symbol::Symbol};
 
 // General implementations
@@ -52,10 +52,8 @@ impl Resolver<'_, '_> {
 
                 diag = diag.with_label(Label::help(
                     match &item.kind {
-                        ayuc_session::item::ItemKind::ExternFn { signature_span, .. }
-                        | ayuc_session::item::ItemKind::Fn { signature_span, .. } => {
-                            *signature_span
-                        }
+                        session::ItemKind::ExternFn { signature_span, .. }
+                        | session::ItemKind::Fn { signature_span, .. } => *signature_span,
                     },
                     "first definition here",
                 ))
@@ -73,14 +71,14 @@ impl Resolver<'_, '_> {
             ast::ItemKind::ExternFn(decl) => (item.span.start, decl.return_ty.span.end),
         });
 
-        let def_id = self.sess.register_item(ItemInfo {
+        let def_id = self.sess.register_item(session::ItemInfo {
             name: sym,
             kind: match &item.kind {
-                ast::ItemKind::Fn(decl) => ayuc_session::item::ItemKind::Fn {
+                ast::ItemKind::Fn(decl) => session::ItemKind::Fn {
                     signature_span,
                     n_args: decl.parameters.parameters.len(),
                 },
-                ast::ItemKind::ExternFn(decl) => ayuc_session::item::ItemKind::ExternFn {
+                ast::ItemKind::ExternFn(decl) => session::ItemKind::ExternFn {
                     signature_span,
                     n_args: decl.parameters.parameters.len(),
                 },
@@ -158,7 +156,7 @@ impl Resolver<'_, '_> {
                 }
             }
 
-            ayuc_ast::ExprKind::Binary(bin) => {
+            ast::ExprKind::Binary(bin) => {
                 self.n2_walk_expr(&bin.left);
                 self.n2_walk_expr(&bin.right);
             }
