@@ -39,7 +39,7 @@ impl Resolver<'_, '_> {
     fn n1_walk_item(&mut self, item: &ast::Item) {
         let ident = match &item.kind {
             ast::ItemKind::Fn(decl) => &decl.ident,
-            ast::ItemKind::ExternFn(decl) => &decl.ident,
+            ast::ItemKind::ExternFn(decl) => &decl.name,
         };
         let sym = ident.sym;
 
@@ -79,6 +79,7 @@ impl Resolver<'_, '_> {
                     n_args: decl.parameters.parameters.len(),
                 },
                 ast::ItemKind::ExternFn(decl) => session::ItemKind::ExternFn {
+                    ffi_name: decl.ffi_name.as_ref().map(|i| i.sym),
                     signature_span,
                     n_args: decl.parameters.parameters.len(),
                 },

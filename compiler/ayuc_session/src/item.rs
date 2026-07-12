@@ -6,6 +6,13 @@ pub struct ItemInfo {
 }
 
 pub enum ItemKind {
-    Fn { signature_span: Span, n_args: usize },
-    ExternFn { signature_span: Span, n_args: usize },
+    Fn {
+        signature_span: Span,
+        n_args: usize,
+    },
+    ExternFn {
+        ffi_name: Option<Symbol>,
+        signature_span: Span,
+        n_args: usize,
+    },
 }

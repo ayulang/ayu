@@ -103,7 +103,8 @@ impl<'a> AstLowering<'a> {
         let kind = match &item.kind {
             ast::ItemKind::Fn(fun) => hir::ItemKind::Fn(self.lower_fn_item(fun)),
             ast::ItemKind::ExternFn(extern_fun) => hir::ItemKind::ExternFn(hir::ExternFnItem {
-                name: extern_fun.ident.sym,
+                name: extern_fun.name.sym,
+                ffi_name: extern_fun.ffi_name.as_ref().map(|i| i.sym),
                 return_ty: self.lower_ty(&extern_fun.return_ty),
                 params: extern_fun
                     .parameters

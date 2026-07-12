@@ -15,11 +15,20 @@ impl Parser<'_, '_> {
             unreachable!()
         }
 
-        let ident = self.parse_ident()?;
+        let (ffi_name, name) = {
+            let first_ident = self.parse_ident()?; // always there
+
+            if self.maybe(TokenKind::Keyword(Keyword::As)) {
+                (Some(first_ident), self.parse_ident()?)
+            } else {
+                (None, first_ident)
+            }
+        };
+
         let params = match self.with_rollback(|this| this.parse_parameter_list()) {
             Ok(list) => list,
             Err(_) => {
-                let span = Span::from(ident.span.end);
+                let span = Span::from(name.span.end);
 
                 self.dcx.emit(
                     Diagnostic::error(self.file_id, span)
@@ -30,7 +39,7 @@ impl Parser<'_, '_> {
                         ))
                         .with_help(format!(
                             "consider adding a parameter list: {}{}",
-                            ident.sym.as_str().dimmed(),
+                            name.sym.as_str().dimmed(),
                             "()".bright_green()
                         )),
                 );
@@ -50,7 +59,8 @@ impl Parser<'_, '_> {
         };
 
         Ok(ExternFnDecl {
-            ident,
+            name,
+            ffi_name,
             parameters: params,
             return_ty: ty,
         })
