@@ -169,15 +169,12 @@ impl Resolver<'_, '_> {
     }
 
     fn n2_walk_lit(&mut self, lit: &ast::Literal) {
-        match lit {
-            ast::Literal::InterpolatedStr { segments, .. } => {
-                for segment in segments {
-                    if let ast::IntlSegment::Var(ident) = segment {
-                        self.n2_resolve_ident(ident);
-                    }
+        if let ast::Literal::InterpolatedStr { segments, .. } = lit {
+            for segment in segments {
+                if let ast::IntlSegment::Var(ident) = segment {
+                    self.n2_resolve_ident(ident);
                 }
             }
-            _ => {}
         }
     }
 
