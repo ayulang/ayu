@@ -55,7 +55,9 @@ impl SemanticAnalyzer<'_> {
         match &expr.kind {
             ast::ExprKind::Lit(lit) => match lit {
                 ast::Literal::Integer { .. } => resolve::Ty::Prim(resolve::PrimTy::Integer),
-                ast::Literal::Str { .. } => resolve::Ty::Prim(resolve::PrimTy::Str),
+                ast::Literal::Str { .. } | ast::Literal::InterpolatedStr { .. } => {
+                    resolve::Ty::Prim(resolve::PrimTy::Str)
+                }
             },
             _ => resolve::Ty::Error,
         }

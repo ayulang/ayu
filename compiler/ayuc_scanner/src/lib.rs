@@ -6,7 +6,7 @@ use std::str::Chars;
 use ayuc_span::Span;
 use unicode_properties::UnicodeEmoji;
 
-use crate::raw_token::{LiteralKind, RawToken, RawTokenKind, RawTokenStream};
+use crate::raw_token::{InplSegment, LiteralKind, RawToken, RawTokenKind, RawTokenStream};
 
 /// Transforms the input source code to a stream of [RawToken]s.
 /// These are basically normal tokens that only contain the token kind and location, no additional data.
@@ -49,9 +49,7 @@ impl<'a> Scanner<'a> {
         RawToken::new(RawTokenKind::Whitespace, (start, self.position))
     }
 
-    pub(crate) fn ident(&mut self) -> RawToken {
-        let start = self.position - 1;
-
+    pub(crate) fn ident(&mut self, start: usize) -> RawToken {
         self.eat_while(predicate::is_ident_continue);
 
         match self.first() {
@@ -107,6 +105,95 @@ impl<'a> Scanner<'a> {
         false
     }
 
+    pub(crate) fn inpl_text(&mut self, start: usize) -> InplSegment {
+        while let Some(c) = self.first() {
+            match c {
+                '`' | '{' => break,
+                '\\' if self.first() == Some('\\') || self.first() == Some('"') => {
+                    self.bump();
+                    self.bump();
+                }
+                _ => {
+                    self.bump();
+                }
+            }
+        }
+
+        InplSegment::Text {
+            span: Span::from((start, self.position)),
+        }
+    }
+
+    pub(crate) fn inpl_var(&mut self) -> InplSegment {
+        let RawToken { kind, span } = self.ident(self.position);
+        let invalid = match kind {
+            RawTokenKind::Ident => false,
+            RawTokenKind::InvalidIdent => true,
+            _ => unreachable!(),
+        };
+
+        let terminated = match self.first() {
+            Some('}') => {
+                self.bump();
+                true
+            }
+            _ => false,
+        };
+
+        InplSegment::Var {
+            span,
+            invalid,
+            terminated,
+        }
+    }
+
+    pub(crate) fn interpolated_string(&mut self) -> RawToken {
+        let start = self.position - 1;
+
+        let mut terminated = false;
+        let mut segments = Vec::new();
+
+        while let Some(c) = self.bump() {
+            match c {
+                '`' => {
+                    terminated = true;
+
+                    break;
+                }
+                '{' if matches!(self.first(), Some('{')) => {
+                    self.bump();
+
+                    segments.push(self.inpl_text(self.position - 2));
+                }
+                '{' => {
+                    segments.push(self.inpl_var());
+                }
+                '}' if matches!(self.first(), Some('}')) => {
+                    self.bump();
+
+                    segments.push(self.inpl_text(self.position - 2));
+                }
+                '}' => segments.push(InplSegment::InvalidClosing(Span::from((
+                    self.position - 1,
+                    self.position,
+                )))),
+                _ => {
+                    segments.push(self.inpl_text(self.position - 1));
+                }
+            }
+        }
+
+        RawToken::new(
+            RawTokenKind::Literal {
+                kind: LiteralKind::InterpolatedStr {
+                    terminated,
+                    segments,
+                },
+            },
+            (start, self.position),
+        )
+    }
+
     pub(crate) fn single(&self, kind: RawTokenKind) -> RawToken {
         RawToken::new(kind, (self.position - 1, self.position))
     }
@@ -150,7 +237,7 @@ impl<'a> Scanner<'a> {
 
         match first_char {
             c if c.is_whitespace() => self.whitespace(),
-            c if predicate::is_ident_start(c) => self.ident(),
+            c if predicate::is_ident_start(c) => self.ident(self.position - 1),
 
             '/' if matches!(self.first(), Some('/')) => self.comment(),
             '/' if matches!(self.first(), Some('*')) => self.multiline_comment(),
@@ -170,6 +257,7 @@ impl<'a> Scanner<'a> {
             '!' => self.single(RawTokenKind::Exclamation),
 
             '"' => self.string(),
+            '`' => self.interpolated_string(),
             c if c.is_ascii_digit() => self.integer(),
 
             _ => RawToken::new(RawTokenKind::Unknown, (self.position - 1, self.position)),

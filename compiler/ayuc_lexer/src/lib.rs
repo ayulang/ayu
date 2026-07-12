@@ -9,7 +9,7 @@ use ayuc_scanner::{
 use ayuc_span::{Span, symbol::Symbol};
 use unicode_properties::UnicodeEmoji;
 
-use crate::token::{Delimiter, Keyword, Literal, StructuredToken, Token, TokenKind};
+use crate::token::{Delimiter, InplSegment, Keyword, Literal, StructuredToken, Token, TokenKind};
 
 pub struct LexedFile {
     pub tokens: Vec<StructuredToken>,
@@ -79,7 +79,7 @@ impl<'a> Lexer<'a> {
                                 Span::from(span.start..span.start + 1),
                                 "string starts here",
                             ))
-                            .with_help("consider adding a `\"` to terminate the string"),
+                            .with_help("consider adding a \" to terminate the string"),
                     );
 
                     return None; // maybe we change this in the future (recovery), but not yet.
@@ -89,6 +89,97 @@ impl<'a> Lexer<'a> {
 
                 Some(TokenKind::Literal(Literal::Str {
                     data_span: data_span.into(),
+                }))
+            }
+            raw_token::LiteralKind::InterpolatedStr {
+                terminated,
+                segments,
+            } => {
+                if !terminated {
+                    self.dcx.emit(
+                        Diagnostic::error(self.file_id, span)
+                            .with_message("unterminated interpolated string")
+                            .with_label(Label::primary(span, "string has no end"))
+                            .with_label(Label::note(
+                                Span::from(span.start..span.start + 1),
+                                "string starts here",
+                            ))
+                            .with_help("consider adding a ` to terminate the string"),
+                    );
+
+                    return None; // maybe we change this in the future (recovery), but not yet.
+                }
+
+                let segments = segments
+                    .into_iter()
+                    .flat_map(|seg| match seg {
+                        raw_token::InplSegment::InvalidClosing(closing_span) => {
+                            self.dcx.emit(
+                                Diagnostic::error(self.file_id, closing_span)
+                                    .with_message("unmatched `}` found")
+                                    .with_label(Label::primary(
+                                        closing_span,
+                                        "this has no matching `{`",
+                                    ))
+                                    .with_help("if you intended to print `}`, you can escape it using `}}`"),
+                            );
+
+                            None
+                        }
+                        raw_token::InplSegment::Text { span } => Some(InplSegment::Text { span }),
+                        raw_token::InplSegment::Var {
+                            span: ident_span,
+                            invalid,
+                            terminated,
+                        } => {
+                            if !terminated {
+                                self.dcx.emit(
+                                    Diagnostic::error(self.file_id, ident_span)
+                                        .with_message("unterminated interpolation segment")
+                                        .with_label(Label::primary(
+                                            Span::from((ident_span.start - 1, ident_span.end)),
+                                            "expected a closing `}` after this",
+                                        ))
+                                        .with_help(format!(
+                                            "replace `{{{}` with `{{{}}}`",
+                                            &self.source[ident_span], &self.source[ident_span]
+                                        )),
+                                );
+                            }
+
+                            if invalid {
+                                let emoji_props = self.source[ident_span]
+                                    .chars()
+                                    .enumerate()
+                                    .find(|c| c.1.is_emoji_char())
+                                    .map(|(idx, c)| (ident_span.start + idx, c.len_utf8()));
+
+                                let label = if let Some((pos, len)) = emoji_props {
+                                    Label::primary(
+                                        Span::from(pos..pos + len),
+                                        "emojis are not permitted in identifiers",
+                                    )
+                                } else {
+                                    Label::primary(ident_span, "this is an invalid identifier")
+                                };
+
+                                self.dcx.emit(
+                                    Diagnostic::error(self.file_id, ident_span)
+                                        .with_message("invalid identifier")
+                                        .with_label(label),
+                                );
+                            }
+
+                            Some(InplSegment::Var {
+                                span: ident_span
+                            })
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                Some(TokenKind::Literal(Literal::InterpolatedString {
+                    span,
+                    segments,
                 }))
             }
             raw_token::LiteralKind::Integer { data_span } => {

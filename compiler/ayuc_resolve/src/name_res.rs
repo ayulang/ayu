@@ -164,7 +164,17 @@ impl Resolver<'_, '_> {
 
             ast::ExprKind::Identifier(ident) => self.n2_resolve_ident(ident),
 
-            ast::ExprKind::Lit(_) => {}
+            ast::ExprKind::Lit(lit) => self.n2_walk_lit(lit),
+        }
+    }
+
+    fn n2_walk_lit(&mut self, lit: &ast::Literal) {
+        if let ast::Literal::InterpolatedStr { segments, .. } = lit {
+            for segment in segments {
+                if let ast::IntlSegment::Var(ident) = segment {
+                    self.n2_resolve_ident(ident);
+                }
+            }
         }
     }
 

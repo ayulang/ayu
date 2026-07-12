@@ -168,6 +168,19 @@ impl<'a> AstLowering<'a> {
             }),
             ast::ExprKind::Lit(lit) => hir::ExprKind::Lit(match lit {
                 ast::Literal::Str { span: _, data } => hir::Literal::Str(*data),
+                ast::Literal::InterpolatedStr { span: _, segments } => {
+                    hir::Literal::InterpolatedStr(
+                        segments
+                            .iter()
+                            .map(|seg| match seg {
+                                ast::IntlSegment::Text(sym) => hir::IntlSegment::Text(*sym),
+                                ast::IntlSegment::Var(ident) => {
+                                    hir::IntlSegment::Var(self.resolve_ident(ident))
+                                }
+                            })
+                            .collect(),
+                    )
+                }
                 ast::Literal::Integer { span: _, value } => hir::Literal::Integer(*value),
             }),
             ast::ExprKind::Binary(bin) => hir::ExprKind::Binary(hir::BinExpr {

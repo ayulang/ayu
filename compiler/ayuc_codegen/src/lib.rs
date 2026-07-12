@@ -1,9 +1,10 @@
 use ayuc_hir::{
-    BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, Item, ItemKind, Literal, Parameter,
-    Stmt, StmtKind,
+    BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, IntlSegment, Item, ItemKind,
+    Literal, Parameter, Stmt, StmtKind,
 };
 use ayuc_lower::LoweringContext;
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
+use ayuc_span::symbol::Symbol;
 
 pub struct LuauCodegen;
 
@@ -123,6 +124,25 @@ impl LuauCodegen {
                     Doc::text(str.as_str()),
                     Doc::text("\""),
                 ])),
+                Literal::InterpolatedStr(segments) => Doc::Concat(Vec::from([
+                    Doc::text("`"),
+                    Doc::Concat(
+                        segments
+                            .iter()
+                            .map(|segment| match segment {
+                                IntlSegment::Text(text) => Doc::text(
+                                    text.as_str().replace("{{", "\\{").replace("}}", "\\}"),
+                                ),
+                                IntlSegment::Var(def) => Doc::Concat(Vec::from([
+                                    Doc::text("{"),
+                                    Doc::text(Self::def_to_name(lcx, def).as_str()),
+                                    Doc::text("}"),
+                                ])),
+                            })
+                            .collect(),
+                    ),
+                    Doc::text("`"),
+                ])),
             },
             ExprKind::Binary(bin) => Doc::Concat(Vec::from([
                 Self::expr_to_doc(lcx, &bin.left),
@@ -158,25 +178,25 @@ impl LuauCodegen {
                 ),
                 Doc::text(")"),
             ])),
-            ExprKind::Ref(def) => {
-                let ident = match def {
-                    Def::Def(def) => match &lcx.items[*def].kind {
-                        ItemKind::Fn(FnItem { name, .. })
-                        | ItemKind::ExternFn(ExternFnItem {
-                            ffi_name: Some(name),
-                            ..
-                        })
-                        | ItemKind::ExternFn(ExternFnItem {
-                            ffi_name: None,
-                            name,
-                            ..
-                        }) => *name,
-                    },
-                    Def::Local(local) => lcx.locals[*local].name,
-                };
+            ExprKind::Ref(def) => Doc::text(Self::def_to_name(lcx, def).as_str()),
+        }
+    }
 
-                Doc::text(ident.as_str())
-            }
+    fn def_to_name(lcx: &LoweringContext, def: &Def) -> Symbol {
+        match def {
+            Def::Def(def) => match &lcx.items[*def].kind {
+                ItemKind::Fn(FnItem { name, .. })
+                | ItemKind::ExternFn(ExternFnItem {
+                    ffi_name: Some(name),
+                    ..
+                })
+                | ItemKind::ExternFn(ExternFnItem {
+                    ffi_name: None,
+                    name,
+                    ..
+                }) => *name,
+            },
+            Def::Local(local) => lcx.locals[*local].name,
         }
     }
 }
