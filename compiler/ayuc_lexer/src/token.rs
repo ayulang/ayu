@@ -24,15 +24,29 @@ pub enum Delimiter {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Literal {
-    Str { data_span: Span },
-    Integer { data_span: Span },
+    Str {
+        data_span: Span,
+    },
+    InterpolatedString {
+        span: Span,
+        segments: Vec<InplSegment>,
+    },
+    Integer {
+        data_span: Span,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum InplSegment {
+    Text { span: Span },
+    Var { sym: Symbol },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     /// An identifier and its associated [Symbol].
     Ident(Symbol),
-    /// A keywrod.
+    /// A keyword.
     Keyword(Keyword),
     /// A literal.
     Literal(Literal),

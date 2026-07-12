@@ -1,6 +1,6 @@
 use ayuc_hir::{
-    BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, Item, ItemKind, Literal, Parameter,
-    Stmt, StmtKind,
+    BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, IntlSegment, Item, ItemKind,
+    Literal, Parameter, Stmt, StmtKind,
 };
 use ayuc_lower::LoweringContext;
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
@@ -122,6 +122,25 @@ impl LuauCodegen {
                     Doc::text("\""),
                     Doc::text(str.as_str()),
                     Doc::text("\""),
+                ])),
+                Literal::InterpolatedStr(segments) => Doc::Concat(Vec::from([
+                    Doc::text("`"),
+                    Doc::Concat(
+                        segments
+                            .iter()
+                            .map(|segment| match segment {
+                                IntlSegment::Text(text) => Doc::text(
+                                    text.as_str().replace("{{", "\\{").replace("}}", "\\}"),
+                                ),
+                                IntlSegment::Var(sym) => Doc::Concat(Vec::from([
+                                    Doc::text("{"),
+                                    Doc::text(sym.as_str()),
+                                    Doc::text("}"),
+                                ])),
+                            })
+                            .collect(),
+                    ),
+                    Doc::text("`"),
                 ])),
             },
             ExprKind::Binary(bin) => Doc::Concat(Vec::from([

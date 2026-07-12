@@ -82,8 +82,19 @@ pub enum RawTokenKind {
 pub enum LiteralKind {
     /// "abc" or "abc
     Str { terminated: bool },
+    /// `abc{x}` or `abc{x}
+    InterpolatedStr {
+        terminated: bool,
+        segments: Vec<InplSegment>,
+    },
     /// 12345, 00491
     Integer { data_span: Span },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum InplSegment {
+    Text { span: Span },
+    Var { span: Span, invalid: bool },
 }
 
 impl RawToken {

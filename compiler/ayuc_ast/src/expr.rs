@@ -47,8 +47,24 @@ pub struct BinExpr {
 
 #[derive(Debug)]
 pub enum Literal {
-    Str { span: Span, data: Symbol },
-    Integer { span: Span, value: i64 },
+    Str {
+        span: Span,
+        data: Symbol,
+    },
+    InterpolatedStr {
+        span: Span,
+        segments: Vec<IntlSegment>,
+    },
+    Integer {
+        span: Span,
+        value: i64,
+    },
+}
+
+#[derive(Debug)]
+pub enum IntlSegment {
+    Text(Symbol),
+    Var(Symbol),
 }
 
 #[derive(Debug)]

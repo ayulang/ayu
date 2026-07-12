@@ -1,4 +1,6 @@
-use ayuc_ast::{BinExpr, CallExpr, Expr, ExprKind, Ident, Literal, Operator, expr::Block};
+use ayuc_ast::{
+    BinExpr, CallExpr, Expr, ExprKind, Ident, IntlSegment, Literal, Operator, expr::Block,
+};
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, StructuredToken, Token, TokenKind},
@@ -93,6 +95,22 @@ impl Parser<'_, '_> {
                         span: *span,
                         data: Symbol::intern(&self.source[data_span]),
                     },
+                    ayuc_lexer::token::Literal::InterpolatedString { span, segments } => {
+                        Literal::InterpolatedStr {
+                            span: *span,
+                            segments: segments
+                                .iter()
+                                .map(|seg| match seg {
+                                    ayuc_lexer::token::InplSegment::Text { span } => {
+                                        IntlSegment::Text(Symbol::intern(&self.source[span]))
+                                    }
+                                    ayuc_lexer::token::InplSegment::Var { sym } => {
+                                        IntlSegment::Var(*sym)
+                                    }
+                                })
+                                .collect(),
+                        }
+                    }
                     ayuc_lexer::token::Literal::Integer { data_span } => {
                         let data = &self.source[data_span];
 

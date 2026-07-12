@@ -45,7 +45,14 @@ pub struct CallExpr {
 #[derive(Debug)]
 pub enum Literal {
     Str(Symbol),
+    InterpolatedStr(Vec<IntlSegment>),
     Integer(i64),
+}
+
+#[derive(Debug)]
+pub enum IntlSegment {
+    Text(Symbol),
+    Var(Symbol),
 }
 
 #[derive(Debug)]
