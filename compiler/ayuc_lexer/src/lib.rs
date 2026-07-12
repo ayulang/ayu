@@ -115,7 +115,7 @@ impl<'a> Lexer<'a> {
                     .flat_map(|seg| match seg {
                         raw_token::InplSegment::InvalidClosing(closing_span) => {
                             self.dcx.emit(
-                                Diagnostic::error(self.file_id, span)
+                                Diagnostic::error(self.file_id, closing_span)
                                     .with_message("unmatched `}` found")
                                     .with_label(Label::primary(
                                         closing_span,
@@ -134,7 +134,7 @@ impl<'a> Lexer<'a> {
                         } => {
                             if !terminated {
                                 self.dcx.emit(
-                                    Diagnostic::error(self.file_id, span)
+                                    Diagnostic::error(self.file_id, ident_span)
                                         .with_message("unterminated interpolation segment")
                                         .with_label(Label::primary(
                                             Span::from((ident_span.start - 1, ident_span.end)),
