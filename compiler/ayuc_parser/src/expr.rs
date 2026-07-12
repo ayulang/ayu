@@ -81,9 +81,7 @@ impl Parser<'_, '_> {
     }
 
     pub fn parse_expr_prefix(&mut self) -> PResult<Expr> {
-        let Some(first) = self.stream.consume() else {
-            todo!()
-        };
+        let first = self.require_token()?;
 
         Ok(match first {
             StructuredToken::Token(Token {
