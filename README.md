@@ -2,7 +2,7 @@
 
 A modern, statically typed programming language that transpiles to Luau.
 
-## 🔷 `Hello, World!` Example
+### 🔷 `Hello, World!` Example
 
 ```ayu
 extern fn print(msg: str)
