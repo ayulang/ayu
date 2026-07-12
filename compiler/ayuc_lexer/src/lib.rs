@@ -54,6 +54,7 @@ impl<'a> Lexer<'a> {
             "extern" => Some(Keyword::Extern),
             "return" => Some(Keyword::Return),
             "if" => Some(Keyword::If),
+            "as" => Some(Keyword::As),
             _ => None,
         };
 
