@@ -39,7 +39,7 @@ pub enum Literal {
 #[derive(Debug, Clone, PartialEq)]
 pub enum InplSegment {
     Text { span: Span },
-    Var { sym: Symbol },
+    Var { span: Span },
 }
 
 #[derive(Debug, Clone, PartialEq)]

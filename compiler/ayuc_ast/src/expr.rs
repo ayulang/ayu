@@ -64,7 +64,7 @@ pub enum Literal {
 #[derive(Debug)]
 pub enum IntlSegment {
     Text(Symbol),
-    Var(Symbol),
+    Var(Ident),
 }
 
 #[derive(Debug)]

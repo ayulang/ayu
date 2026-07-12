@@ -171,7 +171,7 @@ impl<'a> Lexer<'a> {
                             }
 
                             Some(InplSegment::Var {
-                                sym: Symbol::intern(&self.source[ident_span]),
+                                span: ident_span
                             })
                         }
                     })

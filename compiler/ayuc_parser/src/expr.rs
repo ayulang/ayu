@@ -104,8 +104,12 @@ impl Parser<'_, '_> {
                                     ayuc_lexer::token::InplSegment::Text { span } => {
                                         IntlSegment::Text(Symbol::intern(&self.source[span]))
                                     }
-                                    ayuc_lexer::token::InplSegment::Var { sym } => {
-                                        IntlSegment::Var(*sym)
+                                    ayuc_lexer::token::InplSegment::Var { span } => {
+                                        IntlSegment::Var(Ident {
+                                            id: self.node_id_allocator.allocate(),
+                                            span: *span,
+                                            sym: Symbol::intern(&self.source[span]),
+                                        })
                                     }
                                 })
                                 .collect(),

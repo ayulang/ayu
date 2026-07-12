@@ -8,3 +8,4 @@ ayuc_hir = { path = "../ayuc_hir" }
 ayuc_id = { path = "../ayuc_id" }
 ayuc_pretty = { path = "../ayuc_pretty" }
 ayuc_lower = { path = "../ayuc_lower" }
+ayuc_span = { path = "../ayuc_span" }

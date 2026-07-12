@@ -174,7 +174,9 @@ impl<'a> AstLowering<'a> {
                             .iter()
                             .map(|seg| match seg {
                                 ast::IntlSegment::Text(sym) => hir::IntlSegment::Text(*sym),
-                                ast::IntlSegment::Var(sym) => hir::IntlSegment::Var(*sym),
+                                ast::IntlSegment::Var(ident) => {
+                                    hir::IntlSegment::Var(self.resolve_ident(ident))
+                                }
                             })
                             .collect(),
                     )
