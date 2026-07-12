@@ -57,7 +57,7 @@ impl SemanticAnalyzer<'_> {
                 ast::Literal::Integer { .. } => resolve::Ty::Prim(resolve::PrimTy::Integer),
                 ast::Literal::Str { .. } => resolve::Ty::Prim(resolve::PrimTy::Str),
             },
-            _ => todo!(),
+            _ => resolve::Ty::Error,
         }
     }
 }
