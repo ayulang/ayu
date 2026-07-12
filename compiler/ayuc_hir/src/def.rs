@@ -4,5 +4,4 @@ use ayuc_id::hir::{DefId, LocalId};
 pub enum Def {
     Local(LocalId),
     Def(DefId),
-    Error,
 }

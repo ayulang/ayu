@@ -1,40 +1,52 @@
 use ayuc_ast::{self as ast};
 use ayuc_hir::{self as hir};
 
-use ayuc_id::{ast::NodeId, hir::HirId};
-use ayuc_resolve::Resolver;
-use ayuc_tyctx::TyCtx;
+use ayuc_id::{
+    ast::NodeId,
+    hir::{DefId, HirId, HirIdAllocator, LocalId},
+};
+use ayuc_resolve::{
+    def::Def as RDef,
+    resolver::ResolutionContext,
+    ty::{PrimTy as RPrimTy, Ty as RTy},
+};
 use bimap::BiHashMap;
+use slotmap::SecondaryMap;
+
+#[derive(Default)]
+pub struct LoweringContext {
+    pub items: SecondaryMap<DefId, hir::Item>,
+    pub locals: SecondaryMap<LocalId, hir::Local>,
+}
 
 pub struct AstLowering<'a> {
-    _ty_ctx: &'a mut TyCtx,
-    resolver: &'a Resolver<'a>,
-    package: hir::Package,
+    ctx: LoweringContext,
+    rcx: &'a ResolutionContext,
     id_mappings: BiHashMap<NodeId, HirId>,
+
+    hir_id_allocator: HirIdAllocator,
 }
 
 impl<'a> AstLowering<'a> {
-    pub fn new(_ty_ctx: &'a mut TyCtx, resolver: &'a Resolver) -> Self {
-        let id = _ty_ctx.mint_package_id();
-
+    pub fn new(rcx: &'a ResolutionContext) -> Self {
         Self {
-            _ty_ctx,
-            resolver,
-            package: hir::Package::new(id),
+            ctx: LoweringContext::default(),
+            rcx,
             id_mappings: BiHashMap::new(),
+            hir_id_allocator: HirIdAllocator::new(),
         }
     }
 
     #[must_use]
-    pub fn lower(mut self, ast: &ayuc_ast::Ast) -> hir::Package {
+    pub fn lower(mut self, ast: &ayuc_ast::Ast) -> LoweringContext {
         for item in &ast.items {
-            let def_id = self.resolver.defs_by_node[&item.id];
+            let def_id = self.rcx.defs_by_node[&item.id];
             let lowered = self.lower_item(item);
 
-            self.package.items.insert(def_id, lowered);
+            self.ctx.items.insert(def_id, lowered);
         }
 
-        self.package
+        self.ctx
     }
 
     #[must_use]
@@ -43,7 +55,7 @@ impl<'a> AstLowering<'a> {
             panic!("tried to lower NodeId ({id:?}) into HirId: it has already been lowered");
         }
 
-        let hir_id = self.package.hir_id_allocator.allocate();
+        let hir_id = self.hir_id_allocator.allocate();
 
         self.id_mappings.insert(id, hir_id);
 
@@ -57,7 +69,7 @@ impl<'a> AstLowering<'a> {
             .parameters
             .iter()
             .map(|p| hir::Parameter {
-                hir_id: self.package.hir_id_allocator.allocate(),
+                hir_id: self.hir_id_allocator.allocate(),
                 name: p.ident.sym,
                 ty: self.lower_ty(&p.ty),
             })
@@ -67,9 +79,9 @@ impl<'a> AstLowering<'a> {
 
         for param in &fun.parameters.parameters {
             let name = param.ident.sym;
-            let local_id = self.resolver.locals_by_node[&param.id];
+            let local_id = self.rcx.locals_by_node[&param.id];
 
-            self.package
+            self.ctx
                 .locals
                 .insert(local_id, hir::Local { id: local_id, name });
         }
@@ -85,7 +97,7 @@ impl<'a> AstLowering<'a> {
     }
 
     fn lower_item(&mut self, item: &ast::Item) -> hir::Item {
-        let id = self.resolver.defs_by_node[&item.id];
+        let id = self.rcx.defs_by_node[&item.id];
         let hir_id = self.lower_id(item.id);
 
         let kind = match &item.kind {
@@ -98,7 +110,7 @@ impl<'a> AstLowering<'a> {
                     .parameters
                     .iter()
                     .map(|p| hir::Parameter {
-                        hir_id: self.package.hir_id_allocator.allocate(),
+                        hir_id: self.hir_id_allocator.allocate(),
                         name: p.ident.sym,
                         ty: self.lower_ty(&p.ty),
                     })
@@ -135,9 +147,9 @@ impl<'a> AstLowering<'a> {
 
         if let hir::StmtKind::Let(decl) = &kind {
             let name = decl.ident;
-            let local_id = self.resolver.locals_by_node[&stmt.id];
+            let local_id = self.rcx.locals_by_node[&stmt.id];
 
-            self.package
+            self.ctx
                 .locals
                 .insert(local_id, hir::Local { id: local_id, name });
         }
@@ -148,9 +160,7 @@ impl<'a> AstLowering<'a> {
     fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {
         let id = self.lower_id(expr.id);
         let kind = match &expr.kind {
-            ast::ExprKind::Identifier(ident) => {
-                hir::ExprKind::Ref(self.resolver.name_resolutions[&ident.id])
-            }
+            ast::ExprKind::Identifier(ident) => hir::ExprKind::Ref(self.resolve_ident(ident)),
             ast::ExprKind::Call(call) => hir::ExprKind::Call(ayuc_hir::CallExpr {
                 callee: Box::new(self.lower_expr(&call.callee)),
                 args: call.args.iter().map(|e| self.lower_expr(e)).collect(),
@@ -178,7 +188,22 @@ impl<'a> AstLowering<'a> {
         hir::Expr { id, kind }
     }
 
-    fn lower_ty(&mut self, ty: &ast::Ty) -> hir::Ty {
-        self.resolver.get_ty_res(ty.id)
+    fn resolve_ident(&self, ident: &ast::Ident) -> hir::Def {
+        match self.rcx.name_resolutions[&ident.id] {
+            RDef::Def(d) => hir::Def::Def(d),
+            RDef::Local(l) => hir::Def::Local(l),
+            RDef::Error => unreachable!(),
+        }
+    }
+
+    fn lower_ty(&self, ty: &ast::Ty) -> hir::Ty {
+        match self.rcx.get_ty_res(ty.id) {
+            RTy::Unit => hir::Ty::Unit,
+            RTy::Prim(prim) => hir::Ty::Primitive(match prim {
+                RPrimTy::Integer => hir::PrimTy::Integer,
+                RPrimTy::Str => hir::PrimTy::Str,
+            }),
+            RTy::Error => unreachable!(),
+        }
     }
 }

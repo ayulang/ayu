@@ -10,9 +10,10 @@ use ayuc_diagnostic::DiagnosticContext;
 use ayuc_lexer::{LexedFile, stream::TokenStream};
 use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
-use ayuc_resolve::Resolver;
+use ayuc_resolve::resolver::Resolver;
+use ayuc_sema::SemanticAnalyzer;
+use ayuc_session::Session;
 use ayuc_source::SourceCache;
-use ayuc_tyctx::TyCtx;
 
 fn print_diagnostics(dcx: DiagnosticContext, source_cache: &SourceCache) {
     for advice in dcx.advice() {
@@ -29,6 +30,7 @@ fn print_diagnostics(dcx: DiagnosticContext, source_cache: &SourceCache) {
 }
 
 pub fn drive() -> ExitCode {
+    let mut sess = Session::default();
     let mut source_cache = SourceCache::default();
 
     let args = env::args().skip(1).collect::<Vec<_>>();
@@ -60,6 +62,7 @@ pub fn drive() -> ExitCode {
     );
 
     let mut dcx = DiagnosticContext::new();
+
     let Some(LexedFile { tokens }) = ayuc_lexer::lex(&mut dcx, file_id, source) else {
         print_diagnostics(dcx, &source_cache);
 
@@ -85,16 +88,7 @@ pub fn drive() -> ExitCode {
 
     let ast = ast.unwrap();
 
-    let mut ty_ctx = TyCtx {
-        packages: Vec::new(),
-        next_package_id: 0,
-    };
-
-    let resolver = Resolver::resolve(&mut dcx, file_id, &ast);
-
-    let lowering = AstLowering::new(&mut ty_ctx, &resolver);
-    let package = lowering.lower(&ast);
-    let package_id = ty_ctx.register_package(package);
+    let rcx = Resolver::resolve(&mut sess, &mut dcx, file_id, &ast);
 
     if !dcx.errors().is_empty() {
         let errors = dcx.errors().len();
@@ -110,7 +104,26 @@ pub fn drive() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    println!("{}", LuauCodegen::emit(package_id, &ty_ctx));
+    SemanticAnalyzer::analyze(&ast, file_id, &rcx, &mut dcx, &sess);
+
+    if !dcx.errors().is_empty() {
+        let errors = dcx.errors().len();
+
+        print_diagnostics(dcx, &source_cache);
+
+        eprintln!(
+            "> Unable to compile due to {} error{}",
+            errors,
+            if errors == 1 { "" } else { "s" }
+        );
+
+        return ExitCode::FAILURE;
+    }
+
+    let lowering = AstLowering::new(&rcx);
+    let lcx = lowering.lower(&ast);
+
+    println!("{}", LuauCodegen::emit(&lcx));
 
     ExitCode::SUCCESS
 }

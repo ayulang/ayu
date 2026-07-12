@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use ayuc_hir::Def;
 use ayuc_id::hir::{DefId, LocalId};
 use ayuc_span::symbol::Symbol;
+
+use crate::def::Def;
 
 #[derive(Debug)]
 pub struct ScopeStack {
@@ -33,6 +34,10 @@ impl ScopeStack {
 
     pub fn current_mut(&mut self) -> &mut Scope {
         self.stack.last_mut().unwrap_or(&mut self.top)
+    }
+
+    pub fn lookup_top(&self, sym: Symbol) -> Option<Def> {
+        self.top.symbols.get(&sym).copied()
     }
 
     pub fn lookup(&self, sym: Symbol) -> Option<Def> {

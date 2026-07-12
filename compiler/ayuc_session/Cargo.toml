@@ -1,8 +1,9 @@
 [package]
-name = "ayuc_tyctx"
+name = "ayuc_session"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ayuc_hir = { path = "../ayuc_hir" }
 ayuc_id = { path = "../ayuc_id" }
+ayuc_span = { path = "../ayuc_span" }
+slotmap = "1.1.1"

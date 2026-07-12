@@ -5,6 +5,6 @@ edition = "2024"
 
 [dependencies]
 ayuc_hir = { path = "../ayuc_hir" }
-ayuc_tyctx = { path = "../ayuc_tyctx" }
 ayuc_id = { path = "../ayuc_id" }
 ayuc_pretty = { path = "../ayuc_pretty" }
+ayuc_lower = { path = "../ayuc_lower" }

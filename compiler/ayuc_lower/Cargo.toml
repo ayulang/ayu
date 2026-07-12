@@ -6,8 +6,8 @@ edition = "2024"
 [dependencies]
 ayuc_ast = { path = "../ayuc_ast" }
 ayuc_hir = { path = "../ayuc_hir" }
-ayuc_tyctx = { path = "../ayuc_tyctx" }
 ayuc_id = { path = "../ayuc_id" }
 ayuc_resolve = { path = "../ayuc_resolve" }
 ayuc_span = { path = "../ayuc_span" }
 bimap = "0.6.3"
+slotmap = "1.1.1"

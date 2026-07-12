@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ayuc_hir = { path = "../ayuc_hir" }
+ayuc_ast = { path = "../ayuc_ast" }
+ayuc_resolve = { path = "../ayuc_resolve" }
 ayuc_span = { path = "../ayuc_span" }
-ayuc_tyctx = { path = "../ayuc_tyctx" }
+ayuc_session = { path = "../ayuc_session" }
+ayuc_diagnostic = { path = "../ayuc_diagnostic" }
