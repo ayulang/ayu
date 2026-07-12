@@ -62,9 +62,11 @@ Ayu generates clean, formatted Luau output that is easy to inspect and debug.
 
 ## 🔬 Trying out Ayu
 
-1. Clone this repository
-2. Run `cargo build -r -p ayuc`
-3. Run the compiler on any Ayu input file: `./target/release/ayuc <path-to-anything.ayu>`
+1. Clone this repository: `git clone https://github.com/ayulang/ayu.git && cd ayu`
+2. Build the Ayu compiler: `cargo build -r -p ayuc`
+   
+   > The compiler will be in the `target/release/` folder
+3. Run the compiler on any Ayu file: `./ayuc <path-to-anything.ayu>`
 
 ### 📝 Examples
 
