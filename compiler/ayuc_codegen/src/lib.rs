@@ -162,7 +162,15 @@ impl LuauCodegen {
                 let ident = match def {
                     Def::Def(def) => match &lcx.items[*def].kind {
                         ItemKind::Fn(FnItem { name, .. })
-                        | ItemKind::ExternFn(ExternFnItem { name, .. }) => *name,
+                        | ItemKind::ExternFn(ExternFnItem {
+                            ffi_name: Some(name),
+                            ..
+                        })
+                        | ItemKind::ExternFn(ExternFnItem {
+                            ffi_name: None,
+                            name,
+                            ..
+                        }) => *name,
                     },
                     Def::Local(local) => lcx.locals[*local].name,
                 };

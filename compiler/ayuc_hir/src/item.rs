@@ -34,6 +34,7 @@ pub struct FnItem {
 #[derive(Debug)]
 pub struct ExternFnItem {
     pub name: Symbol,
+    pub ffi_name: Option<Symbol>,
     pub params: Vec<Parameter>,
     pub return_ty: Ty,
 }
