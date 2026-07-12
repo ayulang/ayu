@@ -1,0 +1,13 @@
+extern fn print(msg: str)
+
+fn main() {
+    let age: int = 18
+
+    if age >= 18 {
+        print("Adult")
+
+        return
+    }
+
+    print("Minor")
+}
