@@ -112,15 +112,47 @@ impl<'a> Lexer<'a> {
 
                 let segments = segments
                     .into_iter()
-                    .map(|seg| match seg {
-                        raw_token::InplSegment::Text { span } => InplSegment::Text { span },
-                        raw_token::InplSegment::Var { span, invalid } => {
+                    .flat_map(|seg| match seg {
+                        raw_token::InplSegment::InvalidClosing(closing_span) => {
+                            self.dcx.emit(
+                                Diagnostic::error(self.file_id, span)
+                                    .with_message("unmatched `}` found")
+                                    .with_label(Label::primary(
+                                        closing_span,
+                                        "this has no matching `{`",
+                                    ))
+                                    .with_help("if you intended to print `}`, you can escape it using `}}`"),
+                            );
+
+                            None
+                        }
+                        raw_token::InplSegment::Text { span } => Some(InplSegment::Text { span }),
+                        raw_token::InplSegment::Var {
+                            span: ident_span,
+                            invalid,
+                            terminated,
+                        } => {
+                            if !terminated {
+                                self.dcx.emit(
+                                    Diagnostic::error(self.file_id, span)
+                                        .with_message("unterminated interpolation segment")
+                                        .with_label(Label::primary(
+                                            Span::from((ident_span.start - 1, ident_span.end)),
+                                            "expected a closing `}` after this",
+                                        ))
+                                        .with_help(format!(
+                                            "replace `{{{}` with `{{{}}}`",
+                                            &self.source[ident_span], &self.source[ident_span]
+                                        )),
+                                );
+                            }
+
                             if invalid {
-                                let emoji_props = self.source[span]
+                                let emoji_props = self.source[ident_span]
                                     .chars()
                                     .enumerate()
                                     .find(|c| c.1.is_emoji_char())
-                                    .map(|(idx, c)| (span.start + idx, c.len_utf8()));
+                                    .map(|(idx, c)| (ident_span.start + idx, c.len_utf8()));
 
                                 let label = if let Some((pos, len)) = emoji_props {
                                     Label::primary(
@@ -128,19 +160,19 @@ impl<'a> Lexer<'a> {
                                         "emojis are not permitted in identifiers",
                                     )
                                 } else {
-                                    Label::primary(span, "this is an invalid identifier")
+                                    Label::primary(ident_span, "this is an invalid identifier")
                                 };
 
                                 self.dcx.emit(
-                                    Diagnostic::error(self.file_id, span)
+                                    Diagnostic::error(self.file_id, ident_span)
                                         .with_message("invalid identifier")
                                         .with_label(label),
                                 );
                             }
 
-                            InplSegment::Var {
-                                sym: Symbol::intern(&self.source[span]),
-                            }
+                            Some(InplSegment::Var {
+                                sym: Symbol::intern(&self.source[ident_span]),
+                            })
                         }
                     })
                     .collect::<Vec<_>>();

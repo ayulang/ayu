@@ -93,8 +93,15 @@ pub enum LiteralKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum InplSegment {
-    Text { span: Span },
-    Var { span: Span, invalid: bool },
+    Text {
+        span: Span,
+    },
+    Var {
+        span: Span,
+        invalid: bool,
+        terminated: bool,
+    },
+    InvalidClosing(Span),
 }
 
 impl RawToken {

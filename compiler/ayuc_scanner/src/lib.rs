@@ -132,7 +132,19 @@ impl<'a> Scanner<'a> {
             _ => unreachable!(),
         };
 
-        InplSegment::Var { span, invalid }
+        let terminated = match self.first() {
+            Some('}') => {
+                self.bump();
+                true
+            }
+            _ => false,
+        };
+
+        InplSegment::Var {
+            span,
+            invalid,
+            terminated,
+        }
     }
 
     pub(crate) fn interpolated_string(&mut self) -> RawToken {
@@ -156,6 +168,15 @@ impl<'a> Scanner<'a> {
                 '{' => {
                     segments.push(self.inpl_var());
                 }
+                '}' if matches!(self.first(), Some('}')) => {
+                    self.bump();
+
+                    segments.push(self.inpl_text(self.position - 2));
+                }
+                '}' => segments.push(InplSegment::InvalidClosing(Span::from((
+                    self.position - 1,
+                    self.position,
+                )))),
                 _ => {
                     segments.push(self.inpl_text(self.position - 1));
                 }
