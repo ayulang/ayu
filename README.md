@@ -39,7 +39,7 @@ fn main() {
 
 ### 🧱 Statically typed
 
-Everything must have a type.
+Ayu uses static typing to catch errors before runtime.
 
 ```ayu
 extern fn print(msg: str)
@@ -59,3 +59,13 @@ fn main() {
 ### 📜 Readable output
 
 Ayu generates clean, formatted Luau output that is easy to inspect and debug.
+
+## 🔬 Trying out Ayu
+
+1. Clone this repository
+2. Run `cargo build -r -p ayuc`
+3. Run the compiler on any Ayu input file: `./target/release/ayuc <path-to-anything.ayu>`
+
+### 📝 Examples
+
+You can check examples in [the `examples` folder](examples/)

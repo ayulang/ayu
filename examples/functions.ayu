@@ -1,0 +1,12 @@
+extern fn print(msg: str)
+extern fn tostring(n: int) -> str
+
+fn subtract(a: int, b: int) -> int {
+    return a - b
+}
+
+fn main() {
+    let result: int = subtract(10, 7)
+
+    print(tostring(result))
+}

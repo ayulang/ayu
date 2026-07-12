@@ -1,0 +1,8 @@
+extern fn print(msg: str)
+
+fn main() {
+    let name: str = "Ayu"
+    let year: int = 2026
+
+    print(`{name} was created in {year}`)
+}
