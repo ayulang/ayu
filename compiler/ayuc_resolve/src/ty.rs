@@ -11,6 +11,7 @@ impl Ty {
     pub fn get_name(&self) -> &'static str {
         match self {
             Self::Prim(ty) => match ty {
+                PrimTy::Boolean => "bool",
                 PrimTy::Integer => "int",
                 PrimTy::Str => "str",
             },
@@ -22,6 +23,7 @@ impl Ty {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrimTy {
+    Boolean,
     Integer,
     Str,
 }
@@ -29,6 +31,7 @@ pub enum PrimTy {
 impl PrimTy {
     pub fn from_name(sym: Symbol) -> Option<Self> {
         let prim = match sym.as_str() {
+            "bool" => Self::Boolean,
             "int" => Self::Integer,
             "str" => Self::Str,
             _ => return None,

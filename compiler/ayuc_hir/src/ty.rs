@@ -6,6 +6,7 @@ pub enum Ty {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrimTy {
+    Boolean,
     Integer,
     Str,
 }

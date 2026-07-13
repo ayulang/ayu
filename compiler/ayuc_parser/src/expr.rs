@@ -91,6 +91,7 @@ impl Parser<'_, '_> {
                 span,
             }) => {
                 let kind = match lit {
+                    ayuc_lexer::token::Literal::Bool { value } => Literal::Bool { value: *value },
                     ayuc_lexer::token::Literal::Str { data_span } => Literal::Str {
                         span: *span,
                         data: Symbol::intern(&self.source[data_span]),

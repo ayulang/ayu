@@ -34,6 +34,9 @@ pub enum Literal {
     Integer {
         data_span: Span,
     },
+    Bool {
+        value: bool,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

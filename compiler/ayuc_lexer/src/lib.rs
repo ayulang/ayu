@@ -55,6 +55,8 @@ impl<'a> Lexer<'a> {
             "return" => Some(Keyword::Return),
             "if" => Some(Keyword::If),
             "as" => Some(Keyword::As),
+            "true" => return TokenKind::Literal(Literal::Bool { value: true }),
+            "false" => return TokenKind::Literal(Literal::Bool { value: false }),
             _ => None,
         };
 
