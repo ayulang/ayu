@@ -47,6 +47,7 @@ pub enum Literal {
     Str(Symbol),
     InterpolatedStr(Vec<IntlSegment>),
     Integer(i64),
+    Bool(bool),
 }
 
 #[derive(Debug)]

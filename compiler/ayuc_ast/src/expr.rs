@@ -59,6 +59,9 @@ pub enum Literal {
         span: Span,
         value: i64,
     },
+    Bool {
+        value: bool,
+    },
 }
 
 #[derive(Debug)]

@@ -118,6 +118,7 @@ impl LuauCodegen {
     fn expr_to_doc(lcx: &LoweringContext, expr: &Expr) -> Doc {
         match &expr.kind {
             ExprKind::Lit(lit) => match lit {
+                Literal::Bool(value) => Doc::text(if *value { "true" } else { "false" }),
                 Literal::Integer(value) => Doc::text(value.to_string()),
                 Literal::Str(str) => Doc::Concat(Vec::from([
                     Doc::text("\""),

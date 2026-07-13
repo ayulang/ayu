@@ -52,14 +52,25 @@ impl SemanticAnalyzer<'_> {
     }
 
     fn tc_type_of_expr(&self, expr: &ast::Expr) -> resolve::Ty {
+        use ast::{Literal as Lit, Operator as Op};
+        use resolve::{PrimTy, Ty};
+
         match &expr.kind {
             ast::ExprKind::Lit(lit) => match lit {
-                ast::Literal::Integer { .. } => resolve::Ty::Prim(resolve::PrimTy::Integer),
-                ast::Literal::Str { .. } | ast::Literal::InterpolatedStr { .. } => {
-                    resolve::Ty::Prim(resolve::PrimTy::Str)
-                }
+                Lit::Bool { .. } => Ty::Prim(PrimTy::Boolean),
+                Lit::Integer { .. } => Ty::Prim(PrimTy::Integer),
+                Lit::Str { .. } | Lit::InterpolatedStr { .. } => Ty::Prim(PrimTy::Str),
             },
-            _ => resolve::Ty::Error,
+            ast::ExprKind::Binary(bin) => match bin.operator {
+                Op::Add | Op::Minus => Ty::Prim(PrimTy::Integer), // probably... for now
+                Op::EqualsEquals
+                | Op::Gt
+                | Op::GtOrEqual
+                | Op::Lt
+                | Op::LtOrEqual
+                | Op::NotEquals => Ty::Prim(PrimTy::Boolean),
+            },
+            _ => Ty::Error,
         }
     }
 }

@@ -167,6 +167,7 @@ impl<'a> AstLowering<'a> {
                 args: call.args.iter().map(|e| self.lower_expr(e)).collect(),
             }),
             ast::ExprKind::Lit(lit) => hir::ExprKind::Lit(match lit {
+                ast::Literal::Bool { value } => hir::Literal::Bool(*value),
                 ast::Literal::Str { span: _, data } => hir::Literal::Str(*data),
                 ast::Literal::InterpolatedStr { span: _, segments } => {
                     hir::Literal::InterpolatedStr(
@@ -214,6 +215,7 @@ impl<'a> AstLowering<'a> {
         match self.rcx.get_ty_res(ty.id) {
             RTy::Unit => hir::Ty::Unit,
             RTy::Prim(prim) => hir::Ty::Primitive(match prim {
+                RPrimTy::Boolean => hir::PrimTy::Boolean,
                 RPrimTy::Integer => hir::PrimTy::Integer,
                 RPrimTy::Str => hir::PrimTy::Str,
             }),
