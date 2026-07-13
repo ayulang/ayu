@@ -1,0 +1,31 @@
+extern fn print(msg: str)
+
+fn age_group(age: int) -> str {
+    if age >= 18 {
+        return "Adult"
+    }
+
+    return "Minor"
+}
+
+fn main() {
+    let language: str = "de"
+    let is_german: bool = language == "de"
+
+    if is_german {
+        print("Guten Morgen!")
+    }
+
+    let age: int = 19
+    let age_group: str = age_group(age)
+
+    print(`Person of age {age} is: {age_group}`)
+
+    if age_group == "Adult" {
+        print("Hello, Adult!")
+    }
+
+    if age_group == "Minor" {
+        print("Hello, Minor!")
+    }
+}
