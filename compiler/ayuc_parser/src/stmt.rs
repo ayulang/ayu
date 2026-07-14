@@ -1,4 +1,4 @@
-use ayuc_ast::{IfStmt, LetStmt, ReturnStmt, Stmt, StmtKind};
+use ayuc_ast::{AssignOperator, AssignStmt, IfStmt, LetStmt, ReturnStmt, Stmt, StmtKind};
 use ayuc_diagnostic::{Diagnostic, Label, colored::Colorize};
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 
@@ -65,6 +65,33 @@ impl Parser<'_, '_> {
         Ok(ReturnStmt { expr })
     }
 
+    pub fn parse_assign_stmt(&mut self) -> PResult<AssignStmt> {
+        let ident = self.parse_ident()?;
+        let operator = match self.require_token()? {
+            StructuredToken::Token(Token {
+                kind: TokenKind::Equals,
+                ..
+            }) => AssignOperator::Assign,
+            StructuredToken::Token(Token {
+                kind: TokenKind::PlusEquals,
+                ..
+            }) => AssignOperator::Add,
+            StructuredToken::Token(Token {
+                kind: TokenKind::MinusEquals,
+                ..
+            }) => AssignOperator::Subtract,
+            _ => todo!(),
+        };
+
+        let value = self.parse_expression()?;
+
+        Ok(AssignStmt {
+            ident,
+            operator,
+            value,
+        })
+    }
+
     pub fn parse_statement(&mut self) -> PResult<Stmt> {
         let Some(first) = self.stream.first() else {
             todo!()
@@ -87,6 +114,20 @@ impl Parser<'_, '_> {
                 kind: TokenKind::Keyword(Keyword::Let),
                 ..
             }) => StmtKind::Let(self.parse_let_stmt()?),
+
+            StructuredToken::Token(Token {
+                kind: TokenKind::Ident(_),
+                ..
+            }) if matches!(
+                self.stream.second(),
+                Some(StructuredToken::Token(Token {
+                    kind: TokenKind::Equals | TokenKind::PlusEquals | TokenKind::MinusEquals,
+                    ..
+                }))
+            ) =>
+            {
+                StmtKind::Assignment(self.parse_assign_stmt()?)
+            }
 
             _ => self
                 .with_rollback(|p| p.parse_expression())

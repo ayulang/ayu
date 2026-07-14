@@ -121,6 +121,7 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
         let ty = self.parse_ty().unwrap();
 
         Ok(Parameter {
+            span: ident.span.merged(ty.span),
             id: self.node_id_allocator.allocate(),
             ident,
             ty,

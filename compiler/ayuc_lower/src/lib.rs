@@ -79,6 +79,8 @@ impl<'a> AstLowering<'a> {
 
         for param in &fun.parameters.parameters {
             let name = param.ident.sym;
+
+            // we could switch it to use session maybe
             let local_id = self.rcx.locals_by_node[&param.id];
 
             self.ctx.locals.insert(
@@ -136,6 +138,15 @@ impl<'a> AstLowering<'a> {
     fn lower_stmt(&mut self, stmt: &ast::Stmt) -> hir::Stmt {
         let id = self.lower_id(stmt.id);
         let kind = match &stmt.kind {
+            ast::StmtKind::Assignment(assign) => hir::StmtKind::Assign(hir::AssignStmt {
+                ident: self.resolve_ident(&assign.ident),
+                op: match assign.operator {
+                    ast::AssignOperator::Add => hir::AssignOp::Add,
+                    ast::AssignOperator::Assign => hir::AssignOp::Assign,
+                    ast::AssignOperator::Subtract => hir::AssignOp::Sub,
+                },
+                value: self.lower_expr(&assign.value),
+            }),
             ast::StmtKind::Expr(expr) => hir::StmtKind::Expr(self.lower_expr(expr)),
             ast::StmtKind::Let(decl) => hir::StmtKind::Let(hir::LetStmt {
                 ident: decl.ident.sym,

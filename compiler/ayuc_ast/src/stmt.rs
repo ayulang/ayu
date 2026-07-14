@@ -16,6 +16,24 @@ pub enum StmtKind {
     Let(LetStmt),
     Return(ReturnStmt),
     If(IfStmt),
+    Assignment(AssignStmt),
+}
+
+#[derive(Debug)]
+pub enum AssignOperator {
+    // a = b
+    Assign,
+    // a += b
+    Add,
+    // a -= b
+    Subtract,
+}
+
+#[derive(Debug)]
+pub struct AssignStmt {
+    pub ident: Ident,
+    pub operator: AssignOperator,
+    pub value: Expr,
 }
 
 #[derive(Debug)]

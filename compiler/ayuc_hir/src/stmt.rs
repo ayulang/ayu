@@ -1,7 +1,7 @@
 use ayuc_id::hir::HirId;
 use ayuc_span::symbol::Symbol;
 
-use crate::{Block, Expr, Ty};
+use crate::{Block, Def, Expr, Ty};
 
 #[derive(Debug)]
 pub struct Stmt {
@@ -15,6 +15,21 @@ pub enum StmtKind {
     Let(LetStmt),
     Return(ReturnStmt),
     If(IfStmt),
+    Assign(AssignStmt),
+}
+
+#[derive(Debug)]
+pub enum AssignOp {
+    Assign,
+    Add,
+    Sub,
+}
+
+#[derive(Debug)]
+pub struct AssignStmt {
+    pub ident: Def,
+    pub op: AssignOp,
+    pub value: Expr,
 }
 
 #[derive(Debug)]

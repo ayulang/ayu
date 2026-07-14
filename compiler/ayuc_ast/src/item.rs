@@ -43,6 +43,7 @@ pub struct ParameterList {
 
 #[derive(Debug)]
 pub struct Parameter {
+    pub span: Span,
     pub id: NodeId,
     pub ident: Ident,
     pub ty: Ty,

@@ -6,7 +6,7 @@ use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
 };
-use ayuc_session as session;
+use ayuc_session::{self as session, local::LocalInfo};
 use ayuc_span::{Span, symbol::Symbol};
 
 // General implementations
@@ -104,7 +104,12 @@ impl Resolver<'_, '_> {
             self.stack.enter();
 
             for param in &decl.parameters.parameters {
-                let local_id = self.rcx.locals.insert(param.id);
+                let local_id = self.sess.register_local(LocalInfo {
+                    name: param.ident.sym,
+                    defined_where: param.span,
+                    ty_id: param.ty.id,
+                    mutable: false, // for now
+                });
 
                 self.register_local(param.ident.sym, local_id, param.id);
             }
@@ -119,11 +124,20 @@ impl Resolver<'_, '_> {
 
     fn n2_walk_stmt(&mut self, stmt: &ast::Stmt) {
         match &stmt.kind {
+            ast::StmtKind::Assignment(assign) => {
+                self.n2_resolve_ident(&assign.ident);
+                self.n2_walk_expr(&assign.value);
+            }
             ast::StmtKind::Let(decl) => {
                 // Walk the expression first, so stuff like `let x = x` won't reference itself.
                 self.n2_walk_expr(&decl.init);
 
-                let local_id = self.rcx.locals.insert(stmt.id);
+                let local_id = self.sess.register_local(LocalInfo {
+                    name: decl.ident.sym,
+                    defined_where: stmt.span,
+                    ty_id: decl.ty.id,
+                    mutable: decl.mutable,
+                });
 
                 self.register_local(decl.ident.sym, local_id, stmt.id);
             }
