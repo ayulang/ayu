@@ -1,6 +1,7 @@
 use std::{
     env,
-    fs::{self},
+    fs::{self, File},
+    io::Write,
     path::Path,
     process::ExitCode,
 };
@@ -50,6 +51,11 @@ pub fn drive() -> ExitCode {
         }
         _ => panic!("no file provided"),
     };
+
+    let output = args
+        .get(1)
+        .and_then(|name| Path::new(name).file_name())
+        .and_then(|o| o.to_str());
 
     let source = source_cache
         .source_of(file_id)
@@ -122,8 +128,16 @@ pub fn drive() -> ExitCode {
 
     let lowering = AstLowering::new(&rcx);
     let lcx = lowering.lower(&ast);
+    let code = LuauCodegen::emit(&lcx);
 
-    println!("{}", LuauCodegen::emit(&lcx));
+    if let Some(output) = output
+        && let Ok(mut file) = File::create(output)
+    {
+        file.write_all(code.as_bytes())
+            .expect("unable to write to file");
+    } else {
+        println!("{code}");
+    }
 
     ExitCode::SUCCESS
 }
