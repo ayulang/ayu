@@ -138,6 +138,10 @@ impl<'a> AstLowering<'a> {
     fn lower_stmt(&mut self, stmt: &ast::Stmt) -> hir::Stmt {
         let id = self.lower_id(stmt.id);
         let kind = match &stmt.kind {
+            ast::StmtKind::Break => hir::StmtKind::Break,
+            ast::StmtKind::Loop(r#loop) => hir::StmtKind::Loop(hir::LoopStmt {
+                block: self.lower_block(&r#loop.block),
+            }),
             ast::StmtKind::Assignment(assign) => hir::StmtKind::Assign(hir::AssignStmt {
                 ident: self.resolve_ident(&assign.ident),
                 op: match assign.operator {

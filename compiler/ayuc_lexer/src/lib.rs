@@ -58,6 +58,8 @@ impl<'a> Lexer<'a> {
             "true" => return TokenKind::Literal(Literal::Bool { value: true }),
             "false" => return TokenKind::Literal(Literal::Bool { value: false }),
             "mut" => Some(Keyword::Mut),
+            "break" => Some(Keyword::Break),
+            "loop" => Some(Keyword::Loop),
             _ => None,
         };
 

@@ -41,10 +41,16 @@ impl Resolver<'_, '_> {
             ast::StmtKind::Let(decl) => {
                 self.tr_resolve_ty(&decl.ty);
             }
+            ast::StmtKind::Loop(r#loop) => {
+                for stmt in &r#loop.block.children {
+                    self.tr_walk_stmt(stmt);
+                }
+            }
             ast::StmtKind::Expr(_)
             | ast::StmtKind::If(_)
             | ast::StmtKind::Return(_)
-            | ast::StmtKind::Assignment(_) => {}
+            | ast::StmtKind::Assignment(_)
+            | ast::StmtKind::Break => {}
         }
     }
 

@@ -124,6 +124,15 @@ impl Resolver<'_, '_> {
 
     fn n2_walk_stmt(&mut self, stmt: &ast::Stmt) {
         match &stmt.kind {
+            ast::StmtKind::Loop(r#loop) => {
+                self.stack.enter();
+
+                for stmt in &r#loop.block.children {
+                    self.n2_walk_stmt(stmt);
+                }
+
+                self.stack.leave();
+            }
             ast::StmtKind::Assignment(assign) => {
                 self.n2_resolve_ident(&assign.ident);
                 self.n2_walk_expr(&assign.value);
@@ -157,7 +166,7 @@ impl Resolver<'_, '_> {
             ast::StmtKind::Expr(expr) => self.n2_walk_expr(expr),
             ast::StmtKind::Return(ast::ReturnStmt { expr: Some(expr) }) => self.n2_walk_expr(expr),
 
-            ast::StmtKind::Return(_) => {}
+            ast::StmtKind::Return(_) | ast::StmtKind::Break => {}
         }
     }
 

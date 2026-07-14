@@ -1,0 +1,16 @@
+extern fn print(msg: str)
+
+fn main() {
+  let mut x: int = 0
+
+  loop {
+    if x == 5 { break }
+
+    x += 1
+  }
+
+  // The next line would cause a compile time error, if uncommented
+  /* break */
+
+  print(`{x}`)
+}

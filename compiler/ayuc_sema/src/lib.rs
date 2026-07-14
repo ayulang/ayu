@@ -1,4 +1,5 @@
 pub(crate) mod callcheck;
+pub(crate) mod flow;
 pub(crate) mod mutability;
 pub(crate) mod typecheck;
 
@@ -41,5 +42,6 @@ impl<'a> SemanticAnalyzer<'a> {
         this.callcheck(ast);
         this.typecheck(ast);
         this.mutabilitycheck(ast);
+        this.flowcheck(ast);
     }
 }

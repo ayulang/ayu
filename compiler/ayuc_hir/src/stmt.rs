@@ -16,6 +16,13 @@ pub enum StmtKind {
     Return(ReturnStmt),
     If(IfStmt),
     Assign(AssignStmt),
+    Break,
+    Loop(LoopStmt),
+}
+
+#[derive(Debug)]
+pub struct LoopStmt {
+    pub block: Block,
 }
 
 #[derive(Debug)]
