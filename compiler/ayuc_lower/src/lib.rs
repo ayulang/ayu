@@ -139,6 +139,10 @@ impl<'a> AstLowering<'a> {
         let id = self.lower_id(stmt.id);
         let kind = match &stmt.kind {
             ast::StmtKind::Break => hir::StmtKind::Break,
+            ast::StmtKind::While(r#while) => hir::StmtKind::While(hir::WhileStmt {
+                expr: self.lower_expr(&r#while.expr),
+                block: self.lower_block(&r#while.block),
+            }),
             ast::StmtKind::Loop(r#loop) => hir::StmtKind::Loop(hir::LoopStmt {
                 block: self.lower_block(&r#loop.block),
             }),

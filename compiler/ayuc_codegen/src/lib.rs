@@ -94,6 +94,15 @@ impl LuauCodegen {
                 Doc::Hardline,
                 Doc::text("end"),
             ])),
+            StmtKind::While(r#while) => Doc::Concat(Vec::from([
+                Doc::text("while "),
+                Self::expr_to_doc(lcx, &r#while.expr),
+                Doc::text(" do"),
+                Doc::Hardline,
+                Doc::indent(Self::block_to_doc(lcx, &r#while.block)),
+                Doc::Hardline,
+                Doc::text("end"),
+            ])),
             StmtKind::Assign(assign) => Doc::Concat(Vec::from([
                 Doc::text(Self::def_to_name(lcx, &assign.ident).as_str()),
                 Doc::text(" "),

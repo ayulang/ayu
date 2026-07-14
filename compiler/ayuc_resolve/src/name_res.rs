@@ -124,6 +124,17 @@ impl Resolver<'_, '_> {
 
     fn n2_walk_stmt(&mut self, stmt: &ast::Stmt) {
         match &stmt.kind {
+            ast::StmtKind::While(r#while) => {
+                self.n2_walk_expr(&r#while.expr);
+
+                self.stack.enter();
+
+                for stmt in &r#while.block.children {
+                    self.n2_walk_stmt(stmt);
+                }
+
+                self.stack.leave();
+            }
             ast::StmtKind::Loop(r#loop) => {
                 self.stack.enter();
 

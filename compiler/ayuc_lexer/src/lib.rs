@@ -60,6 +60,7 @@ impl<'a> Lexer<'a> {
             "mut" => Some(Keyword::Mut),
             "break" => Some(Keyword::Break),
             "loop" => Some(Keyword::Loop),
+            "while" => Some(Keyword::While),
             _ => None,
         };
 
