@@ -12,49 +12,43 @@ impl SemanticAnalyzer<'_> {
     }
 
     fn mc_walk_item(&mut self, item: &Item) {
-        match &item.kind {
-            ItemKind::Fn(fun) => {
-                for stmt in &fun.block.children {
-                    self.mc_walk_stmt(stmt);
-                }
+        if let ItemKind::Fn(fun) = &item.kind {
+            for stmt in &fun.block.children {
+                self.mc_walk_stmt(stmt);
             }
-            _ => {}
         }
     }
 
     fn mc_walk_stmt(&mut self, stmt: &Stmt) {
-        match &stmt.kind {
-            StmtKind::Assignment(assign) => {
-                let local = match self.rcx.get_name_res(assign.ident.id) {
-                    Def::Local(local) => local,
-                    _ => return,
-                };
+        if let StmtKind::Assignment(assign) = &stmt.kind {
+            let local = match self.rcx.get_name_res(assign.ident.id) {
+                Def::Local(local) => local,
+                _ => return,
+            };
 
-                let info = self.sess.local(local);
+            let info = self.sess.local(local);
 
-                if !info.mutable {
-                    self.dcx.emit(
-                        Diagnostic::error(self.file_id, stmt.span)
-                            .with_message(format!(
-                                "cannot assign to immutable variable `{}`",
-                                info.name
-                            ))
-                            .with_label(Label::help(
-                                info.defined_where,
-                                "this variable is immutable",
-                            ))
-                            .with_label(Label::primary(
-                                stmt.span,
-                                "cannot assign to immutable variable",
-                            ))
-                            .with_help(format!(
-                                "consider making the variable `{name}` mutable: `let mut {name} = ...`",
-                                name = info.name
-                            )),
-                    );
-                }
+            if !info.mutable {
+                self.dcx.emit(
+                    Diagnostic::error(self.file_id, stmt.span)
+                        .with_message(format!(
+                            "cannot assign to immutable variable `{}`",
+                            info.name
+                        ))
+                        .with_label(Label::help(
+                            info.defined_where,
+                            "this variable is immutable",
+                        ))
+                        .with_label(Label::primary(
+                            stmt.span,
+                            "cannot assign to immutable variable",
+                        ))
+                        .with_help(format!(
+                            "consider making the variable `{name}` mutable: `let mut {name} = ...`",
+                            name = info.name
+                        )),
+                );
             }
-            _ => {}
         }
     }
 }
