@@ -25,6 +25,11 @@ impl SemanticAnalyzer<'_> {
                     self.fc_walk_stmt(stmt, true);
                 }
             }
+            StmtKind::While(r#while) => {
+                for stmt in &r#while.block.children {
+                    self.fc_walk_stmt(stmt, true);
+                }
+            }
             StmtKind::If(cond) => {
                 for stmt in &cond.block.children {
                     self.fc_walk_stmt(stmt, within_loop);

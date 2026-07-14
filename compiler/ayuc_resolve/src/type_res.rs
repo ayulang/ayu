@@ -46,6 +46,11 @@ impl Resolver<'_, '_> {
                     self.tr_walk_stmt(stmt);
                 }
             }
+            ast::StmtKind::While(r#while) => {
+                for stmt in &r#while.block.children {
+                    self.tr_walk_stmt(stmt);
+                }
+            }
             ast::StmtKind::Expr(_)
             | ast::StmtKind::If(_)
             | ast::StmtKind::Return(_)

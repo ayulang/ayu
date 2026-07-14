@@ -56,6 +56,11 @@ impl SemanticAnalyzer<'_> {
                     self.mc_walk_stmt(stmt);
                 }
             }
+            StmtKind::While(r#while) => {
+                for stmt in &r#while.block.children {
+                    self.mc_walk_stmt(stmt);
+                }
+            }
             StmtKind::If(cond) => {
                 for stmt in &cond.block.children {
                     self.mc_walk_stmt(stmt);

@@ -25,6 +25,13 @@ impl SemanticAnalyzer<'_> {
 
     fn cc_walk_stmt(&mut self, stmt: &Stmt) {
         match &stmt.kind {
+            StmtKind::While(r#while) => {
+                self.cc_walk_expr(&r#while.expr);
+
+                for stmt in &r#while.block.children {
+                    self.cc_walk_stmt(stmt);
+                }
+            }
             StmtKind::Expr(expr) => self.cc_walk_expr(expr),
             StmtKind::If(cond) => {
                 self.cc_walk_expr(&cond.expr);

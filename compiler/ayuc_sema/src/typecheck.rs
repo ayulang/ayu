@@ -23,6 +23,11 @@ impl SemanticAnalyzer<'_> {
                     self.tc_walk_stmt(stmt);
                 }
             }
+            ast::StmtKind::While(r#while) => {
+                for stmt in &r#while.block.children {
+                    self.tc_walk_stmt(stmt);
+                }
+            }
             ast::StmtKind::Assignment(assign) => self.tc_check_assign_stmt(stmt, assign),
             ast::StmtKind::Let(decl) => self.tc_check_let_stmt(stmt, decl),
             ast::StmtKind::Expr(_)

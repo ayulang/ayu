@@ -18,6 +18,13 @@ pub enum StmtKind {
     Assign(AssignStmt),
     Break,
     Loop(LoopStmt),
+    While(WhileStmt),
+}
+
+#[derive(Debug)]
+pub struct WhileStmt {
+    pub expr: Expr,
+    pub block: Block,
 }
 
 #[derive(Debug)]
