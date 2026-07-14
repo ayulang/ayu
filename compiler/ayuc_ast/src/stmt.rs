@@ -64,7 +64,14 @@ pub struct ReturnStmt {
 }
 
 #[derive(Debug)]
+pub enum AlternateBranch {
+    Another(Box<IfStmt>),
+    Final(Block),
+}
+
+#[derive(Debug)]
 pub struct IfStmt {
     pub expr: Expr,
     pub block: Block,
+    pub alternate: Option<AlternateBranch>,
 }

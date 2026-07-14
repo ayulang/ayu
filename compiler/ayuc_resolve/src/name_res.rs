@@ -162,22 +162,33 @@ impl Resolver<'_, '_> {
                 self.register_local(decl.ident.sym, local_id, stmt.id);
             }
 
-            ast::StmtKind::If(cond) => {
-                self.n2_walk_expr(&cond.expr);
-
-                self.stack.enter();
-
-                for stmt in &cond.block.children {
-                    self.n2_walk_stmt(stmt);
-                }
-
-                self.stack.leave();
-            }
-
+            ast::StmtKind::If(if_stmt) => self.n2_walk_if_stmt(if_stmt),
             ast::StmtKind::Expr(expr) => self.n2_walk_expr(expr),
             ast::StmtKind::Return(ast::ReturnStmt { expr: Some(expr) }) => self.n2_walk_expr(expr),
 
             ast::StmtKind::Return(_) | ast::StmtKind::Break => {}
+        }
+    }
+
+    fn n2_walk_if_stmt(&mut self, if_stmt: &ast::IfStmt) {
+        self.n2_walk_expr(&if_stmt.expr);
+
+        self.stack.enter();
+
+        for stmt in &if_stmt.block.children {
+            self.n2_walk_stmt(stmt);
+        }
+
+        self.stack.leave();
+
+        match &if_stmt.alternate {
+            Some(ast::AlternateBranch::Another(if_stmt)) => self.n2_walk_if_stmt(if_stmt),
+            Some(ast::AlternateBranch::Final(block)) => {
+                for stmt in &block.children {
+                    self.n2_walk_stmt(stmt);
+                }
+            }
+            None => {}
         }
     }
 

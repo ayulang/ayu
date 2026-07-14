@@ -61,6 +61,7 @@ impl<'a> Lexer<'a> {
             "break" => Some(Keyword::Break),
             "loop" => Some(Keyword::Loop),
             "while" => Some(Keyword::While),
+            "else" => Some(Keyword::Else),
             _ => None,
         };
 

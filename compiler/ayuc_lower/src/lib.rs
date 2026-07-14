@@ -165,10 +165,7 @@ impl<'a> AstLowering<'a> {
             ast::StmtKind::Return(ret) => hir::StmtKind::Return(hir::ReturnStmt {
                 expr: ret.expr.as_ref().map(|expr| self.lower_expr(expr)),
             }),
-            ayuc_ast::StmtKind::If(if_stmt) => hir::StmtKind::If(hir::IfStmt {
-                expr: self.lower_expr(&if_stmt.expr),
-                block: self.lower_block(&if_stmt.block),
-            }),
+            ayuc_ast::StmtKind::If(if_stmt) => hir::StmtKind::If(self.lower_if_stmt(if_stmt)),
         };
 
         if let hir::StmtKind::Let(decl) = &kind {
@@ -186,6 +183,21 @@ impl<'a> AstLowering<'a> {
         }
 
         hir::Stmt { id, kind }
+    }
+
+    fn lower_if_stmt(&mut self, if_stmt: &ast::IfStmt) -> hir::IfStmt {
+        hir::IfStmt {
+            expr: self.lower_expr(&if_stmt.expr),
+            block: self.lower_block(&if_stmt.block),
+            alternate: if_stmt.alternate.as_ref().map(|alternate| match alternate {
+                ast::AlternateBranch::Another(if_stmt) => {
+                    hir::AlternateBranch::Another(Box::new(self.lower_if_stmt(if_stmt)))
+                }
+                ast::AlternateBranch::Final(block) => {
+                    hir::AlternateBranch::Final(self.lower_block(block))
+                }
+            }),
+        }
     }
 
     fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {

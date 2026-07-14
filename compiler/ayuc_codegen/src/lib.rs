@@ -1,6 +1,6 @@
 use ayuc_hir::{
-    AssignOp, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, IntlSegment, Item,
-    ItemKind, Literal, Parameter, Stmt, StmtKind,
+    AlternateBranch, AssignOp, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, IfStmt,
+    IntlSegment, Item, ItemKind, Literal, Parameter, Stmt, StmtKind,
 };
 use ayuc_lower::LoweringContext;
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
@@ -124,16 +124,7 @@ impl LuauCodegen {
                     .unwrap_or(Doc::Concat(Vec::new())),
             ]),
             StmtKind::Expr(expr) => Self::expr_to_doc(lcx, expr),
-            StmtKind::If(cond) => Doc::Concat(Vec::from([
-                Doc::text("if "),
-                Self::expr_to_doc(lcx, &cond.expr),
-                Doc::text(" then"),
-                Doc::Hardline,
-                Doc::indent(Self::block_to_doc(lcx, &cond.block)),
-                Doc::Hardline,
-                Doc::text("end"),
-                Doc::Blankline,
-            ])),
+            StmtKind::If(if_stmt) => Self::if_stmt_to_doc(lcx, if_stmt, false),
             StmtKind::Let(decl) => Doc::Concat(Vec::from([
                 Doc::text("local "),
                 Doc::text(decl.ident.as_str()),
@@ -141,6 +132,44 @@ impl LuauCodegen {
                 Self::expr_to_doc(lcx, &decl.init),
             ])),
         }
+    }
+
+    fn if_stmt_to_doc(lcx: &LoweringContext, if_stmt: &IfStmt, loose_end: bool) -> Doc {
+        let IfStmt {
+            expr,
+            block,
+            alternate,
+        } = if_stmt;
+
+        let mut parts = Vec::from([
+            Doc::text("if "),
+            Self::expr_to_doc(lcx, expr),
+            Doc::text(" then"),
+            Doc::Hardline,
+            Doc::indent(Self::block_to_doc(lcx, block)),
+            Doc::Hardline,
+        ]);
+
+        match alternate {
+            Some(AlternateBranch::Another(if_stmt)) => {
+                parts.extend([Doc::text("else"), Self::if_stmt_to_doc(lcx, if_stmt, true)]);
+            }
+            Some(AlternateBranch::Final(block)) => {
+                parts.extend([
+                    Doc::text("else"),
+                    Doc::Hardline,
+                    Doc::indent(Self::block_to_doc(lcx, block)),
+                    Doc::Hardline,
+                ]);
+            }
+            None => {}
+        }
+
+        if !loose_end {
+            parts.push(Doc::text("end"));
+        }
+
+        Doc::Concat(parts)
     }
 
     fn expr_to_doc(lcx: &LoweringContext, expr: &Expr) -> Doc {
