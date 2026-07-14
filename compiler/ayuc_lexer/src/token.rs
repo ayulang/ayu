@@ -70,6 +70,10 @@ pub enum TokenKind {
     EqualsEquals,
     /// !=
     NotEquals,
+    /// +=
+    PlusEquals,
+    /// -=
+    MinusEquals,
     /// (
     OpenParen,
     /// )

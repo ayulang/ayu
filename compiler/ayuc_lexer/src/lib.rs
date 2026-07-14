@@ -271,7 +271,19 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
-                RawTokenKind::Plus => TokenKind::Plus,
+                RawTokenKind::Plus => match self.raw_stream.peek() {
+                    Some(RawToken {
+                        kind: RawTokenKind::Equals,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::PlusEquals
+                    }
+                    _ => TokenKind::Plus,
+                },
                 RawTokenKind::Minus => match self.raw_stream.peek() {
                     Some(RawToken {
                         kind: RawTokenKind::Gt,
@@ -282,6 +294,16 @@ impl<'a> Lexer<'a> {
                         self.raw_stream.consume();
 
                         TokenKind::Arrow
+                    }
+                    Some(RawToken {
+                        kind: RawTokenKind::Equals,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::MinusEquals
                     }
                     _ => TokenKind::Minus,
                 },
