@@ -108,6 +108,7 @@ pub enum Keyword {
     Loop,
     Break,
     While,
+    Else,
 }
 
 impl StructuredToken {
@@ -157,6 +158,7 @@ impl Display for Keyword {
             Self::Loop => "loop",
             Self::Break => "break",
             Self::While => "while",
+            Self::Else => "else",
         };
 
         write!(f, "{kw}")

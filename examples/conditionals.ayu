@@ -1,13 +1,32 @@
 extern fn print(msg: str)
 
-fn main() {
-    let age: int = 18
-
-    if age >= 18 {
-        print("Adult")
-
-        return
+fn check_number(number: int) -> str {
+    if number >= 1000 {
+        return "big number" // 1000 to infinity
+    } else if number >= 500 {
+        return "medium number" // 500 - 999
+    } else if number >= 100 {
+        return "decent number" // 100 - 499
+    } else if number >= 10 {
+        return "small number" // 10 - 99
+    } else if number > 0 {
+        return "tiny number" // 1 - 9
+    } else {
+        return "no number" // 0
     }
+}
 
-    print("Minor")
+fn do_check_on(number: int) {
+    let what: str = check_number(number)
+
+    print(`{number} is: {what}`)
+}
+
+fn main() {
+    do_check_on(8)
+    do_check_on(14)
+    do_check_on(0)
+    do_check_on(851)
+    do_check_on(256)
+    do_check_on(5375982735)
 }

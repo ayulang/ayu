@@ -1,5 +1,6 @@
 use ayuc_ast::{
-    AssignOperator, AssignStmt, IfStmt, LetStmt, LoopStmt, ReturnStmt, Stmt, StmtKind, WhileStmt,
+    AlternateBranch, AssignOperator, AssignStmt, IfStmt, LetStmt, LoopStmt, ReturnStmt, Stmt,
+    StmtKind, WhileStmt,
 };
 use ayuc_diagnostic::{Diagnostic, Label, colored::Colorize};
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
@@ -14,8 +15,25 @@ impl Parser<'_, '_> {
 
         let expr = self.parse_expression()?;
         let block = self.parse_block_expr()?;
+        let alternate = if self.maybe(TokenKind::Keyword(Keyword::Else)) {
+            if let Some(StructuredToken::Token(Token {
+                kind: TokenKind::Keyword(Keyword::If),
+                ..
+            })) = self.stream.first()
+            {
+                Some(AlternateBranch::Another(Box::new(self.parse_if_stmt()?)))
+            } else {
+                Some(AlternateBranch::Final(self.parse_block_expr()?))
+            }
+        } else {
+            None
+        };
 
-        Ok(IfStmt { expr, block })
+        Ok(IfStmt {
+            expr,
+            block,
+            alternate,
+        })
     }
 
     pub fn parse_while_stmt(&mut self) -> PResult<WhileStmt> {

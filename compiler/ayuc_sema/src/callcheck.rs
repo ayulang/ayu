@@ -1,4 +1,6 @@
-use ayuc_ast::{Ast, CallExpr, Expr, ExprKind, Item, ItemKind, Stmt, StmtKind};
+use ayuc_ast::{
+    AlternateBranch, Ast, CallExpr, Expr, ExprKind, IfStmt, Item, ItemKind, Stmt, StmtKind,
+};
 use ayuc_diagnostic::{Diagnostic, Label};
 use ayuc_resolve::def::Def;
 
@@ -33,13 +35,7 @@ impl SemanticAnalyzer<'_> {
                 }
             }
             StmtKind::Expr(expr) => self.cc_walk_expr(expr),
-            StmtKind::If(cond) => {
-                self.cc_walk_expr(&cond.expr);
-
-                for stmt in &cond.block.children {
-                    self.cc_walk_stmt(stmt);
-                }
-            }
+            StmtKind::If(if_stmt) => self.cc_walk_if_stmt(if_stmt),
             StmtKind::Loop(r#loop) => {
                 for stmt in &r#loop.block.children {
                     self.cc_walk_stmt(stmt);
@@ -53,6 +49,24 @@ impl SemanticAnalyzer<'_> {
             }
             StmtKind::Assignment(assign) => self.cc_walk_expr(&assign.value),
             StmtKind::Break => {}
+        }
+    }
+
+    fn cc_walk_if_stmt(&mut self, if_stmt: &IfStmt) {
+        self.cc_walk_expr(&if_stmt.expr);
+
+        for stmt in &if_stmt.block.children {
+            self.cc_walk_stmt(stmt);
+        }
+
+        match &if_stmt.alternate {
+            Some(AlternateBranch::Another(if_stmt)) => self.cc_walk_if_stmt(if_stmt),
+            Some(AlternateBranch::Final(block)) => {
+                for stmt in &block.children {
+                    self.cc_walk_stmt(stmt);
+                }
+            }
+            None => {}
         }
     }
 
