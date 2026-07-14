@@ -105,6 +105,8 @@ pub enum Keyword {
     If,
     As,
     Mut,
+    Loop,
+    Break,
 }
 
 impl StructuredToken {
@@ -151,6 +153,8 @@ impl Display for Keyword {
             Self::If => "if",
             Self::As => "as",
             Self::Mut => "mut",
+            Self::Loop => "loop",
+            Self::Break => "break",
         };
 
         write!(f, "{kw}")
