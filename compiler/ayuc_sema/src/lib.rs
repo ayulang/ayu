@@ -1,4 +1,5 @@
 pub(crate) mod callcheck;
+pub(crate) mod mutability;
 pub(crate) mod typecheck;
 
 use ayuc_ast::Ast;
@@ -39,5 +40,6 @@ impl<'a> SemanticAnalyzer<'a> {
 
         this.callcheck(ast);
         this.typecheck(ast);
+        this.mutabilitycheck(ast);
     }
 }
