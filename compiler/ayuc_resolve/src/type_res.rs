@@ -41,7 +41,10 @@ impl Resolver<'_, '_> {
             ast::StmtKind::Let(decl) => {
                 self.tr_resolve_ty(&decl.ty);
             }
-            ast::StmtKind::Expr(_) | ast::StmtKind::If(_) | ast::StmtKind::Return(_) => {}
+            ast::StmtKind::Expr(_)
+            | ast::StmtKind::If(_)
+            | ast::StmtKind::Return(_)
+            | ast::StmtKind::Assignment(_) => {}
         }
     }
 

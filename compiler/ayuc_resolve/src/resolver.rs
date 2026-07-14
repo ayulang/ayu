@@ -24,7 +24,6 @@ pub struct ResolutionContext {
     pub defs_by_node: HashMap<NodeId, DefId>,
 
     /// The assigned [LocalId] for `let` statements.
-    pub locals: SlotMap<LocalId, NodeId>,
     pub locals_by_node: HashMap<NodeId, LocalId>,
 }
 

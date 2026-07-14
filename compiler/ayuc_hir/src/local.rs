@@ -5,4 +5,5 @@ use ayuc_span::symbol::Symbol;
 pub struct Local {
     pub id: LocalId,
     pub name: Symbol,
+    pub mutable: bool,
 }

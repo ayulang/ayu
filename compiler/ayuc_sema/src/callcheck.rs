@@ -39,6 +39,7 @@ impl SemanticAnalyzer<'_> {
                     self.cc_walk_expr(expr);
                 }
             }
+            StmtKind::Assignment(assign) => self.cc_walk_expr(&assign.value),
         }
     }
 

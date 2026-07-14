@@ -70,6 +70,10 @@ pub enum TokenKind {
     EqualsEquals,
     /// !=
     NotEquals,
+    /// +=
+    PlusEquals,
+    /// -=
+    MinusEquals,
     /// (
     OpenParen,
     /// )
@@ -100,6 +104,7 @@ pub enum Keyword {
     Return,
     If,
     As,
+    Mut,
 }
 
 impl StructuredToken {
@@ -145,6 +150,7 @@ impl Display for Keyword {
             Self::Return => "return",
             Self::If => "if",
             Self::As => "as",
+            Self::Mut => "mut",
         };
 
         write!(f, "{kw}")

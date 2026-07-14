@@ -79,11 +79,18 @@ impl<'a> AstLowering<'a> {
 
         for param in &fun.parameters.parameters {
             let name = param.ident.sym;
+
+            // we could switch it to use session maybe
             let local_id = self.rcx.locals_by_node[&param.id];
 
-            self.ctx
-                .locals
-                .insert(local_id, hir::Local { id: local_id, name });
+            self.ctx.locals.insert(
+                local_id,
+                hir::Local {
+                    id: local_id,
+                    name,
+                    mutable: false, // for now
+                },
+            );
         }
 
         let block = self.lower_block(&fun.block);
@@ -131,10 +138,20 @@ impl<'a> AstLowering<'a> {
     fn lower_stmt(&mut self, stmt: &ast::Stmt) -> hir::Stmt {
         let id = self.lower_id(stmt.id);
         let kind = match &stmt.kind {
+            ast::StmtKind::Assignment(assign) => hir::StmtKind::Assign(hir::AssignStmt {
+                ident: self.resolve_ident(&assign.ident),
+                op: match assign.operator {
+                    ast::AssignOperator::Add => hir::AssignOp::Add,
+                    ast::AssignOperator::Assign => hir::AssignOp::Assign,
+                    ast::AssignOperator::Subtract => hir::AssignOp::Sub,
+                },
+                value: self.lower_expr(&assign.value),
+            }),
             ast::StmtKind::Expr(expr) => hir::StmtKind::Expr(self.lower_expr(expr)),
             ast::StmtKind::Let(decl) => hir::StmtKind::Let(hir::LetStmt {
                 ident: decl.ident.sym,
                 ty: self.lower_ty(&decl.ty),
+                mutable: decl.mutable,
                 init: self.lower_expr(&decl.init),
             }),
             ast::StmtKind::Return(ret) => hir::StmtKind::Return(hir::ReturnStmt {
@@ -150,9 +167,14 @@ impl<'a> AstLowering<'a> {
             let name = decl.ident;
             let local_id = self.rcx.locals_by_node[&stmt.id];
 
-            self.ctx
-                .locals
-                .insert(local_id, hir::Local { id: local_id, name });
+            self.ctx.locals.insert(
+                local_id,
+                hir::Local {
+                    id: local_id,
+                    name,
+                    mutable: decl.mutable,
+                },
+            );
         }
 
         hir::Stmt { id, kind }

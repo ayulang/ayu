@@ -1,6 +1,6 @@
 use ayuc_hir::{
-    BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, IntlSegment, Item, ItemKind,
-    Literal, Parameter, Stmt, StmtKind,
+    AssignOp, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, IntlSegment, Item,
+    ItemKind, Literal, Parameter, Stmt, StmtKind,
 };
 use ayuc_lower::LoweringContext;
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
@@ -86,6 +86,17 @@ impl LuauCodegen {
 
     fn stmt_to_doc(lcx: &LoweringContext, stmt: &Stmt) -> Doc {
         match &stmt.kind {
+            StmtKind::Assign(assign) => Doc::Concat(Vec::from([
+                Doc::text(Self::def_to_name(lcx, &assign.ident).as_str()),
+                Doc::text(" "),
+                Doc::text(match assign.op {
+                    AssignOp::Add => "+=",
+                    AssignOp::Sub => "-=",
+                    AssignOp::Assign => "=",
+                }),
+                Doc::text(" "),
+                Self::expr_to_doc(lcx, &assign.value),
+            ])),
             StmtKind::Return(ret) => Doc::Concat(vec![
                 Doc::text("return"),
                 ret.expr

@@ -1,0 +1,42 @@
+extern fn print(msg: str)
+
+fn mathematical() {
+    let mut year: int = 2000
+
+    print(`We currently have the year {year}`)
+
+    year += 10
+
+    print(`Now we have the year {year}`)
+
+    year -= 100
+
+    print(`What happened??? Now, it's the year {year}`)
+}
+
+fn assignment() {
+    let mut language: str = "German"
+
+    print(`Today, I speak: {language}`)
+
+    language = "English"
+
+    print(`Tomorrow, I speak: {language}`)
+}
+
+// This function would throw a compile time error if uncommented
+/* fn immutable_error() {
+    let x: str = "Hello"
+
+    print(x)
+
+    x = "World" // ERRORS
+
+    print(x)
+} */
+
+fn main() {
+    mathematical()
+    print("")
+    assignment()
+}

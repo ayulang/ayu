@@ -46,7 +46,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub(crate) fn ident_or_keyword(&mut self, span: &Span) -> TokenKind {
+    pub(crate) fn ident_or_reserved(&mut self, span: &Span) -> TokenKind {
         let ident = &self.source[span];
         let keyword = match ident {
             "fn" => Some(Keyword::Fn),
@@ -57,6 +57,7 @@ impl<'a> Lexer<'a> {
             "as" => Some(Keyword::As),
             "true" => return TokenKind::Literal(Literal::Bool { value: true }),
             "false" => return TokenKind::Literal(Literal::Bool { value: false }),
+            "mut" => Some(Keyword::Mut),
             _ => None,
         };
 
@@ -261,7 +262,7 @@ impl<'a> Lexer<'a> {
                     continue;
                 }
 
-                RawTokenKind::Ident => self.ident_or_keyword(&span),
+                RawTokenKind::Ident => self.ident_or_reserved(&span),
                 RawTokenKind::Literal { kind } => {
                     if let Some(lit) = self.literal(span, kind) {
                         lit
@@ -270,7 +271,19 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
-                RawTokenKind::Plus => TokenKind::Plus,
+                RawTokenKind::Plus => match self.raw_stream.peek() {
+                    Some(RawToken {
+                        kind: RawTokenKind::Equals,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::PlusEquals
+                    }
+                    _ => TokenKind::Plus,
+                },
                 RawTokenKind::Minus => match self.raw_stream.peek() {
                     Some(RawToken {
                         kind: RawTokenKind::Gt,
@@ -281,6 +294,16 @@ impl<'a> Lexer<'a> {
                         self.raw_stream.consume();
 
                         TokenKind::Arrow
+                    }
+                    Some(RawToken {
+                        kind: RawTokenKind::Equals,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::MinusEquals
                     }
                     _ => TokenKind::Minus,
                 },
