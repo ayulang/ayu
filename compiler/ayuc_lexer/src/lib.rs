@@ -46,7 +46,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub(crate) fn ident_or_keyword(&mut self, span: &Span) -> TokenKind {
+    pub(crate) fn ident_or_reserved(&mut self, span: &Span) -> TokenKind {
         let ident = &self.source[span];
         let keyword = match ident {
             "fn" => Some(Keyword::Fn),
@@ -262,7 +262,7 @@ impl<'a> Lexer<'a> {
                     continue;
                 }
 
-                RawTokenKind::Ident => self.ident_or_keyword(&span),
+                RawTokenKind::Ident => self.ident_or_reserved(&span),
                 RawTokenKind::Literal { kind } => {
                     if let Some(lit) = self.literal(span, kind) {
                         lit
