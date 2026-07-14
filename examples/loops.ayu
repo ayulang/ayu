@@ -1,16 +1,33 @@
 extern fn print(msg: str)
 
+// A generic loop is basically a disguised `while true`-loop
+fn generic_loop() {
+    let mut x: int = 0
+
+    loop {
+        if x == 5 { break }
+
+        x += 1
+    }
+
+    print(`{x}`)
+}
+
+// `while`-loops allow you to run a block of code, until a specific condition is met
+fn while_loop() {
+    let mut x: int = 0
+
+    while x != 5 {
+        x += 1
+    }
+
+    print(`{x}`)
+}
+
 fn main() {
-  let mut x: int = 0
+    generic_loop()
+    while_loop()
 
-  loop {
-    if x == 5 { break }
-
-    x += 1
-  }
-
-  // The next line would cause a compile time error, if uncommented
-  /* break */
-
-  print(`{x}`)
+    // The next line would cause a compile time error, if uncommented
+    // break
 }
