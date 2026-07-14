@@ -1,4 +1,4 @@
-use ayuc_ast::{AssignOperator, AssignStmt, IfStmt, LetStmt, ReturnStmt, Stmt, StmtKind};
+use ayuc_ast::{AssignOperator, AssignStmt, IfStmt, LetStmt, LoopStmt, ReturnStmt, Stmt, StmtKind};
 use ayuc_diagnostic::{Diagnostic, Label, colored::Colorize};
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 
@@ -14,6 +14,16 @@ impl Parser<'_, '_> {
         let block = self.parse_block_expr()?;
 
         Ok(IfStmt { expr, block })
+    }
+
+    pub fn parse_loop_stmt(&mut self) -> PResult<LoopStmt> {
+        if !self.maybe(TokenKind::Keyword(Keyword::Loop)) {
+            unreachable!()
+        }
+
+        let block = self.parse_block_expr()?;
+
+        Ok(LoopStmt { block })
     }
 
     pub fn parse_let_stmt(&mut self) -> PResult<LetStmt> {
@@ -104,6 +114,20 @@ impl Parser<'_, '_> {
                 kind: TokenKind::Keyword(Keyword::If),
                 ..
             }) => StmtKind::If(self.parse_if_stmt()?),
+
+            StructuredToken::Token(Token {
+                kind: TokenKind::Keyword(Keyword::Break),
+                ..
+            }) => {
+                self.stream.consume();
+
+                StmtKind::Break
+            }
+
+            StructuredToken::Token(Token {
+                kind: TokenKind::Keyword(Keyword::Loop),
+                ..
+            }) => StmtKind::Loop(self.parse_loop_stmt()?),
 
             StructuredToken::Token(Token {
                 kind: TokenKind::Keyword(Keyword::Return),

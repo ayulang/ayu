@@ -20,16 +20,17 @@ impl SemanticAnalyzer<'_> {
     }
 
     fn mc_walk_stmt(&mut self, stmt: &Stmt) {
-        if let StmtKind::Assignment(assign) = &stmt.kind {
-            let local = match self.rcx.get_name_res(assign.ident.id) {
-                Def::Local(local) => local,
-                _ => return,
-            };
+        match &stmt.kind {
+            StmtKind::Assignment(assign) => {
+                let local = match self.rcx.get_name_res(assign.ident.id) {
+                    Def::Local(local) => local,
+                    _ => return,
+                };
 
-            let info = self.sess.local(local);
+                let info = self.sess.local(local);
 
-            if !info.mutable {
-                self.dcx.emit(
+                if !info.mutable {
+                    self.dcx.emit(
                     Diagnostic::error(self.file_id, stmt.span)
                         .with_message(format!(
                             "cannot assign to immutable variable `{}`",
@@ -48,7 +49,19 @@ impl SemanticAnalyzer<'_> {
                             name = info.name
                         )),
                 );
+                }
             }
+            StmtKind::Loop(r#loop) => {
+                for stmt in &r#loop.block.children {
+                    self.mc_walk_stmt(stmt);
+                }
+            }
+            StmtKind::If(cond) => {
+                for stmt in &cond.block.children {
+                    self.mc_walk_stmt(stmt);
+                }
+            }
+            StmtKind::Expr(_) | StmtKind::Let(_) | StmtKind::Return(_) | StmtKind::Break => {}
         }
     }
 }

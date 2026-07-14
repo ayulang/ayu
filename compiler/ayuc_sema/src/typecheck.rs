@@ -18,9 +18,17 @@ impl SemanticAnalyzer<'_> {
 
     fn tc_walk_stmt(&mut self, stmt: &ast::Stmt) {
         match &stmt.kind {
+            ast::StmtKind::Loop(r#loop) => {
+                for stmt in &r#loop.block.children {
+                    self.tc_walk_stmt(stmt);
+                }
+            }
             ast::StmtKind::Assignment(assign) => self.tc_check_assign_stmt(stmt, assign),
             ast::StmtKind::Let(decl) => self.tc_check_let_stmt(stmt, decl),
-            ast::StmtKind::Expr(_) | ast::StmtKind::If(_) | ast::StmtKind::Return(_) => {}
+            ast::StmtKind::Expr(_)
+            | ast::StmtKind::If(_)
+            | ast::StmtKind::Return(_)
+            | ast::StmtKind::Break => {}
         }
     }
 

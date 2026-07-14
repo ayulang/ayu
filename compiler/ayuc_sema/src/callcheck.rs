@@ -33,6 +33,11 @@ impl SemanticAnalyzer<'_> {
                     self.cc_walk_stmt(stmt);
                 }
             }
+            StmtKind::Loop(r#loop) => {
+                for stmt in &r#loop.block.children {
+                    self.cc_walk_stmt(stmt);
+                }
+            }
             StmtKind::Let(decl) => self.cc_walk_expr(&decl.init),
             StmtKind::Return(ret) => {
                 if let Some(expr) = &ret.expr {
@@ -40,6 +45,7 @@ impl SemanticAnalyzer<'_> {
                 }
             }
             StmtKind::Assignment(assign) => self.cc_walk_expr(&assign.value),
+            StmtKind::Break => {}
         }
     }
 

@@ -86,6 +86,14 @@ impl LuauCodegen {
 
     fn stmt_to_doc(lcx: &LoweringContext, stmt: &Stmt) -> Doc {
         match &stmt.kind {
+            StmtKind::Break => Doc::text("break"),
+            StmtKind::Loop(r#loop) => Doc::Concat(Vec::from([
+                Doc::text("while true do"),
+                Doc::Hardline,
+                Doc::indent(Self::block_to_doc(lcx, &r#loop.block)),
+                Doc::Hardline,
+                Doc::text("end"),
+            ])),
             StmtKind::Assign(assign) => Doc::Concat(Vec::from([
                 Doc::text(Self::def_to_name(lcx, &assign.ident).as_str()),
                 Doc::text(" "),
