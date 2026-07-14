@@ -21,6 +21,7 @@ pub enum StmtKind {
 #[derive(Debug)]
 pub struct LetStmt {
     pub ident: Ident,
+    pub mutable: bool,
     pub init: Expr,
     pub ty: Ty,
 }

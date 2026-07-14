@@ -21,6 +21,7 @@ pub enum StmtKind {
 pub struct LetStmt {
     pub ident: Symbol,
     pub ty: Ty,
+    pub mutable: bool,
     pub init: Expr,
 }
 

@@ -81,9 +81,14 @@ impl<'a> AstLowering<'a> {
             let name = param.ident.sym;
             let local_id = self.rcx.locals_by_node[&param.id];
 
-            self.ctx
-                .locals
-                .insert(local_id, hir::Local { id: local_id, name });
+            self.ctx.locals.insert(
+                local_id,
+                hir::Local {
+                    id: local_id,
+                    name,
+                    mutable: false, // for now
+                },
+            );
         }
 
         let block = self.lower_block(&fun.block);
@@ -135,6 +140,7 @@ impl<'a> AstLowering<'a> {
             ast::StmtKind::Let(decl) => hir::StmtKind::Let(hir::LetStmt {
                 ident: decl.ident.sym,
                 ty: self.lower_ty(&decl.ty),
+                mutable: decl.mutable,
                 init: self.lower_expr(&decl.init),
             }),
             ast::StmtKind::Return(ret) => hir::StmtKind::Return(hir::ReturnStmt {
@@ -150,9 +156,14 @@ impl<'a> AstLowering<'a> {
             let name = decl.ident;
             let local_id = self.rcx.locals_by_node[&stmt.id];
 
-            self.ctx
-                .locals
-                .insert(local_id, hir::Local { id: local_id, name });
+            self.ctx.locals.insert(
+                local_id,
+                hir::Local {
+                    id: local_id,
+                    name,
+                    mutable: decl.mutable,
+                },
+            );
         }
 
         hir::Stmt { id, kind }
