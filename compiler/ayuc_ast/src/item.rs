@@ -7,7 +7,14 @@ use crate::{
 };
 
 #[derive(Debug)]
+pub enum Visibility {
+    Public,
+    Private,
+}
+
+#[derive(Debug)]
 pub struct Item {
+    pub vis: Visibility,
     pub id: NodeId,
     pub span: Span,
     pub kind: ItemKind,
