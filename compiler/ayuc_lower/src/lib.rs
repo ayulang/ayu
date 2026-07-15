@@ -113,6 +113,21 @@ impl<'a> AstLowering<'a> {
         let hir_id = self.lower_id(item.id);
 
         let kind = match &item.kind {
+            ast::ItemKind::InlineMod(decl) => hir::ItemKind::InlineMod(hir::InlineModItem {
+                name: decl.ident.sym,
+                items: decl
+                    .items
+                    .iter()
+                    .map(|item| {
+                        let def_id = self.rcx.defs_by_node[&item.id];
+                        let lowered = self.lower_item(item);
+
+                        self.ctx.items.insert(def_id, lowered);
+
+                        def_id
+                    })
+                    .collect(),
+            }),
             ast::ItemKind::Fn(fun) => hir::ItemKind::Fn(self.lower_fn_item(fun)),
             ast::ItemKind::ExternFn(extern_fun) => hir::ItemKind::ExternFn(hir::ExternFnItem {
                 name: extern_fun.name.sym,
@@ -213,7 +228,7 @@ impl<'a> AstLowering<'a> {
     fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {
         let id = self.lower_id(expr.id);
         let kind = match &expr.kind {
-            ast::ExprKind::Identifier(ident) => hir::ExprKind::Ref(self.resolve_ident(ident)),
+            ast::ExprKind::Path(path) => hir::ExprKind::Ref(self.resolve_path(path)),
             ast::ExprKind::Call(call) => hir::ExprKind::Call(ayuc_hir::CallExpr {
                 callee: Box::new(self.lower_expr(&call.callee)),
                 args: call.args.iter().map(|e| self.lower_expr(e)).collect(),
@@ -257,6 +272,14 @@ impl<'a> AstLowering<'a> {
 
     fn resolve_ident(&self, ident: &ast::Ident) -> hir::Def {
         match self.rcx.name_resolutions[&ident.id] {
+            RDef::Def(d) => hir::Def::Def(d),
+            RDef::Local(l) => hir::Def::Local(l),
+            RDef::Error => unreachable!(),
+        }
+    }
+
+    fn resolve_path(&self, path: &ast::Path) -> hir::Def {
+        match self.rcx.name_resolutions[&path.id] {
             RDef::Def(d) => hir::Def::Def(d),
             RDef::Local(l) => hir::Def::Local(l),
             RDef::Error => unreachable!(),

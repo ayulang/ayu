@@ -83,6 +83,7 @@ impl Parser<'_, '_> {
     }
 
     pub fn parse_expr_prefix(&mut self) -> PResult<Expr> {
+        let snapshot = self.stream.snapshot();
         let first = self.require_token()?;
 
         Ok(match first {
@@ -133,17 +134,17 @@ impl Parser<'_, '_> {
                 }
             }
             StructuredToken::Token(Token {
-                kind: TokenKind::Ident(sym),
+                kind: TokenKind::Ident(_),
                 span,
-            }) => Expr {
-                span: *span,
-                id: self.node_id_allocator.allocate(),
-                kind: ExprKind::Identifier(Ident {
-                    id: self.node_id_allocator.allocate(),
+            }) => {
+                self.stream.restore(snapshot);
+
+                Expr {
                     span: *span,
-                    sym: *sym,
-                }),
-            },
+                    id: self.node_id_allocator.allocate(),
+                    kind: ExprKind::Path(self.parse_path()?),
+                }
+            }
             _ => todo!(),
         })
     }

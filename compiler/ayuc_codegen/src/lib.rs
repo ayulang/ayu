@@ -1,6 +1,6 @@
 use ayuc_hir::{
     AlternateBranch, AssignOp, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, IfStmt,
-    IntlSegment, Item, ItemKind, Literal, Parameter, Stmt, StmtKind, Visibility,
+    InlineModItem, IntlSegment, Item, ItemKind, Literal, Parameter, Stmt, StmtKind, Visibility,
 };
 use ayuc_lower::LoweringContext;
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
@@ -33,7 +33,7 @@ impl LuauCodegen {
                 .filter(|item| item.vis != Visibility::Private)
                 .filter_map(|item| match &item.kind {
                     ItemKind::Fn(fun) => Some(fun.name),
-                    ItemKind::ExternFn(_) => None,
+                    ItemKind::ExternFn(_) | ItemKind::InlineMod(_) => None,
                 })
                 .collect();
 
@@ -74,13 +74,39 @@ impl LuauCodegen {
         Doc::Concat(
             lcx.items
                 .iter()
-                .map(|(_, item)| Self::item_to_doc(lcx, item))
+                .flat_map(|(_, item)| Self::item_to_doc(lcx, item))
                 .collect(),
         )
     }
 
-    fn item_to_doc(lcx: &LoweringContext, item: &Item) -> Doc {
+    fn item_to_doc(lcx: &LoweringContext, item: &Item) -> Option<Doc> {
         match &item.kind {
+            ItemKind::InlineMod(decl) => {
+                let items = decl
+                    .items
+                    .iter()
+                    .flat_map(|item| Self::item_to_doc(lcx, &lcx.items[*item]))
+                    .collect::<Vec<_>>();
+
+                if items.is_empty() {
+                    None
+                } else {
+                    Some(Doc::Concat(vec![
+                        Doc::text("local "),
+                        Doc::text(decl.name.as_str()),
+                        Doc::text(" = "),
+                        Doc::Concat(vec![
+                            Doc::text("{"),
+                            Doc::Hardline,
+                            Doc::Indent(Box::new(Doc::Concat(items))),
+                            Doc::Hardline,
+                            Doc::text("}"),
+                        ]),
+                        Doc::Hardline,
+                        Doc::Blankline,
+                    ]))
+                }
+            }
             ItemKind::Fn(decl) => {
                 let mut params = Vec::new();
 
@@ -92,7 +118,7 @@ impl LuauCodegen {
                     params.push(Self::param_to_doc(lcx, param));
                 }
 
-                Doc::Concat(Vec::from([
+                Some(Doc::Concat(Vec::from([
                     Doc::text("function "),
                     Doc::text(decl.name.as_str()),
                     Doc::text("("),
@@ -104,9 +130,9 @@ impl LuauCodegen {
                     Doc::text("end"),
                     Doc::Hardline,
                     Doc::Blankline,
-                ]))
+                ])))
             }
-            ItemKind::ExternFn(_decl) => Doc::Concat(Vec::new()),
+            ItemKind::ExternFn(_decl) => None,
         }
     }
 
@@ -288,6 +314,7 @@ impl LuauCodegen {
         match def {
             Def::Def(def) => match &lcx.items[*def].kind {
                 ItemKind::Fn(FnItem { name, .. })
+                | ItemKind::InlineMod(InlineModItem { name, .. }) // We might have to change this later on to be path compatible?
                 | ItemKind::ExternFn(ExternFnItem {
                     ffi_name: Some(name),
                     ..

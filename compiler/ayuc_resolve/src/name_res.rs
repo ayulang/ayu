@@ -6,7 +6,7 @@ use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
 };
-use ayuc_session::{self as session, local::LocalInfo};
+use ayuc_session::{self as session, ItemInfo, local::LocalInfo};
 use ayuc_span::{Span, symbol::Symbol};
 
 // General implementations
@@ -36,14 +36,15 @@ impl Resolver<'_, '_> {
         }
     }
 
-    fn n1_walk_item(&mut self, item: &ast::Item) {
+    fn n1_walk_item(&mut self, item: &ast::Item) -> Option<DefId> {
         let ident = match &item.kind {
+            ast::ItemKind::InlineMod(decl) => &decl.ident,
             ast::ItemKind::Fn(decl) => &decl.ident,
             ast::ItemKind::ExternFn(decl) => &decl.name,
         };
         let sym = ident.sym;
 
-        if let Some(def) = self.stack.lookup_top(sym) {
+        if let Some(def) = self.stack.lookup(sym) {
             let mut diag = Diagnostic::error(self.file_id, ident.span)
                 .with_message(format!("the name `{}` is defined multiple times", sym));
 
@@ -53,7 +54,8 @@ impl Resolver<'_, '_> {
                 diag = diag.with_label(Label::help(
                     match &item.kind {
                         session::ItemKind::ExternFn { signature_span, .. }
-                        | session::ItemKind::Fn { signature_span, .. } => *signature_span,
+                        | session::ItemKind::Fn { signature_span, .. }
+                        | session::ItemKind::InlineMod { signature_span, .. } => *signature_span,
                     },
                     "first definition here",
                 ))
@@ -63,30 +65,59 @@ impl Resolver<'_, '_> {
 
             self.dcx.emit(diag);
 
-            return;
+            return None;
         }
 
-        let signature_span = Span::from(match &item.kind {
-            ast::ItemKind::Fn(decl) => (item.span.start, decl.return_ty.span.end),
-            ast::ItemKind::ExternFn(decl) => (item.span.start, decl.return_ty.span.end),
-        });
+        let signature_span = match &item.kind {
+            ast::ItemKind::InlineMod(decl) => Span::from((item.span.start, decl.ident.span.end)),
+            ast::ItemKind::Fn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
+            ast::ItemKind::ExternFn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
+        };
 
-        let def_id = self.sess.register_item(session::ItemInfo {
-            name: sym,
-            kind: match &item.kind {
-                ast::ItemKind::Fn(decl) => session::ItemKind::Fn {
-                    signature_span,
-                    n_args: decl.parameters.parameters.len(),
-                },
-                ast::ItemKind::ExternFn(decl) => session::ItemKind::ExternFn {
-                    ffi_name: decl.ffi_name.as_ref().map(|i| i.sym),
-                    signature_span,
-                    n_args: decl.parameters.parameters.len(),
-                },
+        let kind = match &item.kind {
+            ast::ItemKind::Fn(decl) => session::ItemKind::Fn {
+                signature_span,
+                n_args: decl.parameters.parameters.len(),
             },
-        });
+            ast::ItemKind::ExternFn(decl) => session::ItemKind::ExternFn {
+                ffi_name: decl.ffi_name.as_ref().map(|i| i.sym),
+                signature_span,
+                n_args: decl.parameters.parameters.len(),
+            },
+            ast::ItemKind::InlineMod(decl) => {
+                self.stack.enter();
+
+                let items = decl
+                    .items
+                    .iter()
+                    .flat_map(|item| {
+                        let sym = match &item.kind {
+                            ast::ItemKind::InlineMod(decl) => &decl.ident,
+                            ast::ItemKind::Fn(decl) => &decl.ident,
+                            ast::ItemKind::ExternFn(decl) => &decl.name,
+                        }
+                        .sym;
+
+                        self.n1_walk_item(item).map(|id| (sym, id))
+                    })
+                    .collect();
+
+                self.stack.leave();
+
+                session::ItemKind::InlineMod {
+                    items,
+                    signature_span,
+                }
+            }
+        };
+
+        let def_id = self
+            .sess
+            .register_item(session::ItemInfo { name: sym, kind });
 
         self.register_def(sym, def_id, item.id);
+
+        Some(def_id)
     }
 }
 
@@ -207,8 +238,7 @@ impl Resolver<'_, '_> {
                 self.n2_walk_expr(&bin.right);
             }
 
-            ast::ExprKind::Identifier(ident) => self.n2_resolve_ident(ident),
-
+            ast::ExprKind::Path(path) => self.n2_resolve_path(path),
             ast::ExprKind::Lit(lit) => self.n2_walk_lit(lit),
         }
     }
@@ -238,5 +268,51 @@ impl Resolver<'_, '_> {
 
             self.rcx.name_resolutions.insert(ident.id, Def::Error);
         }
+    }
+
+    fn n2_resolve_path(&mut self, path: &ast::Path) {
+        let first = match path.segments.first() {
+            Some(seg) => seg,
+            _ => unreachable!(),
+        };
+
+        let ident = &first.ident;
+        let def = match self.stack.lookup(ident.sym) {
+            Some(Def::Def(def_id)) => {
+                let mut remaining = &path.segments[1..];
+                let mut def = Def::Def(def_id);
+
+                while let Some(current) = remaining.first() {
+                    def = match def {
+                        d @ Def::Local(_) => d,
+                        Def::Def(id) => self.n2_resolve_segment_in_def(current, id),
+                        Def::Error => break,
+                    };
+
+                    remaining = &remaining[1..];
+                }
+
+                def
+            }
+            Some(Def::Local(local)) => Def::Local(local),
+            _ => return,
+        };
+
+        self.rcx.name_resolutions.insert(path.id, def);
+    }
+
+    fn n2_resolve_segment_in_def(&mut self, seg: &ast::PathSegment, def_id: DefId) -> Def {
+        let ItemInfo {
+            kind: session::ItemKind::InlineMod { items, .. },
+            ..
+        } = self.sess.item(def_id)
+        else {
+            return Def::Error;
+        };
+
+        items
+            .get(&seg.ident.sym)
+            .map(|id| Def::Def(*id))
+            .unwrap_or(Def::Error)
     }
 }

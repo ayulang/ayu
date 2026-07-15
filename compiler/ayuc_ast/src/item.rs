@@ -24,6 +24,13 @@ pub struct Item {
 pub enum ItemKind {
     Fn(FnDecl),
     ExternFn(ExternFnDecl),
+    InlineMod(InlineModItem),
+}
+
+#[derive(Debug)]
+pub struct InlineModItem {
+    pub ident: Ident,
+    pub items: Vec<Item>,
 }
 
 #[derive(Debug)]

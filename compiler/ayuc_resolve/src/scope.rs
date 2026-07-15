@@ -54,7 +54,7 @@ impl ScopeStack {
 
     /// Registers the [Symbol] in the top scope.
     pub fn register_def(&mut self, sym: Symbol, id: DefId) {
-        self.top.symbols.insert(sym, Def::Def(id));
+        self.current_mut().symbols.insert(sym, Def::Def(id));
     }
 }
 

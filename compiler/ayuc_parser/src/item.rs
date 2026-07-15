@@ -1,6 +1,12 @@
-use ayuc_ast::{ExternFnDecl, Item, ItemKind, ParameterList, Ty, TyKind, Visibility, item::FnDecl};
+use ayuc_ast::{
+    ExternFnDecl, InlineModItem, Item, ItemKind, ParameterList, Ty, TyKind, Visibility,
+    item::FnDecl,
+};
 use ayuc_diagnostic::{Diagnostic, Label, colored::Colorize};
-use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
+use ayuc_lexer::{
+    stream::TokenStream,
+    token::{Delimiter, Keyword, StructuredToken, Token, TokenKind},
+};
 use ayuc_span::Span;
 
 use crate::{PResult, Parser};
@@ -115,6 +121,36 @@ impl Parser<'_, '_> {
         })
     }
 
+    pub fn parse_inline_mod(&mut self) -> PResult<InlineModItem> {
+        if !self.maybe(TokenKind::Keyword(Keyword::Mod)) {
+            unreachable!()
+        }
+
+        let ident = self.parse_ident()?;
+        let tokens = match self.require_token()? {
+            StructuredToken::Delimited(_, Delimiter::Braces, tokens) => tokens,
+            StructuredToken::Token(Token { span, .. }) | StructuredToken::Delimited(span, _, _) => {
+                return Err(Diagnostic::error(self.file_id, *span)
+                    .with_message("expected a block of items")
+                    .with_label(Label::primary(*span, "expected a block of items")));
+            }
+        };
+
+        let mut inner = self.branch(TokenStream::new(tokens));
+        let mut items = Vec::new();
+
+        while !inner.stream.is_exhausted() {
+            match inner.parse_item() {
+                Ok(node) => items.push(node),
+                Err(diag) => {
+                    return Err(diag);
+                }
+            }
+        }
+
+        Ok(InlineModItem { ident, items })
+    }
+
     pub fn parse_item(&mut self) -> PResult<Item> {
         let snapshot = self.stream.snapshot();
         let vis = if self.maybe(TokenKind::Keyword(Keyword::Pub)) {
@@ -134,6 +170,13 @@ impl Parser<'_, '_> {
             }) => (
                 self.node_id_allocator.allocate(),
                 ItemKind::Fn(self.parse_fn_item()?),
+            ),
+            StructuredToken::Token(Token {
+                kind: TokenKind::Keyword(Keyword::Mod),
+                ..
+            }) => (
+                self.node_id_allocator.allocate(),
+                ItemKind::InlineMod(self.parse_inline_mod()?),
             ),
             StructuredToken::Token(Token {
                 kind: TokenKind::Keyword(Keyword::Extern),
