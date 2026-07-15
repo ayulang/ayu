@@ -104,6 +104,11 @@ impl<'a> AstLowering<'a> {
     }
 
     fn lower_item(&mut self, item: &ast::Item) -> hir::Item {
+        let vis = match item.vis {
+            ast::Visibility::Private => hir::Visibility::Private,
+            ast::Visibility::Public => hir::Visibility::Public,
+        };
+
         let id = self.rcx.defs_by_node[&item.id];
         let hir_id = self.lower_id(item.id);
 
@@ -126,7 +131,12 @@ impl<'a> AstLowering<'a> {
             }),
         };
 
-        hir::Item { id, hir_id, kind }
+        hir::Item {
+            vis,
+            id,
+            hir_id,
+            kind,
+        }
     }
 
     fn lower_block(&mut self, block: &ast::Block) -> hir::Block {

@@ -1,0 +1,23 @@
+// Exports are handled using visiblity modifiers (for now). Mark a function as `pub` to export it to the outside.
+// Note: A file containing a `main` function **cannot have any public functions**, this is because a file containing a main function is marked as executable.
+
+pub fn fib(nth: int) -> int {
+  if nth == 0 { return 0 }
+  if nth == 1 { return 1 }
+
+  return fib(nth - 2) + fib(nth - 1)
+}
+
+/*
+
+You could now call it from Luau:
+
+```luau
+local lib = require("./lib") -- Assuming the output is lib.luau
+
+print(lib.fib(1))
+print(lib.fib(5))
+print(lib.fib(7))
+```
+
+*/

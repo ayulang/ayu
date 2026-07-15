@@ -3,8 +3,15 @@ use ayuc_span::symbol::Symbol;
 
 use crate::{expr::Block, ty::Ty};
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum Visibility {
+    Public,
+    Private,
+}
+
 #[derive(Debug)]
 pub struct Item {
+    pub vis: Visibility,
     pub id: DefId,
     pub hir_id: HirId,
     pub kind: ItemKind,

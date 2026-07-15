@@ -1,4 +1,4 @@
-use ayuc_ast::{ExternFnDecl, Item, ItemKind, ParameterList, Ty, TyKind, item::FnDecl};
+use ayuc_ast::{ExternFnDecl, Item, ItemKind, ParameterList, Ty, TyKind, Visibility, item::FnDecl};
 use ayuc_diagnostic::{Diagnostic, Label, colored::Colorize};
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 use ayuc_span::Span;
@@ -116,11 +116,16 @@ impl Parser<'_, '_> {
     }
 
     pub fn parse_item(&mut self) -> PResult<Item> {
+        let snapshot = self.stream.snapshot();
+        let vis = if self.maybe(TokenKind::Keyword(Keyword::Pub)) {
+            Visibility::Public
+        } else {
+            Visibility::Private
+        };
+
         let Some(first) = self.stream.first() else {
             todo!()
         };
-
-        let snapshot = self.stream.snapshot();
 
         let (id, kind) = match first {
             StructuredToken::Token(Token {
@@ -150,6 +155,7 @@ impl Parser<'_, '_> {
         };
 
         Ok(Item {
+            vis,
             id,
             span: self.stream.span_since(snapshot),
             kind,
