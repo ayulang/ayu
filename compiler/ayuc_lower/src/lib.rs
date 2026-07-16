@@ -299,12 +299,16 @@ impl<'a> AstLowering<'a> {
         hir::Expr { id, kind }
     }
 
-    fn resolve_id(&self, id: NodeId) -> hir::Def {
-        match self.rcx.name_resolutions[&id] {
-            RDef::Def(d) => hir::Def::Def(d),
-            RDef::Local(l) => hir::Def::Local(l),
+    fn lower_def(&self, rdef: &RDef) -> hir::Def {
+        match rdef {
+            RDef::Def(d) => hir::Def::Def(*d),
+            RDef::Local(l) => hir::Def::Local(*l),
             RDef::Error => unreachable!(),
         }
+    }
+
+    fn resolve_id(&self, id: NodeId) -> hir::Def {
+        self.lower_def(&self.rcx.name_resolutions[&id])
     }
 
     fn resolve_ident(&self, ident: &ast::Ident) -> hir::Def {
@@ -312,13 +316,20 @@ impl<'a> AstLowering<'a> {
     }
 
     fn resolve_path(&self, path: &ast::Path) -> hir::Path {
-        hir::Path {
-            target: self.resolve_id(path.id),
-            segments: path
-                .segments
-                .iter()
-                .map(|seg| self.resolve_id(seg.id))
-                .collect(),
+        if let Some(qualified) = self.rcx.qualified_paths.get(&path.id) {
+            hir::Path {
+                target: qualified.last().map(|q| self.lower_def(q)).unwrap(),
+                segments: qualified.iter().map(|q| self.lower_def(q)).collect(),
+            }
+        } else {
+            hir::Path {
+                target: self.resolve_id(path.id),
+                segments: path
+                    .segments
+                    .iter()
+                    .map(|seg| self.resolve_id(seg.id))
+                    .collect(),
+            }
         }
     }
 

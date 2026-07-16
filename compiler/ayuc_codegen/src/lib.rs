@@ -361,7 +361,13 @@ impl LuauCodegen {
         Doc::Concat(
             path.segments
                 .iter()
-                .filter(|def| target_is_extern && Self::def_is_extern(lcx, def))
+                .filter(|def| {
+                    if target_is_extern {
+                        Self::def_is_extern(lcx, def)
+                    } else {
+                        true
+                    }
+                })
                 .map(|def| Self::def_to_doc(lcx, def))
                 .enumerate()
                 .map(|(i, doc)| {

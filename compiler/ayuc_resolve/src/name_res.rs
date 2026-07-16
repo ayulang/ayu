@@ -88,7 +88,7 @@ impl Resolver<'_, '_> {
                 n_args: decl.parameters.parameters.len(),
             },
             ast::ItemKind::ExternMod(decl) => {
-                self.stack.enter();
+                self.stack.enter(None);
 
                 let items = decl
                     .items
@@ -115,7 +115,7 @@ impl Resolver<'_, '_> {
                 }
             }
             ast::ItemKind::InlineMod(decl) => {
-                self.stack.enter();
+                self.stack.enter(None);
 
                 let items = decl
                     .items
@@ -162,9 +162,11 @@ impl Resolver<'_, '_> {
     }
 
     fn n2_walk_item(&mut self, item: &ast::Item) {
+        let def_id = Some(self.rcx.defs_by_node[&item.id]);
+
         match &item.kind {
             ast::ItemKind::Fn(decl) => {
-                self.stack.enter();
+                self.stack.enter(def_id);
 
                 for param in &decl.parameters.parameters {
                     let local_id = self.sess.register_local(LocalInfo {
@@ -184,9 +186,26 @@ impl Resolver<'_, '_> {
                 self.stack.leave();
             }
             ast::ItemKind::InlineMod(decl) => {
+                self.stack.enter(def_id);
+
+                for item in &decl.items {
+                    let sym = match &item.kind {
+                        ast::ItemKind::ExternMod(decl) => &decl.ident,
+                        ast::ItemKind::InlineMod(decl) => &decl.ident,
+                        ast::ItemKind::Fn(decl) => &decl.ident,
+                        ast::ItemKind::ExternFn(decl) => &decl.name,
+                    }
+                    .sym;
+
+                    self.stack
+                        .register_def(sym, self.rcx.defs_by_node[&item.id]);
+                }
+
                 for item in &decl.items {
                     self.n2_walk_item(item);
                 }
+
+                self.stack.leave();
             }
             ast::ItemKind::ExternMod(_) | ast::ItemKind::ExternFn(_) => {}
         }
@@ -197,7 +216,7 @@ impl Resolver<'_, '_> {
             ast::StmtKind::While(r#while) => {
                 self.n2_walk_expr(&r#while.expr);
 
-                self.stack.enter();
+                self.stack.enter(None);
 
                 for stmt in &r#while.block.children {
                     self.n2_walk_stmt(stmt);
@@ -206,7 +225,7 @@ impl Resolver<'_, '_> {
                 self.stack.leave();
             }
             ast::StmtKind::Loop(r#loop) => {
-                self.stack.enter();
+                self.stack.enter(None);
 
                 for stmt in &r#loop.block.children {
                     self.n2_walk_stmt(stmt);
@@ -243,7 +262,7 @@ impl Resolver<'_, '_> {
     fn n2_walk_if_stmt(&mut self, if_stmt: &ast::IfStmt) {
         self.n2_walk_expr(&if_stmt.expr);
 
-        self.stack.enter();
+        self.stack.enter(None);
 
         for stmt in &if_stmt.block.children {
             self.n2_walk_stmt(stmt);
@@ -317,8 +336,12 @@ impl Resolver<'_, '_> {
         };
 
         let ident = &first.ident;
-        let def = match self.stack.lookup(ident.sym) {
-            Some(mut def @ Def::Def(_)) => {
+        let Some((def, mut qualified_path)) = self.stack.lookup_path(ident.sym) else {
+            return;
+        };
+
+        let def = match def {
+            mut def @ Def::Def(_) => {
                 let mut remaining = &path.segments[1..];
 
                 self.rcx.name_resolutions.insert(first.id, def);
@@ -333,17 +356,23 @@ impl Resolver<'_, '_> {
                     remaining = &remaining[1..];
 
                     self.rcx.name_resolutions.insert(current.id, def);
+                    qualified_path.push(def);
                 }
 
                 def
             }
-            Some(def @ Def::Local(_)) => {
+            def @ Def::Local(_) => {
                 self.rcx.name_resolutions.insert(first.id, def);
 
                 def
             }
             _ => return,
         };
+
+        // Only necessary for actual items.
+        if let Def::Def(_) = def {
+            self.rcx.qualified_paths.insert(path.id, qualified_path);
+        }
 
         self.rcx.name_resolutions.insert(path.id, def);
     }

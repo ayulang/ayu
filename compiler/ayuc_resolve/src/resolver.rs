@@ -25,6 +25,8 @@ pub struct ResolutionContext {
 
     /// The assigned [LocalId] for `let` statements.
     pub locals_by_node: HashMap<NodeId, LocalId>,
+
+    pub qualified_paths: HashMap<NodeId, Vec<Def>>,
 }
 
 impl ResolutionContext {
@@ -58,7 +60,7 @@ impl<'dcx, 'sess> Resolver<'dcx, 'sess> {
         Self {
             sess,
             rcx: ResolutionContext::default(),
-            stack: ScopeStack::new(),
+            stack: ScopeStack::default(),
             dcx,
             file_id,
         }
