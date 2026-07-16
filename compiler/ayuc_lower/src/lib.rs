@@ -132,13 +132,17 @@ impl<'a> AstLowering<'a> {
                 items: decl
                     .items
                     .iter()
-                    .map(|item| {
+                    .flat_map(|item| {
+                        if matches!(item.kind, ast::ItemKind::Fn(_)) {
+                            return None;
+                        }
+
                         let def_id = self.rcx.defs_by_node[&item.id];
                         let lowered = self.lower_item(item);
 
                         self.ctx.items.insert(def_id, lowered);
 
-                        def_id
+                        Some(def_id)
                     })
                     .collect(),
             }),

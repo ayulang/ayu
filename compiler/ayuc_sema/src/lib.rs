@@ -1,3 +1,4 @@
+pub(crate) mod basic;
 pub(crate) mod callcheck;
 pub(crate) mod flow;
 pub(crate) mod mutability;
@@ -39,6 +40,7 @@ impl<'a> SemanticAnalyzer<'a> {
     ) {
         let mut this = Self::new(file_id, rcx, dcx, sess);
 
+        this.basiccheck(ast);
         this.callcheck(ast);
         this.typecheck(ast);
         this.mutabilitycheck(ast);

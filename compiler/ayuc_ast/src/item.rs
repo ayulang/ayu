@@ -32,6 +32,7 @@ pub enum ItemKind {
 pub struct ExternModItem {
     pub ident: Ident,
     pub ffi_name: Option<Ident>,
+    pub block_span: Span,
     pub items: Vec<Item>,
 }
 

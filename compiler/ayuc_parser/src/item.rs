@@ -140,8 +140,8 @@ impl Parser<'_, '_> {
             }
         };
 
-        let tokens = match self.require_token()? {
-            StructuredToken::Delimited(_, Delimiter::Braces, tokens) => tokens,
+        let (block_span, tokens) = match self.require_token()? {
+            StructuredToken::Delimited(span, Delimiter::Braces, tokens) => (span, tokens),
             StructuredToken::Token(Token { span, .. }) | StructuredToken::Delimited(span, _, _) => {
                 return Err(Diagnostic::error(self.file_id, *span)
                     .with_message("expected a block of items")
@@ -164,6 +164,7 @@ impl Parser<'_, '_> {
         Ok(ExternModItem {
             ffi_name,
             ident,
+            block_span: *block_span,
             items,
         })
     }
