@@ -6,7 +6,7 @@ use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
 };
-use ayuc_session::{self as session, ItemInfo, local::LocalInfo};
+use ayuc_session::{self as session, local::LocalInfo};
 use ayuc_span::{Span, symbol::Symbol};
 
 // General implementations
@@ -39,6 +39,7 @@ impl Resolver<'_, '_> {
     fn n1_walk_item(&mut self, item: &ast::Item) -> Option<DefId> {
         let ident = match &item.kind {
             ast::ItemKind::InlineMod(decl) => &decl.ident,
+            ast::ItemKind::ExternMod(decl) => &decl.ident,
             ast::ItemKind::Fn(decl) => &decl.ident,
             ast::ItemKind::ExternFn(decl) => &decl.name,
         };
@@ -55,7 +56,8 @@ impl Resolver<'_, '_> {
                     match &item.kind {
                         session::ItemKind::ExternFn { signature_span, .. }
                         | session::ItemKind::Fn { signature_span, .. }
-                        | session::ItemKind::InlineMod { signature_span, .. } => *signature_span,
+                        | session::ItemKind::InlineMod { signature_span, .. }
+                        | session::ItemKind::ExternMod { signature_span, .. } => *signature_span,
                     },
                     "first definition here",
                 ))
@@ -70,6 +72,7 @@ impl Resolver<'_, '_> {
 
         let signature_span = match &item.kind {
             ast::ItemKind::InlineMod(decl) => Span::from((item.span.start, decl.ident.span.end)),
+            ast::ItemKind::ExternMod(decl) => Span::from((item.span.start, decl.ident.span.end)),
             ast::ItemKind::Fn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
             ast::ItemKind::ExternFn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
         };
@@ -84,6 +87,33 @@ impl Resolver<'_, '_> {
                 signature_span,
                 n_args: decl.parameters.parameters.len(),
             },
+            ast::ItemKind::ExternMod(decl) => {
+                self.stack.enter();
+
+                let items = decl
+                    .items
+                    .iter()
+                    .flat_map(|item| {
+                        let sym = match &item.kind {
+                            ast::ItemKind::ExternMod(decl) => &decl.ident,
+                            ast::ItemKind::InlineMod(decl) => &decl.ident,
+                            ast::ItemKind::Fn(decl) => &decl.ident,
+                            ast::ItemKind::ExternFn(decl) => &decl.name,
+                        }
+                        .sym;
+
+                        self.n1_walk_item(item).map(|id| (sym, id))
+                    })
+                    .collect();
+
+                self.stack.leave();
+
+                session::ItemKind::ExternMod {
+                    items,
+                    ffi_name: decl.ffi_name.as_ref().map(|i| i.sym),
+                    signature_span,
+                }
+            }
             ast::ItemKind::InlineMod(decl) => {
                 self.stack.enter();
 
@@ -92,6 +122,7 @@ impl Resolver<'_, '_> {
                     .iter()
                     .flat_map(|item| {
                         let sym = match &item.kind {
+                            ast::ItemKind::ExternMod(decl) => &decl.ident,
                             ast::ItemKind::InlineMod(decl) => &decl.ident,
                             ast::ItemKind::Fn(decl) => &decl.ident,
                             ast::ItemKind::ExternFn(decl) => &decl.name,
@@ -157,7 +188,7 @@ impl Resolver<'_, '_> {
                     self.n2_walk_item(item);
                 }
             }
-            ast::ItemKind::ExternFn(_) => {}
+            ast::ItemKind::ExternMod(_) | ast::ItemKind::ExternFn(_) => {}
         }
     }
 
@@ -318,12 +349,10 @@ impl Resolver<'_, '_> {
     }
 
     fn n2_resolve_segment_in_def(&mut self, seg: &ast::PathSegment, def_id: DefId) -> Def {
-        let ItemInfo {
-            kind: session::ItemKind::InlineMod { items, .. },
-            ..
-        } = self.sess.item(def_id)
-        else {
-            return Def::Error;
+        let items = match &self.sess.item(def_id).kind {
+            session::ItemKind::InlineMod { items, .. }
+            | session::ItemKind::ExternMod { items, .. } => items,
+            _ => return Def::Error,
         };
 
         items

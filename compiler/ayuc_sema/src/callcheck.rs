@@ -26,7 +26,7 @@ impl SemanticAnalyzer<'_> {
                     self.cc_walk_item(item);
                 }
             }
-            ItemKind::ExternFn(_) => {}
+            ItemKind::ExternMod(_) | ItemKind::ExternFn(_) => {}
         }
     }
 
@@ -99,7 +99,8 @@ impl SemanticAnalyzer<'_> {
             let required_args = match &info.kind {
                 ayuc_session::item::ItemKind::ExternFn { n_args, .. }
                 | ayuc_session::item::ItemKind::Fn { n_args, .. } => *n_args,
-                ayuc_session::ItemKind::InlineMod { .. } => return, // uncalleable, maybe a diagnostic?
+                ayuc_session::ItemKind::InlineMod { .. }
+                | ayuc_session::ItemKind::ExternMod { .. } => return, // uncallable, maybe a diagnostic?
             };
 
             if provided_args != required_args {

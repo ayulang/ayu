@@ -1,6 +1,6 @@
 use ayuc_ast::{
-    ExternFnDecl, InlineModItem, Item, ItemKind, ParameterList, Ty, TyKind, Visibility,
-    item::FnDecl,
+    ExternFnDecl, ExternModItem, InlineModItem, Item, ItemKind, ParameterList, Ty, TyKind,
+    Visibility, item::FnDecl,
 };
 use ayuc_diagnostic::{Diagnostic, Label, colored::Colorize};
 use ayuc_lexer::{
@@ -121,6 +121,53 @@ impl Parser<'_, '_> {
         })
     }
 
+    pub fn parse_extern_mod(&mut self) -> PResult<ExternModItem> {
+        if !self.maybe(TokenKind::Keyword(Keyword::Extern)) {
+            unreachable!()
+        }
+
+        if !self.maybe(TokenKind::Keyword(Keyword::Mod)) {
+            unreachable!()
+        }
+
+        let (ffi_name, ident) = {
+            let first_ident = self.parse_ident()?; // always there
+
+            if self.maybe(TokenKind::Keyword(Keyword::As)) {
+                (Some(first_ident), self.parse_ident()?)
+            } else {
+                (None, first_ident)
+            }
+        };
+
+        let tokens = match self.require_token()? {
+            StructuredToken::Delimited(_, Delimiter::Braces, tokens) => tokens,
+            StructuredToken::Token(Token { span, .. }) | StructuredToken::Delimited(span, _, _) => {
+                return Err(Diagnostic::error(self.file_id, *span)
+                    .with_message("expected a block of items")
+                    .with_label(Label::primary(*span, "expected a block of items")));
+            }
+        };
+
+        let mut inner = self.branch(TokenStream::new(tokens));
+        let mut items = Vec::new();
+
+        while !inner.stream.is_exhausted() {
+            match inner.parse_item() {
+                Ok(node) => items.push(node),
+                Err(diag) => {
+                    return Err(diag);
+                }
+            }
+        }
+
+        Ok(ExternModItem {
+            ffi_name,
+            ident,
+            items,
+        })
+    }
+
     pub fn parse_inline_mod(&mut self) -> PResult<InlineModItem> {
         if !self.maybe(TokenKind::Keyword(Keyword::Mod)) {
             unreachable!()
@@ -192,6 +239,22 @@ impl Parser<'_, '_> {
                 (
                     self.node_id_allocator.allocate(),
                     ItemKind::ExternFn(self.parse_extern_fn_item()?),
+                )
+            }
+            StructuredToken::Token(Token {
+                kind: TokenKind::Keyword(Keyword::Extern),
+                ..
+            }) if matches!(
+                self.stream.second(),
+                Some(StructuredToken::Token(Token {
+                    kind: TokenKind::Keyword(Keyword::Mod),
+                    ..
+                }))
+            ) =>
+            {
+                (
+                    self.node_id_allocator.allocate(),
+                    ItemKind::ExternMod(self.parse_extern_mod()?),
                 )
             }
             _ => todo!(),

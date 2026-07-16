@@ -1,7 +1,7 @@
 use ayuc_hir::{
-    AlternateBranch, AssignOp, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, IfStmt,
-    InlineModItem, IntlSegment, Item, ItemKind, Literal, Parameter, Path, Stmt, StmtKind,
-    Visibility,
+    AlternateBranch, AssignOp, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, ExternModItem,
+    FnItem, IfStmt, InlineModItem, IntlSegment, Item, ItemKind, Literal, Parameter, Path, Stmt,
+    StmtKind, Visibility,
 };
 use ayuc_lower::LoweringContext;
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
@@ -34,7 +34,8 @@ impl LuauCodegen {
                 .filter(|item| item.vis != Visibility::Private)
                 .filter_map(|item| match &item.kind {
                     ItemKind::Fn(fun) => Some(fun.name),
-                    ItemKind::ExternFn(_) | ItemKind::InlineMod(_) => None,
+                    ItemKind::InlineMod(decl) => Some(decl.name),
+                    ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
                 })
                 .collect();
 
@@ -84,7 +85,17 @@ impl LuauCodegen {
                 ffi_name: Some(sym),
                 ..
             })
-            | ItemKind::InlineMod(InlineModItem { name: sym, .. }) => *sym,
+            | ItemKind::InlineMod(InlineModItem { name: sym, .. })
+            | ItemKind::ExternMod(ExternModItem {
+                name: sym,
+                ffi_name: None,
+                ..
+            })
+            | ItemKind::ExternMod(ExternModItem {
+                name: _,
+                ffi_name: Some(sym),
+                ..
+            }) => *sym,
         }
     }
 
@@ -162,7 +173,7 @@ impl LuauCodegen {
                     Doc::text("end"),
                 ])))
             }
-            ItemKind::ExternFn(_decl) => None,
+            ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
         }
     }
 
@@ -204,7 +215,7 @@ impl LuauCodegen {
                 Doc::text("end"),
             ])),
             StmtKind::Assign(assign) => Doc::Concat(Vec::from([
-                Doc::text(Self::def_to_str(lcx, &assign.ident)),
+                Doc::text(Self::def_to_sym(lcx, &assign.ident).as_str()),
                 Doc::text(" "),
                 Doc::text(match assign.op {
                     AssignOp::Add => "+=",
@@ -293,7 +304,7 @@ impl LuauCodegen {
                                 ),
                                 IntlSegment::Var(def) => Doc::Concat(Vec::from([
                                     Doc::text("{"),
-                                    Doc::text(Self::def_to_str(lcx, def)),
+                                    Doc::text(Self::def_to_sym(lcx, def).as_str()),
                                     Doc::text("}"),
                                 ])),
                             })
@@ -341,13 +352,16 @@ impl LuauCodegen {
     }
 
     fn path_to_doc(lcx: &LoweringContext, path: &Path) -> Doc {
+        let target_is_extern = Self::def_is_extern(lcx, &path.target);
+
         if path.segments.len() == 1 {
-            return Doc::text(Self::def_to_str(lcx, &path.target));
+            return Doc::text(Self::def_to_sym(lcx, &path.target).as_str());
         }
 
         Doc::Concat(
             path.segments
                 .iter()
+                .filter(|def| target_is_extern && Self::def_is_extern(lcx, def))
                 .map(|def| Self::def_to_doc(lcx, def))
                 .enumerate()
                 .map(|(i, doc)| {
@@ -361,27 +375,25 @@ impl LuauCodegen {
         )
     }
 
-    /// Translates a [Def] to its corresponding Luau definition.
-    fn def_to_str<'a>(lcx: &'a LoweringContext, def: &Def) -> &'a str {
+    fn def_is_extern(lcx: &LoweringContext, def: &Def) -> bool {
+        if let Def::Def(id) = def {
+            match &lcx.items[*id].kind {
+                ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => true,
+                ItemKind::Fn(_) | ItemKind::InlineMod(_) => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    fn def_to_sym<'a>(lcx: &LoweringContext, def: &Def) -> Symbol {
         match def {
-            Def::Def(def) => match &lcx.items[*def].kind {
-                ItemKind::Fn(FnItem { name, .. })
-                | ItemKind::InlineMod(InlineModItem { name, .. })
-                | ItemKind::ExternFn(ExternFnItem {
-                    ffi_name: Some(name),
-                    ..
-                })
-                | ItemKind::ExternFn(ExternFnItem {
-                    ffi_name: None,
-                    name,
-                    ..
-                }) => name.as_str(),
-            },
-            Def::Local(local) => lcx.locals[*local].name.as_str(),
+            Def::Def(def) => Self::sym_of_item(&lcx.items[*def]),
+            Def::Local(local) => lcx.locals[*local].name,
         }
     }
 
     fn def_to_doc(lcx: &LoweringContext, def: &Def) -> Doc {
-        Doc::text(Self::def_to_str(lcx, def))
+        Doc::text(Self::def_to_sym(lcx, def).as_str())
     }
 }

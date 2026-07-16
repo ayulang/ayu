@@ -22,4 +22,9 @@ pub enum ItemKind {
         signature_span: Span,
         items: HashMap<Symbol, DefId>,
     },
+    ExternMod {
+        ffi_name: Option<Symbol>,
+        signature_span: Span,
+        items: HashMap<Symbol, DefId>,
+    },
 }

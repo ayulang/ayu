@@ -126,6 +126,22 @@ impl<'a> AstLowering<'a> {
         let hir_id = self.lower_id(item.id);
 
         let kind = match &item.kind {
+            ast::ItemKind::ExternMod(decl) => hir::ItemKind::ExternMod(hir::ExternModItem {
+                name: decl.ident.sym,
+                ffi_name: decl.ffi_name.as_ref().map(|i| i.sym),
+                items: decl
+                    .items
+                    .iter()
+                    .map(|item| {
+                        let def_id = self.rcx.defs_by_node[&item.id];
+                        let lowered = self.lower_item(item);
+
+                        self.ctx.items.insert(def_id, lowered);
+
+                        def_id
+                    })
+                    .collect(),
+            }),
             ast::ItemKind::InlineMod(decl) => hir::ItemKind::InlineMod(hir::InlineModItem {
                 name: decl.ident.sym,
                 items: decl
