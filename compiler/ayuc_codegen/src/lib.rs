@@ -13,7 +13,7 @@ impl LuauCodegen {
         let mut doc = Self::lcx_to_doc(lcx);
         let mut contains_main = false;
 
-        for (_, item) in &lcx.items {
+        for (_, item) in lcx.top_items() {
             if let ItemKind::Fn(FnItem { name, .. }) = item.kind
                 && name.as_str() == "main"
             {
@@ -72,9 +72,10 @@ impl LuauCodegen {
 
     fn lcx_to_doc(lcx: &LoweringContext) -> Doc {
         Doc::Concat(
-            lcx.items
+            lcx.top_items()
                 .iter()
                 .flat_map(|(_, item)| Self::item_to_doc(lcx, item))
+                .map(|doc| Doc::Concat(vec![doc, Doc::Hardline, Doc::Blankline]))
                 .collect(),
         )
     }
@@ -102,8 +103,6 @@ impl LuauCodegen {
                             Doc::Hardline,
                             Doc::text("}"),
                         ]),
-                        Doc::Hardline,
-                        Doc::Blankline,
                     ]))
                 }
             }
@@ -128,8 +127,6 @@ impl LuauCodegen {
                     Doc::indent(Self::block_to_doc(lcx, &decl.block)),
                     Doc::Hardline,
                     Doc::text("end"),
-                    Doc::Hardline,
-                    Doc::Blankline,
                 ])))
             }
             ItemKind::ExternFn(_decl) => None,

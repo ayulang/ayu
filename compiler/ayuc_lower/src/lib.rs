@@ -17,6 +17,8 @@ use slotmap::SecondaryMap;
 pub struct LoweringContext {
     pub items: SecondaryMap<DefId, hir::Item>,
     pub locals: SecondaryMap<LocalId, hir::Local>,
+
+    pub top_level_items: Vec<DefId>,
 }
 
 pub struct AstLowering<'a> {
@@ -25,6 +27,16 @@ pub struct AstLowering<'a> {
     id_mappings: BiHashMap<NodeId, HirId>,
 
     hir_id_allocator: HirIdAllocator,
+}
+
+impl LoweringContext {
+    #[inline]
+    pub fn top_items(&self) -> Vec<(DefId, &hir::Item)> {
+        self.top_level_items
+            .iter()
+            .map(|id| (*id, &self.items[*id]))
+            .collect()
+    }
 }
 
 impl<'a> AstLowering<'a> {
@@ -44,6 +56,7 @@ impl<'a> AstLowering<'a> {
             let lowered = self.lower_item(item);
 
             self.ctx.items.insert(def_id, lowered);
+            self.ctx.top_level_items.push(def_id);
         }
 
         self.ctx

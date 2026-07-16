@@ -131,25 +131,33 @@ impl Resolver<'_, '_> {
     }
 
     fn n2_walk_item(&mut self, item: &ast::Item) {
-        if let ast::ItemKind::Fn(decl) = &item.kind {
-            self.stack.enter();
+        match &item.kind {
+            ast::ItemKind::Fn(decl) => {
+                self.stack.enter();
 
-            for param in &decl.parameters.parameters {
-                let local_id = self.sess.register_local(LocalInfo {
-                    name: param.ident.sym,
-                    defined_where: param.span,
-                    ty_id: param.ty.id,
-                    mutable: false, // for now
-                });
+                for param in &decl.parameters.parameters {
+                    let local_id = self.sess.register_local(LocalInfo {
+                        name: param.ident.sym,
+                        defined_where: param.span,
+                        ty_id: param.ty.id,
+                        mutable: false, // for now
+                    });
 
-                self.register_local(param.ident.sym, local_id, param.id);
+                    self.register_local(param.ident.sym, local_id, param.id);
+                }
+
+                for stmt in &decl.block.children {
+                    self.n2_walk_stmt(stmt);
+                }
+
+                self.stack.leave();
             }
-
-            for stmt in &decl.block.children {
-                self.n2_walk_stmt(stmt);
+            ast::ItemKind::InlineMod(decl) => {
+                for item in &decl.items {
+                    self.n2_walk_item(item);
+                }
             }
-
-            self.stack.leave();
+            ast::ItemKind::ExternFn(_) => {}
         }
     }
 
