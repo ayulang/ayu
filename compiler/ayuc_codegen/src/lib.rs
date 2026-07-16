@@ -122,17 +122,33 @@ impl LuauCodegen {
         Doc::concat([first, Doc::Blankline, second])
     }
 
+    fn is_visible_item(lcx: &LoweringContext, item: &Item) -> bool {
+        match &item.kind {
+            ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => false,
+            ItemKind::Fn(_) => true,
+            ItemKind::InlineMod(decl) => decl
+                .items
+                .iter()
+                .map(|id| &lcx.items[*id])
+                .any(|item| Self::is_visible_item(lcx, item)),
+        }
+    }
+
     fn declared_item(lcx: &LoweringContext, item: &Item, within_module: bool) -> Option<Doc> {
         match &item.kind {
             ItemKind::InlineMod(decl) => {
-                let children = Doc::Concat(
-                    decl.items
-                        .iter()
-                        .map(|id| &lcx.items[*id])
-                        .flat_map(|item| Self::declared_item(lcx, item, true))
-                        .map(|doc| Doc::concat([doc, Doc::Hardline]))
-                        .collect(),
-                );
+                let has_visible_items = Self::is_visible_item(lcx, item);
+
+                if !has_visible_items {
+                    return None;
+                }
+
+                let children = decl
+                    .items
+                    .iter()
+                    .map(|id| &lcx.items[*id])
+                    .flat_map(|item| Self::declared_item(lcx, item, true))
+                    .collect::<Vec<_>>();
 
                 Some(Doc::concat([
                     if !within_module {
@@ -142,7 +158,15 @@ impl LuauCodegen {
                     },
                     Doc::text(format!("{} = ", decl.name)),
                     Doc::text("{"),
-                    children,
+                    if children.is_empty() {
+                        Doc::Skip
+                    } else {
+                        Doc::concat([
+                            Doc::Hardline,
+                            Doc::indent(Doc::concat(children)),
+                            Doc::Hardline,
+                        ])
+                    },
                     Doc::text("}"),
                 ]))
             }
@@ -186,8 +210,9 @@ impl LuauCodegen {
                 }
 
                 Some(Doc::Concat(Vec::from([
-                    Doc::text("function "),
                     Self::syms_to_doc(&[absolute_path, &[decl.name]].concat()),
+                    Doc::text(" = "),
+                    Doc::text("function"),
                     Doc::text("("),
                     Doc::Concat(params),
                     Doc::text(")"),
