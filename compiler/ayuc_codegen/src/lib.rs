@@ -203,7 +203,7 @@ impl LuauCodegen {
                 Doc::text("end"),
             ])),
             StmtKind::Assign(assign) => Doc::Concat(Vec::from([
-                Doc::text(Self::def_to_name(lcx, &assign.ident).as_str()),
+                Doc::text(Self::def_to_str(lcx, &assign.ident)),
                 Doc::text(" "),
                 Doc::text(match assign.op {
                     AssignOp::Add => "+=",
@@ -292,7 +292,7 @@ impl LuauCodegen {
                                 ),
                                 IntlSegment::Var(def) => Doc::Concat(Vec::from([
                                     Doc::text("{"),
-                                    Doc::text(Self::def_to_name(lcx, def).as_str()),
+                                    Doc::text(Self::def_to_str(lcx, def)),
                                     Doc::text("}"),
                                 ])),
                             })
@@ -335,11 +335,12 @@ impl LuauCodegen {
                 ),
                 Doc::text(")"),
             ])),
-            ExprKind::Ref(def) => Doc::text(Self::def_to_name(lcx, def).as_str()),
+            ExprKind::Ref(def) => Doc::text(Self::def_to_str(lcx, def)),
         }
     }
 
-    fn def_to_name(lcx: &LoweringContext, def: &Def) -> Symbol {
+    /// Translates a [Def] to its corresponding Luau definition.
+    fn def_to_str<'a>(lcx: &'a LoweringContext, def: &Def) -> &'a str {
         match def {
             Def::Def(def) => match &lcx.items[*def].kind {
                 ItemKind::Fn(FnItem { name, .. })
@@ -352,9 +353,9 @@ impl LuauCodegen {
                     ffi_name: None,
                     name,
                     ..
-                }) => *name,
+                }) => name.as_str(),
             },
-            Def::Local(local) => lcx.locals[*local].name,
+            Def::Local(local) => lcx.locals[*local].name.as_str(),
         }
     }
 }
