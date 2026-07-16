@@ -29,10 +29,10 @@ impl LuauCodegen {
             ])
         } else {
             let export_table: Vec<Symbol> = lcx
-                .items
-                .values()
-                .filter(|item| item.vis != Visibility::Private)
-                .filter_map(|item| match &item.kind {
+                .top_items()
+                .iter()
+                .filter(|(_, item)| item.vis != Visibility::Private)
+                .filter_map(|(_, item)| match &item.kind {
                     ItemKind::Fn(fun) => Some(fun.name),
                     ItemKind::InlineMod(decl) => Some(decl.name),
                     ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
