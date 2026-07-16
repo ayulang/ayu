@@ -1,3 +1,4 @@
+#[derive(Debug, Clone)]
 pub enum Doc {
     /// A text.
     Text(String),

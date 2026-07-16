@@ -241,7 +241,7 @@ impl<'a> AstLowering<'a> {
     fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {
         let id = self.lower_id(expr.id);
         let kind = match &expr.kind {
-            ast::ExprKind::Path(path) => hir::ExprKind::Ref(self.resolve_path(path)),
+            ast::ExprKind::Path(path) => hir::ExprKind::Path(self.resolve_path(path)),
             ast::ExprKind::Call(call) => hir::ExprKind::Call(ayuc_hir::CallExpr {
                 callee: Box::new(self.lower_expr(&call.callee)),
                 args: call.args.iter().map(|e| self.lower_expr(e)).collect(),
@@ -283,19 +283,26 @@ impl<'a> AstLowering<'a> {
         hir::Expr { id, kind }
     }
 
-    fn resolve_ident(&self, ident: &ast::Ident) -> hir::Def {
-        match self.rcx.name_resolutions[&ident.id] {
+    fn resolve_id(&self, id: NodeId) -> hir::Def {
+        match self.rcx.name_resolutions[&id] {
             RDef::Def(d) => hir::Def::Def(d),
             RDef::Local(l) => hir::Def::Local(l),
             RDef::Error => unreachable!(),
         }
     }
 
-    fn resolve_path(&self, path: &ast::Path) -> hir::Def {
-        match self.rcx.name_resolutions[&path.id] {
-            RDef::Def(d) => hir::Def::Def(d),
-            RDef::Local(l) => hir::Def::Local(l),
-            RDef::Error => unreachable!(),
+    fn resolve_ident(&self, ident: &ast::Ident) -> hir::Def {
+        self.resolve_id(ident.id)
+    }
+
+    fn resolve_path(&self, path: &ast::Path) -> hir::Path {
+        hir::Path {
+            target: self.resolve_id(path.id),
+            segments: path
+                .segments
+                .iter()
+                .map(|seg| self.resolve_id(seg.id))
+                .collect(),
         }
     }
 

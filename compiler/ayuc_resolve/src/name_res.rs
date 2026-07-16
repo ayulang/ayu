@@ -278,6 +278,7 @@ impl Resolver<'_, '_> {
         }
     }
 
+    /// Resolves all segments of a path + the target of the whole path.
     fn n2_resolve_path(&mut self, path: &ast::Path) {
         let first = match path.segments.first() {
             Some(seg) => seg,
@@ -286,9 +287,10 @@ impl Resolver<'_, '_> {
 
         let ident = &first.ident;
         let def = match self.stack.lookup(ident.sym) {
-            Some(Def::Def(def_id)) => {
+            Some(mut def @ Def::Def(_)) => {
                 let mut remaining = &path.segments[1..];
-                let mut def = Def::Def(def_id);
+
+                self.rcx.name_resolutions.insert(first.id, def);
 
                 while let Some(current) = remaining.first() {
                     def = match def {
@@ -298,11 +300,17 @@ impl Resolver<'_, '_> {
                     };
 
                     remaining = &remaining[1..];
+
+                    self.rcx.name_resolutions.insert(current.id, def);
                 }
 
                 def
             }
-            Some(Def::Local(local)) => Def::Local(local),
+            Some(def @ Def::Local(_)) => {
+                self.rcx.name_resolutions.insert(first.id, def);
+
+                def
+            }
             _ => return,
         };
 

@@ -1,6 +1,7 @@
 use ayuc_hir::{
     AlternateBranch, AssignOp, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, IfStmt,
-    InlineModItem, IntlSegment, Item, ItemKind, Literal, Parameter, Stmt, StmtKind, Visibility,
+    InlineModItem, IntlSegment, Item, ItemKind, Literal, Parameter, Path, Stmt, StmtKind,
+    Visibility,
 };
 use ayuc_lower::LoweringContext;
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
@@ -335,8 +336,29 @@ impl LuauCodegen {
                 ),
                 Doc::text(")"),
             ])),
-            ExprKind::Ref(def) => Doc::text(Self::def_to_str(lcx, def)),
+            ExprKind::Path(path) => Self::path_to_doc(lcx, path),
         }
+    }
+
+    fn path_to_doc(lcx: &LoweringContext, path: &Path) -> Doc {
+        if path.segments.len() == 1 {
+            return Doc::text(Self::def_to_str(lcx, &path.target));
+        }
+
+        Doc::Concat(
+            path.segments
+                .iter()
+                .map(|def| Self::def_to_doc(lcx, def))
+                .enumerate()
+                .map(|(i, doc)| {
+                    if i != 0 {
+                        Doc::Concat(vec![Doc::text("."), doc])
+                    } else {
+                        doc
+                    }
+                })
+                .collect(),
+        )
     }
 
     /// Translates a [Def] to its corresponding Luau definition.
@@ -357,5 +379,9 @@ impl LuauCodegen {
             },
             Def::Local(local) => lcx.locals[*local].name.as_str(),
         }
+    }
+
+    fn def_to_doc(lcx: &LoweringContext, def: &Def) -> Doc {
+        Doc::text(Self::def_to_str(lcx, def))
     }
 }
