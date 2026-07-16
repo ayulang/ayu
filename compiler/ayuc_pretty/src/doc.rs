@@ -11,6 +11,8 @@ pub enum Doc {
     StmtSep,
     /// Indents the following [Doc].
     Indent(Box<Doc>),
+    /// Not printed.
+    Skip,
 }
 
 impl Doc {

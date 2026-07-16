@@ -70,23 +70,52 @@ impl LuauCodegen {
         Renderer::new().render(doc)
     }
 
+    fn sym_of_item(item: &Item) -> Symbol {
+        match &item.kind {
+            ItemKind::Fn(FnItem { name: sym, .. })
+            | ItemKind::ExternFn(ExternFnItem {
+                name: sym,
+                ffi_name: None,
+                ..
+            })
+            | ItemKind::ExternFn(ExternFnItem {
+                name: _,
+                ffi_name: Some(sym),
+                ..
+            })
+            | ItemKind::InlineMod(InlineModItem { name: sym, .. }) => *sym,
+        }
+    }
+
     fn lcx_to_doc(lcx: &LoweringContext) -> Doc {
         Doc::Concat(
             lcx.top_items()
                 .iter()
-                .flat_map(|(_, item)| Self::item_to_doc(lcx, item))
+                .flat_map(|(_, item)| Self::item_to_doc(lcx, item, true))
                 .map(|doc| Doc::Concat(vec![doc, Doc::Hardline, Doc::Blankline]))
                 .collect(),
         )
     }
 
-    fn item_to_doc(lcx: &LoweringContext, item: &Item) -> Option<Doc> {
+    fn item_to_doc(lcx: &LoweringContext, item: &Item, with_name: bool) -> Option<Doc> {
         match &item.kind {
             ItemKind::InlineMod(decl) => {
                 let items = decl
                     .items
                     .iter()
-                    .flat_map(|item| Self::item_to_doc(lcx, &lcx.items[*item]))
+                    .flat_map(|item| {
+                        Self::item_to_doc(lcx, &lcx.items[*item], false)
+                            .map(|doc| (&lcx.items[*item], doc))
+                    })
+                    .map(|(item, doc)| {
+                        Doc::Concat(vec![
+                            Doc::Hardline,
+                            Doc::text(Self::sym_of_item(item).as_str()),
+                            Doc::text(" = "),
+                            doc,
+                            Doc::text(","),
+                        ])
+                    })
                     .collect::<Vec<_>>();
 
                 if items.is_empty() {
@@ -98,7 +127,6 @@ impl LuauCodegen {
                         Doc::text(" = "),
                         Doc::Concat(vec![
                             Doc::text("{"),
-                            Doc::Hardline,
                             Doc::Indent(Box::new(Doc::Concat(items))),
                             Doc::Hardline,
                             Doc::text("}"),
@@ -119,7 +147,11 @@ impl LuauCodegen {
 
                 Some(Doc::Concat(Vec::from([
                     Doc::text("function "),
-                    Doc::text(decl.name.as_str()),
+                    if with_name {
+                        Doc::text(decl.name.as_str())
+                    } else {
+                        Doc::Skip
+                    },
                     Doc::text("("),
                     Doc::Concat(params),
                     Doc::text(")"),
@@ -311,7 +343,7 @@ impl LuauCodegen {
         match def {
             Def::Def(def) => match &lcx.items[*def].kind {
                 ItemKind::Fn(FnItem { name, .. })
-                | ItemKind::InlineMod(InlineModItem { name, .. }) // We might have to change this later on to be path compatible?
+                | ItemKind::InlineMod(InlineModItem { name, .. })
                 | ItemKind::ExternFn(ExternFnItem {
                     ffi_name: Some(name),
                     ..
