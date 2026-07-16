@@ -21,6 +21,10 @@ impl Doc {
         Self::Text(text.as_ref().to_string())
     }
 
+    pub fn concat(docs: impl Into<Vec<Self>>) -> Self {
+        Self::Concat(docs.into())
+    }
+
     pub fn indent(doc: Doc) -> Self {
         Self::Indent(Box::new(doc))
     }

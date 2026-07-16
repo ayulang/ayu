@@ -100,50 +100,78 @@ impl LuauCodegen {
     }
 
     fn lcx_to_doc(lcx: &LoweringContext) -> Doc {
-        Doc::Concat(
+        // 1st pass: Declare all items
+        // 2nd pass: Define all items
+
+        let first = Doc::Concat(
             lcx.top_items()
                 .iter()
-                .flat_map(|(_, item)| Self::item_to_doc(lcx, item, true))
+                .flat_map(|(_, item)| Self::declared_item(lcx, item, false))
+                .map(|doc| Doc::concat([doc, Doc::Hardline]))
+                .collect(),
+        );
+
+        let second = Doc::Concat(
+            lcx.top_items()
+                .iter()
+                .flat_map(|(_, item)| Self::define_item(lcx, item, &[]))
                 .map(|doc| Doc::Concat(vec![doc, Doc::Hardline, Doc::Blankline]))
                 .collect(),
-        )
+        );
+
+        Doc::concat([first, Doc::Blankline, second])
     }
 
-    fn item_to_doc(lcx: &LoweringContext, item: &Item, with_name: bool) -> Option<Doc> {
+    fn declared_item(lcx: &LoweringContext, item: &Item, within_module: bool) -> Option<Doc> {
+        match &item.kind {
+            ItemKind::InlineMod(decl) => {
+                let children = Doc::Concat(
+                    decl.items
+                        .iter()
+                        .map(|id| &lcx.items[*id])
+                        .flat_map(|item| Self::declared_item(lcx, item, true))
+                        .map(|doc| Doc::concat([doc, Doc::Hardline]))
+                        .collect(),
+                );
+
+                Some(Doc::concat([
+                    if !within_module {
+                        Doc::text("local ")
+                    } else {
+                        Doc::Skip
+                    },
+                    Doc::text(format!("{} = ", decl.name)),
+                    Doc::text("{"),
+                    children,
+                    Doc::text("}"),
+                ]))
+            }
+            ItemKind::Fn(decl) => {
+                (!within_module).then_some(Doc::text(format!("local {}", decl.name)))
+            }
+            ItemKind::ExternMod(_) | ItemKind::ExternFn(_) => None,
+        }
+    }
+
+    fn define_item(lcx: &LoweringContext, item: &Item, absolute_path: &[Symbol]) -> Option<Doc> {
         match &item.kind {
             ItemKind::InlineMod(decl) => {
                 let items = decl
                     .items
                     .iter()
                     .flat_map(|item| {
-                        Self::item_to_doc(lcx, &lcx.items[*item], false)
-                            .map(|doc| (&lcx.items[*item], doc))
-                    })
-                    .map(|(item, doc)| {
-                        Doc::Concat(vec![
-                            Doc::Hardline,
-                            Doc::text(Self::sym_of_item(item).as_str()),
-                            Doc::text(" = "),
-                            doc,
-                            Doc::text(","),
-                        ])
+                        Self::define_item(
+                            lcx,
+                            &lcx.items[*item],
+                            &[absolute_path, &[decl.name]].concat(),
+                        )
                     })
                     .collect::<Vec<_>>();
 
                 if items.is_empty() {
                     None
                 } else {
-                    Some(Doc::Concat(vec![
-                        Doc::text("local "),
-                        Doc::text(decl.name.as_str()),
-                        Doc::text(" = "),
-                        Doc::Concat(vec![
-                            Doc::text("{"),
-                            Doc::Indent(Box::new(Doc::Concat(items))),
-                            Doc::Hardline,
-                            Doc::text("}"),
-                        ]),
-                    ]))
+                    Some(Doc::Concat(items))
                 }
             }
             ItemKind::Fn(decl) => {
@@ -159,11 +187,7 @@ impl LuauCodegen {
 
                 Some(Doc::Concat(Vec::from([
                     Doc::text("function "),
-                    if with_name {
-                        Doc::text(decl.name.as_str())
-                    } else {
-                        Doc::Skip
-                    },
+                    Self::syms_to_doc(&[absolute_path, &[decl.name]].concat()),
                     Doc::text("("),
                     Doc::Concat(params),
                     Doc::text(")"),
@@ -175,6 +199,21 @@ impl LuauCodegen {
             }
             ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
         }
+    }
+
+    fn syms_to_doc(syms: &[Symbol]) -> Doc {
+        Doc::Concat(
+            syms.iter()
+                .enumerate()
+                .map(|(i, sym)| {
+                    if i != 0 {
+                        Doc::concat([Doc::text("."), Doc::text(sym.as_str())])
+                    } else {
+                        Doc::text(sym.as_str())
+                    }
+                })
+                .collect(),
+        )
     }
 
     fn param_to_doc(_lcx: &LoweringContext, param: &Parameter) -> Doc {
@@ -392,7 +431,7 @@ impl LuauCodegen {
         }
     }
 
-    fn def_to_sym<'a>(lcx: &LoweringContext, def: &Def) -> Symbol {
+    fn def_to_sym(lcx: &LoweringContext, def: &Def) -> Symbol {
         match def {
             Def::Def(def) => Self::sym_of_item(&lcx.items[*def]),
             Def::Local(local) => lcx.locals[*local].name,

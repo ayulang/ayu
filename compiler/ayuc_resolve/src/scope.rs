@@ -79,7 +79,7 @@ impl Scope {
     pub fn build_path(&self, target: Def) -> Vec<Def> {
         self.absolute_path
             .iter()
-            .flat_map(|def| def.map(|id| Def::Def(id)))
+            .flat_map(|def| def.map(Def::Def))
             .chain(iter::once(target))
             .collect()
     }
