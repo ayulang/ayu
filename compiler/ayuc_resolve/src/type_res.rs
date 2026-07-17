@@ -15,6 +15,12 @@ impl Resolver<'_, '_> {
 
     fn tr_walk_item(&mut self, item: &ast::Item) {
         match &item.kind {
+            ast::ItemKind::InlineMod(ast::InlineModItem { items, .. })
+            | ast::ItemKind::ExternMod(ast::ExternModItem { items, .. }) => {
+                for item in items {
+                    self.tr_walk_item(item);
+                }
+            }
             ast::ItemKind::Fn(fun) => {
                 for param in &fun.parameters.parameters {
                     self.tr_resolve_ty(&param.ty);

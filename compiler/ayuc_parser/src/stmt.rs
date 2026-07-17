@@ -84,8 +84,13 @@ impl Parser<'_, '_> {
         let ty = self.parse_ty()?;
 
         if !self.maybe(TokenKind::Equals) {
-            todo!()
+            let span = self.stream.span_since(snapshot);
+
+            return Err(Diagnostic::error(self.file_id, span)
+                .with_message("variables must be initialized with a value")
+                .with_label(Label::primary(span, "uninitialized variable")));
         }
+
         let expr = self.parse_expression()?;
 
         Ok(LetStmt {

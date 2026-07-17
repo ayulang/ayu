@@ -63,6 +63,7 @@ impl<'a> Lexer<'a> {
             "while" => Some(Keyword::While),
             "else" => Some(Keyword::Else),
             "pub" => Some(Keyword::Pub),
+            "mod" => Some(Keyword::Mod),
             _ => None,
         };
 

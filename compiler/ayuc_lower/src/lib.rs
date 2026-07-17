@@ -17,6 +17,8 @@ use slotmap::SecondaryMap;
 pub struct LoweringContext {
     pub items: SecondaryMap<DefId, hir::Item>,
     pub locals: SecondaryMap<LocalId, hir::Local>,
+
+    pub top_level_items: Vec<DefId>,
 }
 
 pub struct AstLowering<'a> {
@@ -25,6 +27,16 @@ pub struct AstLowering<'a> {
     id_mappings: BiHashMap<NodeId, HirId>,
 
     hir_id_allocator: HirIdAllocator,
+}
+
+impl LoweringContext {
+    #[inline]
+    pub fn top_items(&self) -> Vec<(DefId, &hir::Item)> {
+        self.top_level_items
+            .iter()
+            .map(|id| (*id, &self.items[*id]))
+            .collect()
+    }
 }
 
 impl<'a> AstLowering<'a> {
@@ -44,6 +56,7 @@ impl<'a> AstLowering<'a> {
             let lowered = self.lower_item(item);
 
             self.ctx.items.insert(def_id, lowered);
+            self.ctx.top_level_items.push(def_id);
         }
 
         self.ctx
@@ -113,6 +126,41 @@ impl<'a> AstLowering<'a> {
         let hir_id = self.lower_id(item.id);
 
         let kind = match &item.kind {
+            ast::ItemKind::ExternMod(decl) => hir::ItemKind::ExternMod(hir::ExternModItem {
+                name: decl.ident.sym,
+                ffi_name: decl.ffi_name.as_ref().map(|i| i.sym),
+                items: decl
+                    .items
+                    .iter()
+                    .flat_map(|item| {
+                        if matches!(item.kind, ast::ItemKind::Fn(_)) {
+                            return None;
+                        }
+
+                        let def_id = self.rcx.defs_by_node[&item.id];
+                        let lowered = self.lower_item(item);
+
+                        self.ctx.items.insert(def_id, lowered);
+
+                        Some(def_id)
+                    })
+                    .collect(),
+            }),
+            ast::ItemKind::InlineMod(decl) => hir::ItemKind::InlineMod(hir::InlineModItem {
+                name: decl.ident.sym,
+                items: decl
+                    .items
+                    .iter()
+                    .map(|item| {
+                        let def_id = self.rcx.defs_by_node[&item.id];
+                        let lowered = self.lower_item(item);
+
+                        self.ctx.items.insert(def_id, lowered);
+
+                        def_id
+                    })
+                    .collect(),
+            }),
             ast::ItemKind::Fn(fun) => hir::ItemKind::Fn(self.lower_fn_item(fun)),
             ast::ItemKind::ExternFn(extern_fun) => hir::ItemKind::ExternFn(hir::ExternFnItem {
                 name: extern_fun.name.sym,
@@ -213,7 +261,7 @@ impl<'a> AstLowering<'a> {
     fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {
         let id = self.lower_id(expr.id);
         let kind = match &expr.kind {
-            ast::ExprKind::Identifier(ident) => hir::ExprKind::Ref(self.resolve_ident(ident)),
+            ast::ExprKind::Path(path) => hir::ExprKind::Path(self.resolve_path(path)),
             ast::ExprKind::Call(call) => hir::ExprKind::Call(ayuc_hir::CallExpr {
                 callee: Box::new(self.lower_expr(&call.callee)),
                 args: call.args.iter().map(|e| self.lower_expr(e)).collect(),
@@ -255,11 +303,37 @@ impl<'a> AstLowering<'a> {
         hir::Expr { id, kind }
     }
 
-    fn resolve_ident(&self, ident: &ast::Ident) -> hir::Def {
-        match self.rcx.name_resolutions[&ident.id] {
-            RDef::Def(d) => hir::Def::Def(d),
-            RDef::Local(l) => hir::Def::Local(l),
+    fn lower_def(&self, rdef: &RDef) -> hir::Def {
+        match rdef {
+            RDef::Def(d) => hir::Def::Def(*d),
+            RDef::Local(l) => hir::Def::Local(*l),
             RDef::Error => unreachable!(),
+        }
+    }
+
+    fn resolve_id(&self, id: NodeId) -> hir::Def {
+        self.lower_def(&self.rcx.name_resolutions[&id])
+    }
+
+    fn resolve_ident(&self, ident: &ast::Ident) -> hir::Def {
+        self.resolve_id(ident.id)
+    }
+
+    fn resolve_path(&self, path: &ast::Path) -> hir::Path {
+        if let Some(qualified) = self.rcx.qualified_paths.get(&path.id) {
+            hir::Path {
+                target: qualified.last().map(|q| self.lower_def(q)).unwrap(),
+                segments: qualified.iter().map(|q| self.lower_def(q)).collect(),
+            }
+        } else {
+            hir::Path {
+                target: self.resolve_id(path.id),
+                segments: path
+                    .segments
+                    .iter()
+                    .map(|seg| self.resolve_id(seg.id))
+                    .collect(),
+            }
         }
     }
 

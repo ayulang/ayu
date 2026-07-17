@@ -10,10 +10,20 @@ pub struct Expr {
 }
 
 #[derive(Debug)]
+pub struct Path {
+    /// The target of the path. Basically a shorthand to `segments.last()`
+    pub target: Def,
+
+    /// Every single segment of the path, resolved to its definition.
+    pub segments: Vec<Def>,
+}
+
+#[derive(Debug)]
 pub enum ExprKind {
     Call(CallExpr),
     Lit(Literal),
-    Ref(Def),
+    /// A path in the form of `foo::bar`
+    Path(Path),
     Binary(BinExpr),
 }
 

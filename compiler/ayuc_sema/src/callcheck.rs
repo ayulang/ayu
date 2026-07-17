@@ -21,7 +21,12 @@ impl SemanticAnalyzer<'_> {
                     self.cc_walk_stmt(stmt);
                 }
             }
-            ItemKind::ExternFn(_) => {}
+            ItemKind::InlineMod(decl) => {
+                for item in &decl.items {
+                    self.cc_walk_item(item);
+                }
+            }
+            ItemKind::ExternMod(_) | ItemKind::ExternFn(_) => {}
         }
     }
 
@@ -77,13 +82,13 @@ impl SemanticAnalyzer<'_> {
                 self.cc_walk_expr(&bin.left);
                 self.cc_walk_expr(&bin.right);
             }
-            ExprKind::Identifier(_) | ExprKind::Lit(_) => {}
+            ExprKind::Path(_) | ExprKind::Lit(_) => {}
         }
     }
 
     fn cc_check_call_expr(&mut self, expr: &Expr, call: &CallExpr) {
         let id = match &call.callee.kind {
-            ExprKind::Identifier(ident) => ident.id,
+            ExprKind::Path(path) => path.id,
             _ => return,
         };
 
@@ -94,6 +99,8 @@ impl SemanticAnalyzer<'_> {
             let required_args = match &info.kind {
                 ayuc_session::item::ItemKind::ExternFn { n_args, .. }
                 | ayuc_session::item::ItemKind::Fn { n_args, .. } => *n_args,
+                ayuc_session::ItemKind::InlineMod { .. }
+                | ayuc_session::ItemKind::ExternMod { .. } => return, // uncallable, maybe a diagnostic?
             };
 
             if provided_args != required_args {

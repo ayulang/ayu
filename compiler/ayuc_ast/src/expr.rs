@@ -1,7 +1,7 @@
 use ayuc_id::ast::NodeId;
 use ayuc_span::{Span, symbol::Symbol};
 
-use crate::Stmt;
+use crate::{Path, Stmt};
 
 #[derive(Debug)]
 pub struct Expr {
@@ -13,7 +13,7 @@ pub struct Expr {
 #[derive(Debug)]
 pub enum ExprKind {
     Lit(Literal),
-    Identifier(Ident),
+    Path(Path),
     Call(CallExpr),
     Binary(BinExpr),
 }

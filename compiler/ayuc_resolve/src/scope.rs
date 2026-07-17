@@ -1,34 +1,32 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, iter};
 
 use ayuc_id::hir::{DefId, LocalId};
 use ayuc_span::symbol::Symbol;
 
 use crate::def::Def;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ScopeStack {
     top: Scope,
     stack: Vec<Scope>,
+    /// The travelled [DefId]s
+    path: Vec<Option<DefId>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Scope {
     symbols: HashMap<Symbol, Def>,
+    absolute_path: Vec<Option<DefId>>,
 }
 
 impl ScopeStack {
-    pub fn new() -> Self {
-        Self {
-            top: Scope::new(),
-            stack: Vec::new(),
-        }
-    }
-
-    pub fn enter(&mut self) {
-        self.stack.push(Scope::new());
+    pub fn enter(&mut self, def: Option<DefId>) {
+        self.path.push(def);
+        self.stack.push(Scope::with_path(self.path.clone()));
     }
 
     pub fn leave(&mut self) {
+        self.path.pop();
         self.stack.pop();
     }
 
@@ -40,12 +38,24 @@ impl ScopeStack {
         self.top.symbols.get(&sym).copied()
     }
 
-    pub fn lookup(&self, sym: Symbol) -> Option<Def> {
+    fn lookup_get_scope(&self, sym: Symbol) -> Option<(&Scope, Def)> {
         self.stack
             .iter()
             .rev()
             .chain(std::iter::once(&self.top))
-            .find_map(|scope| scope.symbols.get(&sym).copied())
+            .find_map(|scope| scope.symbols.get(&sym).copied().map(|d| (scope, d)))
+    }
+
+    pub fn lookup(&self, sym: Symbol) -> Option<Def> {
+        let (_, def) = self.lookup_get_scope(sym)?;
+
+        Some(def)
+    }
+
+    pub fn lookup_path(&self, sym: Symbol) -> Option<(Def, Vec<Def>)> {
+        let (scope, def) = self.lookup_get_scope(sym)?;
+
+        Some((def, scope.build_path(def)))
     }
 
     pub fn register_local(&mut self, sym: Symbol, id: LocalId) {
@@ -54,26 +64,23 @@ impl ScopeStack {
 
     /// Registers the [Symbol] in the top scope.
     pub fn register_def(&mut self, sym: Symbol, id: DefId) {
-        self.top.symbols.insert(sym, Def::Def(id));
+        self.current_mut().symbols.insert(sym, Def::Def(id));
     }
 }
 
 impl Scope {
-    pub fn new() -> Self {
+    pub fn with_path(path: Vec<Option<DefId>>) -> Self {
         Self {
             symbols: HashMap::new(),
+            absolute_path: path,
         }
     }
-}
 
-impl Default for ScopeStack {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Default for Scope {
-    fn default() -> Self {
-        Self::new()
+    pub fn build_path(&self, target: Def) -> Vec<Def> {
+        self.absolute_path
+            .iter()
+            .flat_map(|def| def.map(Def::Def))
+            .chain(iter::once(target))
+            .collect()
     }
 }

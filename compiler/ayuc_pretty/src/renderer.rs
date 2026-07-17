@@ -83,6 +83,7 @@ impl Renderer {
 
                 buf.push_str(&self.full_indent_str);
             }
+            Doc::Skip => {}
         }
     }
 

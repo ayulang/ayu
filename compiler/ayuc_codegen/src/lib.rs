@@ -1,6 +1,7 @@
 use ayuc_hir::{
-    AlternateBranch, AssignOp, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, FnItem, IfStmt,
-    IntlSegment, Item, ItemKind, Literal, Parameter, Stmt, StmtKind, Visibility,
+    AlternateBranch, AssignOp, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, ExternModItem,
+    FnItem, IfStmt, InlineModItem, IntlSegment, Item, ItemKind, Literal, Parameter, Path, Stmt,
+    StmtKind, Visibility,
 };
 use ayuc_lower::LoweringContext;
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
@@ -13,7 +14,7 @@ impl LuauCodegen {
         let mut doc = Self::lcx_to_doc(lcx);
         let mut contains_main = false;
 
-        for (_, item) in &lcx.items {
+        for (_, item) in lcx.top_items() {
             if let ItemKind::Fn(FnItem { name, .. }) = item.kind
                 && name.as_str() == "main"
             {
@@ -28,12 +29,13 @@ impl LuauCodegen {
             ])
         } else {
             let export_table: Vec<Symbol> = lcx
-                .items
-                .values()
-                .filter(|item| item.vis != Visibility::Private)
-                .filter_map(|item| match &item.kind {
+                .top_items()
+                .iter()
+                .filter(|(_, item)| item.vis != Visibility::Private)
+                .filter_map(|(_, item)| match &item.kind {
                     ItemKind::Fn(fun) => Some(fun.name),
-                    ItemKind::ExternFn(_) => None,
+                    ItemKind::InlineMod(decl) => Some(decl.name),
+                    ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
                 })
                 .collect();
 
@@ -70,17 +72,132 @@ impl LuauCodegen {
         Renderer::new().render(doc)
     }
 
-    fn lcx_to_doc(lcx: &LoweringContext) -> Doc {
-        Doc::Concat(
-            lcx.items
-                .iter()
-                .map(|(_, item)| Self::item_to_doc(lcx, item))
-                .collect(),
-        )
+    fn sym_of_item(item: &Item) -> Symbol {
+        match &item.kind {
+            ItemKind::Fn(FnItem { name: sym, .. })
+            | ItemKind::ExternFn(ExternFnItem {
+                name: sym,
+                ffi_name: None,
+                ..
+            })
+            | ItemKind::ExternFn(ExternFnItem {
+                name: _,
+                ffi_name: Some(sym),
+                ..
+            })
+            | ItemKind::InlineMod(InlineModItem { name: sym, .. })
+            | ItemKind::ExternMod(ExternModItem {
+                name: sym,
+                ffi_name: None,
+                ..
+            })
+            | ItemKind::ExternMod(ExternModItem {
+                name: _,
+                ffi_name: Some(sym),
+                ..
+            }) => *sym,
+        }
     }
 
-    fn item_to_doc(lcx: &LoweringContext, item: &Item) -> Doc {
+    fn lcx_to_doc(lcx: &LoweringContext) -> Doc {
+        // 1st pass: Declare all items
+        // 2nd pass: Define all items
+
+        let first = Doc::Concat(
+            lcx.top_items()
+                .iter()
+                .flat_map(|(_, item)| Self::declared_item(lcx, item, false))
+                .map(|doc| Doc::concat([doc, Doc::Hardline]))
+                .collect(),
+        );
+
+        let second = Doc::Concat(
+            lcx.top_items()
+                .iter()
+                .flat_map(|(_, item)| Self::define_item(lcx, item, &[]))
+                .map(|doc| Doc::Concat(vec![doc, Doc::Hardline, Doc::Blankline]))
+                .collect(),
+        );
+
+        Doc::concat([first, Doc::Blankline, second])
+    }
+
+    fn is_visible_item(lcx: &LoweringContext, item: &Item) -> bool {
         match &item.kind {
+            ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => false,
+            ItemKind::Fn(_) => true,
+            ItemKind::InlineMod(decl) => decl
+                .items
+                .iter()
+                .map(|id| &lcx.items[*id])
+                .any(|item| Self::is_visible_item(lcx, item)),
+        }
+    }
+
+    fn declared_item(lcx: &LoweringContext, item: &Item, within_module: bool) -> Option<Doc> {
+        match &item.kind {
+            ItemKind::InlineMod(decl) => {
+                let has_visible_items = Self::is_visible_item(lcx, item);
+
+                if !has_visible_items {
+                    return None;
+                }
+
+                let children = decl
+                    .items
+                    .iter()
+                    .map(|id| &lcx.items[*id])
+                    .flat_map(|item| Self::declared_item(lcx, item, true))
+                    .collect::<Vec<_>>();
+
+                Some(Doc::concat([
+                    if !within_module {
+                        Doc::text("local ")
+                    } else {
+                        Doc::Skip
+                    },
+                    Doc::text(format!("{} = ", decl.name)),
+                    Doc::text("{"),
+                    if children.is_empty() {
+                        Doc::Skip
+                    } else {
+                        Doc::concat([
+                            Doc::Hardline,
+                            Doc::indent(Doc::concat(children)),
+                            Doc::Hardline,
+                        ])
+                    },
+                    Doc::text("}"),
+                ]))
+            }
+            ItemKind::Fn(decl) => {
+                (!within_module).then_some(Doc::text(format!("local {}", decl.name)))
+            }
+            ItemKind::ExternMod(_) | ItemKind::ExternFn(_) => None,
+        }
+    }
+
+    fn define_item(lcx: &LoweringContext, item: &Item, absolute_path: &[Symbol]) -> Option<Doc> {
+        match &item.kind {
+            ItemKind::InlineMod(decl) => {
+                let items = decl
+                    .items
+                    .iter()
+                    .flat_map(|item| {
+                        Self::define_item(
+                            lcx,
+                            &lcx.items[*item],
+                            &[absolute_path, &[decl.name]].concat(),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                if items.is_empty() {
+                    None
+                } else {
+                    Some(Doc::Concat(items))
+                }
+            }
             ItemKind::Fn(decl) => {
                 let mut params = Vec::new();
 
@@ -92,9 +209,10 @@ impl LuauCodegen {
                     params.push(Self::param_to_doc(lcx, param));
                 }
 
-                Doc::Concat(Vec::from([
-                    Doc::text("function "),
-                    Doc::text(decl.name.as_str()),
+                Some(Doc::Concat(Vec::from([
+                    Self::syms_to_doc(&[absolute_path, &[decl.name]].concat()),
+                    Doc::text(" = "),
+                    Doc::text("function"),
                     Doc::text("("),
                     Doc::Concat(params),
                     Doc::text(")"),
@@ -102,12 +220,25 @@ impl LuauCodegen {
                     Doc::indent(Self::block_to_doc(lcx, &decl.block)),
                     Doc::Hardline,
                     Doc::text("end"),
-                    Doc::Hardline,
-                    Doc::Blankline,
-                ]))
+                ])))
             }
-            ItemKind::ExternFn(_decl) => Doc::Concat(Vec::new()),
+            ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
         }
+    }
+
+    fn syms_to_doc(syms: &[Symbol]) -> Doc {
+        Doc::Concat(
+            syms.iter()
+                .enumerate()
+                .map(|(i, sym)| {
+                    if i != 0 {
+                        Doc::concat([Doc::text("."), Doc::text(sym.as_str())])
+                    } else {
+                        Doc::text(sym.as_str())
+                    }
+                })
+                .collect(),
+        )
     }
 
     fn param_to_doc(_lcx: &LoweringContext, param: &Parameter) -> Doc {
@@ -148,7 +279,7 @@ impl LuauCodegen {
                 Doc::text("end"),
             ])),
             StmtKind::Assign(assign) => Doc::Concat(Vec::from([
-                Doc::text(Self::def_to_name(lcx, &assign.ident).as_str()),
+                Doc::text(Self::def_to_sym(lcx, &assign.ident).as_str()),
                 Doc::text(" "),
                 Doc::text(match assign.op {
                     AssignOp::Add => "+=",
@@ -237,7 +368,7 @@ impl LuauCodegen {
                                 ),
                                 IntlSegment::Var(def) => Doc::Concat(Vec::from([
                                     Doc::text("{"),
-                                    Doc::text(Self::def_to_name(lcx, def).as_str()),
+                                    Doc::text(Self::def_to_sym(lcx, def).as_str()),
                                     Doc::text("}"),
                                 ])),
                             })
@@ -280,25 +411,59 @@ impl LuauCodegen {
                 ),
                 Doc::text(")"),
             ])),
-            ExprKind::Ref(def) => Doc::text(Self::def_to_name(lcx, def).as_str()),
+            ExprKind::Path(path) => Self::path_to_doc(lcx, path),
         }
     }
 
-    fn def_to_name(lcx: &LoweringContext, def: &Def) -> Symbol {
-        match def {
-            Def::Def(def) => match &lcx.items[*def].kind {
-                ItemKind::Fn(FnItem { name, .. })
-                | ItemKind::ExternFn(ExternFnItem {
-                    ffi_name: Some(name),
-                    ..
+    fn path_to_doc(lcx: &LoweringContext, path: &Path) -> Doc {
+        let target_is_extern = Self::def_is_extern(lcx, &path.target);
+
+        if path.segments.len() == 1 {
+            return Doc::text(Self::def_to_sym(lcx, &path.target).as_str());
+        }
+
+        Doc::Concat(
+            path.segments
+                .iter()
+                .filter(|def| {
+                    if target_is_extern {
+                        Self::def_is_extern(lcx, def)
+                    } else {
+                        true
+                    }
                 })
-                | ItemKind::ExternFn(ExternFnItem {
-                    ffi_name: None,
-                    name,
-                    ..
-                }) => *name,
-            },
+                .map(|def| Self::def_to_doc(lcx, def))
+                .enumerate()
+                .map(|(i, doc)| {
+                    if i != 0 {
+                        Doc::Concat(vec![Doc::text("."), doc])
+                    } else {
+                        doc
+                    }
+                })
+                .collect(),
+        )
+    }
+
+    fn def_is_extern(lcx: &LoweringContext, def: &Def) -> bool {
+        if let Def::Def(id) = def {
+            match &lcx.items[*id].kind {
+                ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => true,
+                ItemKind::Fn(_) | ItemKind::InlineMod(_) => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    fn def_to_sym(lcx: &LoweringContext, def: &Def) -> Symbol {
+        match def {
+            Def::Def(def) => Self::sym_of_item(&lcx.items[*def]),
             Def::Local(local) => lcx.locals[*local].name,
         }
+    }
+
+    fn def_to_doc(lcx: &LoweringContext, def: &Def) -> Doc {
+        Doc::text(Self::def_to_sym(lcx, def).as_str())
     }
 }

@@ -110,6 +110,7 @@ pub enum Keyword {
     While,
     Else,
     Pub,
+    Mod,
 }
 
 impl StructuredToken {
@@ -161,6 +162,7 @@ impl Display for Keyword {
             Self::While => "while",
             Self::Else => "else",
             Self::Pub => "pub",
+            Self::Mod => "mod",
         };
 
         write!(f, "{kw}")

@@ -32,6 +32,7 @@ impl Parser<'_, '_> {
         }
 
         Ok(Path {
+            id: self.node_id_allocator.allocate(),
             span: self.stream.span_since(snapshot),
             segments,
         })

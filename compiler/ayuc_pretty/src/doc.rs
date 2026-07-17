@@ -1,3 +1,4 @@
+#[derive(Debug, Clone)]
 pub enum Doc {
     /// A text.
     Text(String),
@@ -11,11 +12,17 @@ pub enum Doc {
     StmtSep,
     /// Indents the following [Doc].
     Indent(Box<Doc>),
+    /// Not printed.
+    Skip,
 }
 
 impl Doc {
     pub fn text<S: AsRef<str>>(text: S) -> Self {
         Self::Text(text.as_ref().to_string())
+    }
+
+    pub fn concat(docs: impl Into<Vec<Self>>) -> Self {
+        Self::Concat(docs.into())
     }
 
     pub fn indent(doc: Doc) -> Self {

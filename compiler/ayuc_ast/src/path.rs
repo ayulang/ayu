@@ -7,6 +7,7 @@ use crate::Ident;
 
 #[derive(Debug)]
 pub struct Path {
+    pub id: NodeId,
     pub span: Span,
     pub segments: Vec<PathSegment>,
 }
