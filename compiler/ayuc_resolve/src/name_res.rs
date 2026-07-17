@@ -336,8 +336,21 @@ impl Resolver<'_, '_> {
         };
 
         let ident = &first.ident;
-        let Some((def, mut qualified_path)) = self.stack.lookup_path(ident.sym) else {
-            return;
+        let (def, mut qualified_path) = match self.stack.lookup_path(ident.sym) {
+            Some(result @ (Def::Def(_) | Def::Local(_), _)) => result,
+            Some((Def::Error, _)) => return,
+            None => {
+                self.dcx.emit(
+                    Diagnostic::error(self.file_id, ident.span)
+                        .with_message(format!(
+                            "unresolved symbol in current scope: `{}`",
+                            ident.sym.as_str()
+                        ))
+                        .with_label(Label::primary(ident.span, "not found in current scope")),
+                );
+
+                return;
+            }
         };
 
         let def = match def {
@@ -350,7 +363,9 @@ impl Resolver<'_, '_> {
                     def = match def {
                         d @ Def::Local(_) => d,
                         Def::Def(id) => self.n2_resolve_segment_in_def(current, id),
-                        Def::Error => break,
+                        Def::Error => {
+                            break;
+                        }
                     };
 
                     remaining = &remaining[1..];
@@ -366,10 +381,11 @@ impl Resolver<'_, '_> {
 
                 def
             }
-            _ => return,
+            Def::Error => unreachable!(),
         };
 
         // Only necessary for actual items.
+        // We make everything absolute, because we first declare all items and then define them after. This allows us to have forward-references even in Lua!
         if let Def::Def(_) = def {
             self.rcx.qualified_paths.insert(path.id, qualified_path);
         }
