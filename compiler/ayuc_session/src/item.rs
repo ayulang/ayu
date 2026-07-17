@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use ayuc_id::hir::DefId;
+use ayuc_id::{ast::NodeId, hir::DefId};
 use ayuc_span::{Span, symbol::Symbol};
 
 pub struct ItemInfo {
     pub name: Symbol,
     pub kind: ItemKind,
+    pub id: NodeId,
 }
 
 pub enum ItemKind {

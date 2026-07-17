@@ -1,10 +1,12 @@
 use crate::{
+    def::Def,
     resolver::Resolver,
     ty::{PrimTy, Ty},
 };
 
-use ayuc_ast as ast;
+use ayuc_ast::{self as ast, ExprKind, Literal};
 use ayuc_diagnostic::{Diagnostic, Label};
+use ayuc_span::Span;
 
 impl Resolver<'_, '_> {
     pub(crate) fn resolve_types(&mut self, ast: &ast::Ast) {
@@ -22,22 +24,40 @@ impl Resolver<'_, '_> {
                 }
             }
             ast::ItemKind::Fn(fun) => {
+                let mut parameters = Vec::with_capacity(fun.parameters.parameters.len());
+
                 for param in &fun.parameters.parameters {
-                    self.tr_resolve_ty(&param.ty);
+                    let ty = self.tr_resolve_ty(&param.ty);
+
+                    self.rcx.ty_resolutions.insert(param.id, ty.clone());
+                    parameters.push(ty);
                 }
 
-                self.tr_resolve_ty(&fun.return_ty);
+                let return_ty = self.tr_resolve_ty(&fun.return_ty);
+
+                self.rcx
+                    .ty_resolutions
+                    .insert(item.id, Ty::Fn(parameters, Box::new(return_ty)));
 
                 for stmt in &fun.block.children {
                     self.tr_walk_stmt(stmt);
                 }
             }
             ast::ItemKind::ExternFn(extern_fun) => {
+                let mut parameters = Vec::with_capacity(extern_fun.parameters.parameters.len());
+
                 for param in &extern_fun.parameters.parameters {
-                    self.tr_resolve_ty(&param.ty);
+                    let ty = self.tr_resolve_ty(&param.ty);
+
+                    self.rcx.ty_resolutions.insert(param.id, ty.clone());
+                    parameters.push(ty);
                 }
 
-                self.tr_resolve_ty(&extern_fun.return_ty);
+                let return_ty = self.tr_resolve_ty(&extern_fun.return_ty);
+
+                self.rcx
+                    .ty_resolutions
+                    .insert(item.id, Ty::Fn(parameters, Box::new(return_ty)));
             }
         }
     }
@@ -45,7 +65,13 @@ impl Resolver<'_, '_> {
     fn tr_walk_stmt(&mut self, stmt: &ast::Stmt) {
         match &stmt.kind {
             ast::StmtKind::Let(decl) => {
-                self.tr_resolve_ty(&decl.ty);
+                let ty = if let Some(ty) = &decl.ty {
+                    self.tr_resolve_ty(ty)
+                } else {
+                    self.tr_infer_ty(stmt, decl)
+                };
+
+                self.rcx.ty_resolutions.insert(stmt.id, ty);
             }
             ast::StmtKind::Loop(r#loop) => {
                 for stmt in &r#loop.block.children {
@@ -57,15 +83,81 @@ impl Resolver<'_, '_> {
                     self.tr_walk_stmt(stmt);
                 }
             }
+            ast::StmtKind::Assignment(assign) => self.tr_walk_expr(&assign.value),
             ast::StmtKind::Expr(_)
             | ast::StmtKind::If(_)
             | ast::StmtKind::Return(_)
-            | ast::StmtKind::Assignment(_)
             | ast::StmtKind::Break => {}
         }
     }
 
-    fn tr_resolve_ty(&mut self, ty: &ast::Ty) {
+    fn tr_walk_expr(&mut self, expr: &ast::Expr) {
+        let _ = self.tr_type_of_expr(expr);
+    }
+
+    #[must_use = "inferred types are not automatically inserted into the ResolutionContext"]
+    fn tr_infer_ty(&mut self, stmt: &ast::Stmt, decl: &ast::LetStmt) -> Ty {
+        let inferred = self.tr_type_of_expr(&decl.init).clone();
+
+        if inferred.is_error() {
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, stmt.span)
+                    .with_message(format!("unable to infer type of `{}`", decl.ident.sym))
+                    .with_label(Label::primary(
+                        Span::from((stmt.span.start, decl.ident.span.end)),
+                        "unable to infer type",
+                    ))
+                    .with_label(Label::primary(
+                        decl.init.span,
+                        "initializer expression doesn't resolve to a clear type",
+                    ))
+                    .with_help(format!("consider assigning a type to `{}`", decl.ident.sym)),
+            );
+        }
+
+        inferred
+    }
+
+    fn tr_type_of_expr(&mut self, expr: &ast::Expr) -> &Ty {
+        if self.rcx.maybe_ty_res(expr.id).is_none() {
+            self.rcx
+                .ty_resolutions
+                .insert(expr.id, self.tr_evaluate_type_of_expr(expr));
+        }
+
+        &self.rcx.ty_resolutions[&expr.id]
+    }
+
+    fn tr_evaluate_type_of_expr(&self, expr: &ast::Expr) -> Ty {
+        match &expr.kind {
+            ExprKind::Lit(lit) => Ty::Prim(match lit {
+                Literal::Bool { .. } => PrimTy::Boolean,
+                Literal::Integer { .. } => PrimTy::Integer,
+                Literal::Str { .. } | Literal::InterpolatedStr { .. } => PrimTy::Str,
+            }),
+            ExprKind::Path(path) => {
+                let target = self.rcx.get_name_res(path.id);
+
+                if let Def::Def(id) = target {
+                    let item = self.sess.item(id);
+
+                    match &item.kind {
+                        ayuc_session::ItemKind::Fn { .. }
+                        | ayuc_session::ItemKind::ExternFn { .. } => {
+                            self.rcx.ty_res(item.id).clone()
+                        }
+                        _ => Ty::Error,
+                    }
+                } else {
+                    Ty::Error
+                }
+            }
+            _ => Ty::Error,
+        }
+    }
+
+    #[must_use = "resolved types are not automatically inserted into the ResolutionContext"]
+    fn tr_resolve_ty(&mut self, ty: &ast::Ty) -> Ty {
         let resolved = match &ty.kind {
             ast::TyKind::Unit => Ty::Unit,
             ast::TyKind::Path(p) => {
@@ -93,6 +185,6 @@ impl Resolver<'_, '_> {
             );
         }
 
-        self.rcx.ty_resolutions.insert(ty.id, resolved);
+        resolved
     }
 }

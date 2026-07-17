@@ -1,6 +1,6 @@
 use ayuc_ast as ast;
 use ayuc_diagnostic::{Diagnostic, Label};
-use ayuc_resolve::{self as resolve, def::Def};
+use ayuc_resolve::def::Def;
 use ayuc_span::Span;
 
 use crate::SemanticAnalyzer;
@@ -45,81 +45,56 @@ impl SemanticAnalyzer<'_> {
 
         let info = self.sess.local(local);
 
-        let ty = self.rcx.get_ty_res(info.ty_id);
-        let expr_ty = self.tc_type_of_expr(&assign.value);
+        let ty = self.rcx.ty_res(info.id);
+        let expr_ty = self.rcx.ty_res(assign.value.id);
 
-        if ty == resolve::Ty::Error || expr_ty == resolve::Ty::Error {
+        if ty.is_error() || expr_ty.is_error() {
             return;
         }
 
         if ty != expr_ty {
             self.dcx.emit(
                 Diagnostic::error(self.file_id, stmt.span)
-                    .with_message(format!(
-                        "expected type {}, got type {}",
-                        ty.get_name(),
-                        expr_ty.get_name()
-                    ))
+                    .with_message(format!("expected type {}, got type {}", ty, expr_ty))
                     .with_label(Label::help(
                         info.defined_where,
-                        format!("this is of type {}", ty.get_name()),
+                        format!("this is of type {}", ty),
                     ))
                     .with_label(Label::primary(
                         assign.value.span,
-                        format!("this is of type {}", expr_ty.get_name()),
+                        format!("this is of type {}", expr_ty),
                     )),
             );
         }
     }
 
     fn tc_check_let_stmt(&mut self, stmt: &ast::Stmt, decl: &ast::LetStmt) {
-        let decl_ty = self.rcx.get_ty_res(decl.ty.id);
-        let expr_ty = self.tc_type_of_expr(&decl.init);
+        let decl_ty = self.rcx.ty_res(stmt.id);
+        let expr_ty = self.rcx.ty_res(decl.init.id);
 
-        if decl_ty == resolve::Ty::Error || expr_ty == resolve::Ty::Error {
+        if decl_ty.is_error() || expr_ty.is_error() {
             return;
         }
 
         if expr_ty != decl_ty {
             self.dcx.emit(
                 Diagnostic::error(self.file_id, stmt.span)
-                    .with_message(format!(
-                        "expected type {}, got type {}",
-                        decl_ty.get_name(),
-                        expr_ty.get_name()
-                    ))
+                    .with_message(format!("expected type {}, got type {}", decl_ty, expr_ty))
                     .with_label(Label::help(
-                        Span::from((stmt.span.start, decl.ty.span.end)),
-                        format!("this is of type {}", decl_ty.get_name()),
+                        Span::from((
+                            stmt.span.start,
+                            match &decl.ty {
+                                Some(ty) => ty.span.end,
+                                None => decl.ident.span.end,
+                            },
+                        )),
+                        format!("this is of type {}", decl_ty),
                     ))
                     .with_label(Label::primary(
                         decl.init.span,
-                        format!("this is of type {}", expr_ty.get_name()),
+                        format!("this is of type {}", expr_ty),
                     )),
             );
-        }
-    }
-
-    fn tc_type_of_expr(&self, expr: &ast::Expr) -> resolve::Ty {
-        use ast::{Literal as Lit, Operator as Op};
-        use resolve::{PrimTy, Ty};
-
-        match &expr.kind {
-            ast::ExprKind::Lit(lit) => match lit {
-                Lit::Bool { .. } => Ty::Prim(PrimTy::Boolean),
-                Lit::Integer { .. } => Ty::Prim(PrimTy::Integer),
-                Lit::Str { .. } | Lit::InterpolatedStr { .. } => Ty::Prim(PrimTy::Str),
-            },
-            ast::ExprKind::Binary(bin) => match bin.operator {
-                Op::Add | Op::Minus => Ty::Prim(PrimTy::Integer), // probably... for now
-                Op::EqualsEquals
-                | Op::Gt
-                | Op::GtOrEqual
-                | Op::Lt
-                | Op::LtOrEqual
-                | Op::NotEquals => Ty::Prim(PrimTy::Boolean),
-            },
-            _ => Ty::Error,
         }
     }
 }

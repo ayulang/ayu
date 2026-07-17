@@ -142,9 +142,11 @@ impl Resolver<'_, '_> {
             }
         };
 
-        let def_id = self
-            .sess
-            .register_item(session::ItemInfo { name: sym, kind });
+        let def_id = self.sess.register_item(session::ItemInfo {
+            name: sym,
+            kind,
+            id: item.id,
+        });
 
         self.register_def(sym, def_id, item.id);
 
@@ -172,7 +174,7 @@ impl Resolver<'_, '_> {
                     let local_id = self.sess.register_local(LocalInfo {
                         name: param.ident.sym,
                         defined_where: param.span,
-                        ty_id: param.ty.id,
+                        id: param.id,
                         mutable: false, // for now
                     });
 
@@ -244,7 +246,7 @@ impl Resolver<'_, '_> {
                 let local_id = self.sess.register_local(LocalInfo {
                     name: decl.ident.sym,
                     defined_where: stmt.span,
-                    ty_id: decl.ty.id,
+                    id: stmt.id,
                     mutable: decl.mutable,
                 });
 
