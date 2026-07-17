@@ -1,0 +1,48 @@
+// Regular modules allow us to group items:
+
+mod math_stuff {
+    pub fn add(a: int, b: int) -> int {
+        return a + b
+    }
+}
+
+// We can also use regular modules to group extern functions together:
+
+mod ffi {
+    extern fn print(msg: str)
+}
+
+fn use_ffi() {
+    let result: int = math_stuff::add(1, 2)
+
+    ffi::print(`{result}`)
+}
+
+// We can also use extern modules to access functions within tables:
+
+extern mod math {
+    pub extern fn random(min: int, max: int) -> int
+
+    // We can also group them again using regular modules:
+    pub mod other {
+        pub extern fn random as between_1_and(x: int) -> int
+    }
+
+    // The following line would throw a compile-time error:
+    // pub fn between_1_and_5() -> int { return random(1, 5) }
+}
+
+fn use_math() {
+    let random: int = math::random(1, 100)
+    let random2: int = math::other::between_1_and(500)
+
+    ffi::print(`{random}`)
+    ffi::print(`{random2}`)
+}
+
+fn main() {
+    use_ffi()
+    use_math()
+}
+
+// When writing a library, you could make top-level modules public to export them.
