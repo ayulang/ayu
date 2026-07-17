@@ -394,15 +394,33 @@ impl Resolver<'_, '_> {
     }
 
     fn n2_resolve_segment_in_def(&mut self, seg: &ast::PathSegment, def_id: DefId) -> Def {
-        let items = match &self.sess.item(def_id).kind {
+        let item = self.sess.item(def_id);
+
+        let items = match &item.kind {
             session::ItemKind::InlineMod { items, .. }
             | session::ItemKind::ExternMod { items, .. } => items,
             _ => return Def::Error,
         };
 
-        items
+        let result = items
             .get(&seg.ident.sym)
             .map(|id| Def::Def(*id))
-            .unwrap_or(Def::Error)
+            .unwrap_or(Def::Error);
+
+        if result == Def::Error {
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, seg.ident.span)
+                    .with_message(format!(
+                        "member `{}` does not exist in module `{}`",
+                        seg.ident.sym, item.name
+                    ))
+                    .with_label(Label::primary(
+                        seg.ident.span,
+                        "unknown member accessed here",
+                    )),
+            );
+        };
+
+        result
     }
 }

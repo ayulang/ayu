@@ -4,5 +4,6 @@ use ayuc_id::hir::{DefId, LocalId};
 pub enum Def {
     Def(DefId),
     Local(LocalId),
+    /// A definition that couldn't be resolved. Often comes with a diagnostic **already emitted**.
     Error,
 }
