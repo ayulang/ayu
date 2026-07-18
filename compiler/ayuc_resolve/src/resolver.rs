@@ -34,10 +34,6 @@ impl ResolutionContext {
         self.ty_resolutions.get(&id).unwrap_or(&Ty::Error)
     }
 
-    pub fn maybe_ty_res(&self, id: NodeId) -> Option<&Ty> {
-        self.ty_resolutions.get(&id)
-    }
-
     pub fn get_name_res(&self, id: NodeId) -> Def {
         self.name_resolutions
             .get(&id)

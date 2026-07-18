@@ -65,6 +65,8 @@ impl Resolver<'_, '_> {
     fn tr_walk_stmt(&mut self, stmt: &ast::Stmt) {
         match &stmt.kind {
             ast::StmtKind::Let(decl) => {
+                self.tr_walk_expr(&decl.init);
+
                 let ty = if let Some(ty) = &decl.ty {
                     self.tr_resolve_ty(ty)
                 } else {
@@ -119,7 +121,7 @@ impl Resolver<'_, '_> {
     }
 
     fn tr_type_of_expr(&mut self, expr: &ast::Expr) -> &Ty {
-        if self.rcx.maybe_ty_res(expr.id).is_none() {
+        if !self.rcx.ty_resolutions.contains_key(&expr.id) {
             let evaluated = self.tr_evaluate_type_of_expr(expr);
 
             self.rcx.ty_resolutions.insert(expr.id, evaluated);
@@ -138,18 +140,24 @@ impl Resolver<'_, '_> {
             ExprKind::Path(path) => {
                 let target = self.rcx.get_name_res(path.id);
 
-                if let Def::Def(id) = target {
-                    let item = self.sess.item(id);
+                match target {
+                    Def::Def(id) => {
+                        let item = self.sess.item(id);
 
-                    match &item.kind {
-                        ayuc_session::ItemKind::Fn { .. }
-                        | ayuc_session::ItemKind::ExternFn { .. } => {
-                            self.rcx.ty_res(item.id).clone()
+                        match &item.kind {
+                            ayuc_session::ItemKind::Fn { .. }
+                            | ayuc_session::ItemKind::ExternFn { .. } => {
+                                self.rcx.ty_res(item.id).clone()
+                            }
+                            _ => Ty::Error,
                         }
-                        _ => Ty::Error,
                     }
-                } else {
-                    Ty::Error
+                    Def::Local(id) => {
+                        let local = self.sess.local(id);
+
+                        self.rcx.ty_res(local.id).clone()
+                    }
+                    Def::Error => Ty::Error,
                 }
             }
             ExprKind::Call(call) => {
