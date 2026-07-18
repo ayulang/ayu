@@ -37,7 +37,7 @@ fn main() {
 }
 ```
 
-### 🧱 Statically typed
+### 🧱 Statically typed with type inference
 
 Ayu uses static typing to catch errors before runtime.
 
@@ -50,7 +50,7 @@ fn add(a: int, b: int) -> int {
 }
 
 fn main() {
-    let result: int = add(100, 200)
+    let result = add(100, 200) // Type `int` is easily inferred by the compiler
     
     print(tostring(result))
 }
