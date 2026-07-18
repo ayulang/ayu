@@ -54,6 +54,12 @@ pub enum TokenKind {
     /// A literal.
     Literal(Literal),
 
+    /// *
+    Asterisk,
+    /// %
+    Percentage,
+    /// /
+    Slash,
     /// ;
     Semi,
     /// :

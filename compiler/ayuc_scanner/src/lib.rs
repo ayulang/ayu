@@ -255,6 +255,9 @@ impl<'a> Scanner<'a> {
             '>' => self.single(RawTokenKind::Gt),
             ',' => self.single(RawTokenKind::Comma),
             '!' => self.single(RawTokenKind::Exclamation),
+            '/' => self.single(RawTokenKind::Slash),
+            '%' => self.single(RawTokenKind::Percentage),
+            '*' => self.single(RawTokenKind::Asterisk),
 
             '"' => self.string(),
             '`' => self.interpolated_string(),

@@ -54,6 +54,9 @@ impl Parser<'_, '_> {
             TokenKind::Minus => Operator::Minus,
             TokenKind::EqualsEquals => Operator::EqualsEquals,
             TokenKind::NotEquals => Operator::NotEquals,
+            TokenKind::Asterisk => Operator::Mul,
+            TokenKind::Slash => Operator::Div,
+            TokenKind::Percentage => Operator::Modulus,
             _ => todo!(),
         };
 
@@ -171,14 +174,20 @@ impl Parser<'_, '_> {
 
         expr = match first {
             StructuredToken::Token(Token { kind, .. })
-                if *kind == TokenKind::Plus
-                    || *kind == TokenKind::Minus
-                    || *kind == TokenKind::EqualsEquals
-                    || *kind == TokenKind::NotEquals
-                    || *kind == TokenKind::Gt
-                    || *kind == TokenKind::GtOrEqual
-                    || *kind == TokenKind::Lt
-                    || *kind == TokenKind::LtOrEqual =>
+                if matches!(
+                    *kind,
+                    TokenKind::Plus
+                        | TokenKind::Minus
+                        | TokenKind::EqualsEquals
+                        | TokenKind::NotEquals
+                        | TokenKind::Gt
+                        | TokenKind::GtOrEqual
+                        | TokenKind::Lt
+                        | TokenKind::LtOrEqual
+                        | TokenKind::Asterisk
+                        | TokenKind::Slash
+                        | TokenKind::Percentage
+                ) =>
             {
                 let bin = self.parse_bin_expr(expr)?;
 

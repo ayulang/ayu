@@ -371,6 +371,9 @@ impl<'a> Lexer<'a> {
                     _ => TokenKind::Lt,
                 },
                 RawTokenKind::Comma => TokenKind::Comma,
+                RawTokenKind::Asterisk => TokenKind::Asterisk,
+                RawTokenKind::Percentage => TokenKind::Percentage,
+                RawTokenKind::Slash => TokenKind::Slash,
 
                 RawTokenKind::Exclamation => match self.raw_stream.peek() {
                     Some(RawToken {

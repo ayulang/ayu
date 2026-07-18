@@ -45,6 +45,10 @@ pub enum RawTokenKind {
         kind: LiteralKind,
     },
 
+    /// %
+    Percentage,
+    /// *
+    Asterisk,
     /// ;
     Semi,
     /// :
@@ -53,6 +57,8 @@ pub enum RawTokenKind {
     Plus,
     /// -
     Minus,
+    /// /
+    Slash,
     /// =
     Equals,
     /// (

@@ -37,6 +37,9 @@ pub enum BinaryOp {
     LtOrEqual,
     EqualsEquals,
     NotEquals,
+    Div,
+    Mul,
+    Modulus,
 }
 
 #[derive(Debug)]
