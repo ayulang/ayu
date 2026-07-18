@@ -36,6 +36,12 @@ pub enum Operator {
     EqualsEquals,
     /// a != b
     NotEquals,
+    /// a * b
+    Mul,
+    /// a / b
+    Div,
+    /// a % b
+    Modulus,
 }
 
 #[derive(Debug)]
