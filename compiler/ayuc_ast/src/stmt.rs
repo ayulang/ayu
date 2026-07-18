@@ -55,7 +55,7 @@ pub struct LetStmt {
     pub ident: Ident,
     pub mutable: bool,
     pub init: Expr,
-    pub ty: Ty,
+    pub ty: Option<Ty>,
 }
 
 #[derive(Debug)]

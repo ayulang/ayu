@@ -6,7 +6,7 @@ fn subtract(a: int, b: int) -> int {
 }
 
 fn main() {
-    let result: int = subtract(10, 7)
+    let result = subtract(10, 7)
 
     print(tostring(result))
 }

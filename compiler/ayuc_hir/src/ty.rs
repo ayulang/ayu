@@ -1,7 +1,8 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ty {
     Unit,
     Primitive(PrimTy),
+    Fn(Vec<Ty>, Box<Ty>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

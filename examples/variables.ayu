@@ -1,8 +1,29 @@
 extern fn print(msg: str)
 
-fn main() {
+// Variables in Ayu can be declared using the `let` statement. You can annotate them with a type.
+fn annotated() {
     let name: str = "Ayu"
     let year: int = 2026
 
     print(`{name} was created in {year}`)
+}
+
+// Annotating types gets annoying quickly, which is why Ayu has type inference. The compiler is able to find out most of the types. If not, it'll tell you.
+fn inferred() {
+    let country = "Germany"
+    let capital = "Berlin"
+
+    print(`{country}'s capital is {capital}`)
+
+    // The following lines would produce an error. The compiler knows that `x` is an int, but in the next line we try to assign a string to it, which is forbidden.
+    /*
+    let mut x = 2
+
+    x = "Hello!"
+    */
+}
+
+fn main() {
+    annotated()
+    inferred()
 }

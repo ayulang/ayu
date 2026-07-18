@@ -2,7 +2,7 @@ use ayuc_ast::{
     AlternateBranch, AssignOperator, AssignStmt, IfStmt, LetStmt, LoopStmt, ReturnStmt, Stmt,
     StmtKind, WhileStmt,
 };
-use ayuc_diagnostic::{Diagnostic, Label, colored::Colorize};
+use ayuc_diagnostic::{Diagnostic, Label};
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 
 use crate::{PResult, Parser};
@@ -67,21 +67,11 @@ impl Parser<'_, '_> {
         let mutable = self.maybe(TokenKind::Keyword(Keyword::Mut));
         let ident = self.parse_ident()?;
 
-        if !self.maybe(TokenKind::Colon) {
-            let span = self.stream.span_since(snapshot);
-
-            return Err(Diagnostic::error(self.file_id, span)
-                .with_message("`let` statements require a type annotation")
-                .with_label(Label::primary(span, "doesn't have a type annotation"))
-                .with_help(format!(
-                    "add a type annotation in the form of {}",
-                    format!("`let {}: SomeType = ...`", ident.sym.as_str())
-                        .as_str()
-                        .bright_green()
-                )));
-        }
-
-        let ty = self.parse_ty()?;
+        let ty = if self.maybe(TokenKind::Colon) {
+            Some(self.parse_ty()?)
+        } else {
+            None
+        };
 
         if !self.maybe(TokenKind::Equals) {
             let span = self.stream.span_since(snapshot);

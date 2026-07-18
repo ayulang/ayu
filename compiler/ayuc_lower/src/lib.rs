@@ -75,20 +75,25 @@ impl<'a> AstLowering<'a> {
         hir_id
     }
 
-    fn lower_fn_item(&mut self, fun: &ast::FnDecl) -> hir::FnItem {
+    fn lower_fn_item(&mut self, item: &ast::Item, fun: &ast::FnDecl) -> hir::FnItem {
+        let RTy::Fn(parameters, return_ty) = self.rcx.ty_res(item.id) else {
+            unreachable!()
+        };
+
         let name = fun.ident.sym;
         let params = fun
             .parameters
             .parameters
             .iter()
-            .map(|p| hir::Parameter {
+            .enumerate()
+            .map(|(i, p)| hir::Parameter {
                 hir_id: self.hir_id_allocator.allocate(),
                 name: p.ident.sym,
-                ty: self.lower_ty(&p.ty),
+                ty: self.lower_res(&parameters[i]),
             })
             .collect::<Vec<_>>();
 
-        let return_ty = self.lower_ty(&fun.return_ty);
+        let return_ty = self.lower_res(return_ty);
 
         for param in &fun.parameters.parameters {
             let name = param.ident.sym;
@@ -161,22 +166,29 @@ impl<'a> AstLowering<'a> {
                     })
                     .collect(),
             }),
-            ast::ItemKind::Fn(fun) => hir::ItemKind::Fn(self.lower_fn_item(fun)),
-            ast::ItemKind::ExternFn(extern_fun) => hir::ItemKind::ExternFn(hir::ExternFnItem {
-                name: extern_fun.name.sym,
-                ffi_name: extern_fun.ffi_name.as_ref().map(|i| i.sym),
-                return_ty: self.lower_ty(&extern_fun.return_ty),
-                params: extern_fun
-                    .parameters
-                    .parameters
-                    .iter()
-                    .map(|p| hir::Parameter {
-                        hir_id: self.hir_id_allocator.allocate(),
-                        name: p.ident.sym,
-                        ty: self.lower_ty(&p.ty),
-                    })
-                    .collect(),
-            }),
+            ast::ItemKind::Fn(fun) => hir::ItemKind::Fn(self.lower_fn_item(item, fun)),
+            ast::ItemKind::ExternFn(extern_fun) => {
+                let RTy::Fn(parameters, return_ty) = self.rcx.ty_res(item.id) else {
+                    unreachable!()
+                };
+
+                hir::ItemKind::ExternFn(hir::ExternFnItem {
+                    name: extern_fun.name.sym,
+                    ffi_name: extern_fun.ffi_name.as_ref().map(|i| i.sym),
+                    return_ty: self.lower_res(return_ty),
+                    params: extern_fun
+                        .parameters
+                        .parameters
+                        .iter()
+                        .enumerate()
+                        .map(|(i, p)| hir::Parameter {
+                            hir_id: self.hir_id_allocator.allocate(),
+                            name: p.ident.sym,
+                            ty: self.lower_res(&parameters[i]),
+                        })
+                        .collect(),
+                })
+            }
         };
 
         hir::Item {
@@ -216,7 +228,7 @@ impl<'a> AstLowering<'a> {
             ast::StmtKind::Expr(expr) => hir::StmtKind::Expr(self.lower_expr(expr)),
             ast::StmtKind::Let(decl) => hir::StmtKind::Let(hir::LetStmt {
                 ident: decl.ident.sym,
-                ty: self.lower_ty(&decl.ty),
+                ty: self.lower_res(self.rcx.ty_res(stmt.id)),
                 mutable: decl.mutable,
                 init: self.lower_expr(&decl.init),
             }),
@@ -337,14 +349,18 @@ impl<'a> AstLowering<'a> {
         }
     }
 
-    fn lower_ty(&self, ty: &ast::Ty) -> hir::Ty {
-        match self.rcx.get_ty_res(ty.id) {
+    fn lower_res(&self, res: &RTy) -> hir::Ty {
+        match res {
             RTy::Unit => hir::Ty::Unit,
             RTy::Prim(prim) => hir::Ty::Primitive(match prim {
                 RPrimTy::Boolean => hir::PrimTy::Boolean,
                 RPrimTy::Integer => hir::PrimTy::Integer,
                 RPrimTy::Str => hir::PrimTy::Str,
             }),
+            RTy::Fn(params, return_ty) => hir::Ty::Fn(
+                params.iter().map(|id| self.lower_res(id)).collect(),
+                Box::new(self.lower_res(return_ty)),
+            ),
             RTy::Error => unreachable!(),
         }
     }

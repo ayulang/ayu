@@ -13,7 +13,7 @@ use crate::{def::Def, scope::ScopeStack, ty::Ty};
 
 #[derive(Default)]
 pub struct ResolutionContext {
-    /// Stores the resolved `Ty`s of AST `Ty`s
+    /// Stores the resolved `Ty`s
     pub ty_resolutions: HashMap<NodeId, Ty>,
 
     /// Stores the resolved `Def`s (local or item definitions) of identifiers.
@@ -30,8 +30,8 @@ pub struct ResolutionContext {
 }
 
 impl ResolutionContext {
-    pub fn get_ty_res(&self, id: NodeId) -> Ty {
-        self.ty_resolutions.get(&id).copied().unwrap_or(Ty::Error)
+    pub fn ty_res(&self, id: NodeId) -> &Ty {
+        self.ty_resolutions.get(&id).unwrap_or(&Ty::Error)
     }
 
     pub fn get_name_res(&self, id: NodeId) -> Def {
