@@ -107,7 +107,7 @@ impl Resolver<'_, '_> {
                         Span::from((stmt.span.start, decl.ident.span.end)),
                         "unable to infer type",
                     ))
-                    .with_label(Label::primary(
+                    .with_label(Label::help(
                         decl.init.span,
                         "initializer expression doesn't resolve to a clear type",
                     ))
@@ -120,15 +120,15 @@ impl Resolver<'_, '_> {
 
     fn tr_type_of_expr(&mut self, expr: &ast::Expr) -> &Ty {
         if self.rcx.maybe_ty_res(expr.id).is_none() {
-            self.rcx
-                .ty_resolutions
-                .insert(expr.id, self.tr_evaluate_type_of_expr(expr));
+            let evaluated = self.tr_evaluate_type_of_expr(expr);
+
+            self.rcx.ty_resolutions.insert(expr.id, evaluated);
         }
 
         &self.rcx.ty_resolutions[&expr.id]
     }
 
-    fn tr_evaluate_type_of_expr(&self, expr: &ast::Expr) -> Ty {
+    fn tr_evaluate_type_of_expr(&mut self, expr: &ast::Expr) -> Ty {
         match &expr.kind {
             ExprKind::Lit(lit) => Ty::Prim(match lit {
                 Literal::Bool { .. } => PrimTy::Boolean,
@@ -148,6 +148,15 @@ impl Resolver<'_, '_> {
                         }
                         _ => Ty::Error,
                     }
+                } else {
+                    Ty::Error
+                }
+            }
+            ExprKind::Call(call) => {
+                let callee_ty = self.tr_type_of_expr(&call.callee);
+
+                if let Ty::Fn(_, ret) = callee_ty {
+                    ret.as_ref().clone()
                 } else {
                     Ty::Error
                 }
