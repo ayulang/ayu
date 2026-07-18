@@ -23,9 +23,7 @@ fn main() {
 
     if age_group == "Adult" {
         print("Hello, Adult!")
-    }
-
-    if age_group == "Minor" {
+    } else if age_group == "Minor" {
         print("Hello, Minor!")
     }
 }

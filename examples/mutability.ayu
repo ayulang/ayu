@@ -1,7 +1,7 @@
 extern fn print(msg: str)
 
 fn mathematical() {
-    let mut year: int = 2000
+    let mut year = 2000
 
     print(`We currently have the year {year}`)
 
@@ -15,7 +15,7 @@ fn mathematical() {
 }
 
 fn assignment() {
-    let mut language: str = "German"
+    let mut language = "German"
 
     print(`Today, I speak: {language}`)
 
@@ -26,7 +26,7 @@ fn assignment() {
 
 // This function would throw a compile time error if uncommented
 /* fn immutable_error() {
-    let x: str = "Hello"
+    let x = "Hello"
 
     print(x)
 

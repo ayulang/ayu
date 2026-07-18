@@ -17,7 +17,7 @@ fn check_number(number: int) -> str {
 }
 
 fn do_check_on(number: int) {
-    let what: str = check_number(number)
+    let what = check_number(number)
 
     print(`{number} is: {what}`)
 }
