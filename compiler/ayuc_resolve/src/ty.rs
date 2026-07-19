@@ -12,10 +12,7 @@ pub enum Ty {
 
 impl Ty {
     pub fn is_error(&self) -> bool {
-        match self {
-            Self::Error => true,
-            _ => false,
-        }
+        matches!(self, Self::Error)
     }
 }
 

@@ -15,7 +15,9 @@ pub struct LexedFile {
     pub tokens: Vec<StructuredToken>,
 }
 
-/// Lexes the whole input file and returns a [TokenStream]. Errors only on unrecoverable errors.
+/// Lexes the whole input file and returns:
+/// - Some([LexedFile]), if succeeded
+/// - None, if failed
 pub fn lex(dcx: &mut DiagnosticContext, file_id: usize, source: &str) -> Option<LexedFile> {
     let lexer = Lexer::new(dcx, file_id, source);
     let tokens = lexer.lex_into_structured()?;

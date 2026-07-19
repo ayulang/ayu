@@ -1,0 +1,42 @@
+name: CI
+
+on:
+    push:
+    pull_request:
+
+permissions:
+    contents: read
+
+jobs:
+    ci:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
+            - name: Install Rust
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  components: rustfmt, clippy
+
+            - name: Cache cargo
+              uses: Swatinem/rust-cache@v2
+
+            - name: Check formatting
+              run: cargo fmt --all --check
+
+            - name: Run Clippy
+              run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+            - name: Build
+              run: cargo build --workspace
+
+            - name: Run tests (debug)
+              run: cargo test --workspace
+
+            - name: Run tests (release)
+              run: cargo test --workspace --release
+
+            - name: Build documentation
+              run: cargo doc --workspace --no-deps
