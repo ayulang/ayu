@@ -342,10 +342,12 @@ impl<'a> Lexer<'a> {
                     }
                     _ => TokenKind::Equals,
                 },
+
                 RawTokenKind::OpenParen => TokenKind::OpenParen,
                 RawTokenKind::CloseParen => TokenKind::CloseParen,
                 RawTokenKind::OpenBrace => TokenKind::OpenBrace,
                 RawTokenKind::CloseBrace => TokenKind::CloseBrace,
+
                 RawTokenKind::Gt => match self.raw_stream.peek() {
                     Some(RawToken {
                         kind: RawTokenKind::Equals,
@@ -359,6 +361,7 @@ impl<'a> Lexer<'a> {
                     }
                     _ => TokenKind::Gt,
                 },
+
                 RawTokenKind::Lt => match self.raw_stream.peek() {
                     Some(RawToken {
                         kind: RawTokenKind::Equals,
@@ -372,10 +375,50 @@ impl<'a> Lexer<'a> {
                     }
                     _ => TokenKind::Lt,
                 },
+
                 RawTokenKind::Comma => TokenKind::Comma,
-                RawTokenKind::Asterisk => TokenKind::Asterisk,
-                RawTokenKind::Percentage => TokenKind::Percentage,
-                RawTokenKind::Slash => TokenKind::Slash,
+
+                RawTokenKind::Asterisk => match self.raw_stream.peek() {
+                    Some(RawToken {
+                        kind: RawTokenKind::Equals,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::AsteriskEquals
+                    }
+                    _ => TokenKind::Asterisk,
+                },
+
+                RawTokenKind::Percentage => match self.raw_stream.peek() {
+                    Some(RawToken {
+                        kind: RawTokenKind::Equals,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::PercentageEquals
+                    }
+                    _ => TokenKind::Percentage,
+                },
+
+                RawTokenKind::Slash => match self.raw_stream.peek() {
+                    Some(RawToken {
+                        kind: RawTokenKind::Equals,
+                        span: other_span,
+                    }) => {
+                        span.merge(*other_span);
+
+                        self.raw_stream.consume();
+
+                        TokenKind::SlashEquals
+                    }
+                    _ => TokenKind::Slash,
+                },
 
                 RawTokenKind::Exclamation => match self.raw_stream.peek() {
                     Some(RawToken {

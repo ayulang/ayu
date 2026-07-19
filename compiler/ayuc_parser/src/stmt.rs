@@ -103,20 +103,19 @@ impl Parser<'_, '_> {
 
     pub fn parse_assign_stmt(&mut self) -> PResult<AssignStmt> {
         let ident = self.parse_ident()?;
-        let operator = match self.require_token()? {
-            StructuredToken::Token(Token {
-                kind: TokenKind::Equals,
-                ..
-            }) => AssignOperator::Assign,
-            StructuredToken::Token(Token {
-                kind: TokenKind::PlusEquals,
-                ..
-            }) => AssignOperator::Add,
-            StructuredToken::Token(Token {
-                kind: TokenKind::MinusEquals,
-                ..
-            }) => AssignOperator::Subtract,
-            _ => todo!(),
+        let kind = match self.require_token()? {
+            StructuredToken::Token(Token { kind, .. }) => kind,
+            StructuredToken::Delimited(..) => unreachable!(),
+        };
+
+        let operator = match kind {
+            TokenKind::Equals => AssignOperator::Assign,
+            TokenKind::PlusEquals => AssignOperator::Add,
+            TokenKind::MinusEquals => AssignOperator::Subtract,
+            TokenKind::SlashEquals => AssignOperator::Div,
+            TokenKind::AsteriskEquals => AssignOperator::Mul,
+            TokenKind::PercentageEquals => AssignOperator::Modulus,
+            _ => unreachable!(),
         };
 
         let value = self.parse_expression()?;
@@ -176,7 +175,12 @@ impl Parser<'_, '_> {
             }) if matches!(
                 self.stream.second(),
                 Some(StructuredToken::Token(Token {
-                    kind: TokenKind::Equals | TokenKind::PlusEquals | TokenKind::MinusEquals,
+                    kind: TokenKind::Equals
+                        | TokenKind::PlusEquals
+                        | TokenKind::MinusEquals
+                        | TokenKind::SlashEquals
+                        | TokenKind::PercentageEquals
+                        | TokenKind::AsteriskEquals,
                     ..
                 }))
             ) =>
