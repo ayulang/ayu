@@ -1,11 +1,12 @@
 use ayuc_ast::{
     BinExpr, CallExpr, Expr, ExprKind, Ident, IntlSegment, Literal, Operator, expr::Block,
 };
+use ayuc_diagnostic::{Diagnostic, Label};
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, StructuredToken, Token, TokenKind},
 };
-use ayuc_span::symbol::Symbol;
+use ayuc_span::{Span, symbol::Symbol};
 
 use crate::{PResult, Parser};
 
@@ -33,6 +34,30 @@ impl Parser<'_, '_> {
         let first = self.require_token()?;
 
         Ok(match first {
+            StructuredToken::Delimited(span, Delimiter::Parenthesis, tokens) => {
+                let mut inner = self.branch(TokenStream::new(tokens));
+                let expr = inner.parse_expression()?;
+
+                if !inner.stream.is_exhausted() {
+                    let first = match inner.stream.first().unwrap() {
+                        StructuredToken::Token(Token { span, .. })
+                        | StructuredToken::Delimited(span, ..) => *span,
+                    };
+
+                    let span = Span::from((first.start, span.end));
+
+                    return Err(Diagnostic::error(self.file_id, span)
+                        .with_message("leftover tokens in parenthesized expression")
+                        .with_label(Label::help(expr.span, "the parsed inner expression"))
+                        .with_label(Label::primary(span, "the leftover tokens")));
+                }
+
+                Expr {
+                    id: self.node_id_allocator.allocate(),
+                    kind: ExprKind::Parenthesized(Box::new(expr)),
+                    span: *span,
+                }
+            }
             StructuredToken::Token(Token {
                 kind: TokenKind::Literal(lit),
                 span,

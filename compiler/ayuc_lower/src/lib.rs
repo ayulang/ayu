@@ -276,6 +276,9 @@ impl<'a> AstLowering<'a> {
     fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {
         let id = self.lower_id(expr.id);
         let kind = match &expr.kind {
+            ast::ExprKind::Parenthesized(expr) => {
+                hir::ExprKind::Parenthesized(Box::new(self.lower_expr(expr)))
+            }
             ast::ExprKind::Path(path) => hir::ExprKind::Path(self.resolve_path(path)),
             ast::ExprKind::Call(call) => hir::ExprKind::Call(ayuc_hir::CallExpr {
                 callee: Box::new(self.lower_expr(&call.callee)),

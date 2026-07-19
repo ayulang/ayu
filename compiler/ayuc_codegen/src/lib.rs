@@ -428,6 +428,11 @@ impl LuauCodegen {
                 ),
                 Doc::text(")"),
             ])),
+            ExprKind::Parenthesized(expr) => Doc::concat([
+                Doc::text("("),
+                Self::expr_to_doc(lcx, expr, false),
+                Doc::text(")"),
+            ]),
             ExprKind::Path(path) => Self::path_to_doc(lcx, path),
         }
     }

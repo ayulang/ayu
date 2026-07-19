@@ -25,6 +25,7 @@ pub enum ExprKind {
     /// A path in the form of `foo::bar`
     Path(Path),
     Binary(BinExpr),
+    Parenthesized(Box<Expr>),
 }
 
 #[derive(Debug)]

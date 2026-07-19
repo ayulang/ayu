@@ -285,6 +285,7 @@ impl Resolver<'_, '_> {
 
     fn n2_walk_expr(&mut self, expr: &ast::Expr) {
         match &expr.kind {
+            ast::ExprKind::Parenthesized(paren) => self.n2_walk_expr(paren),
             ast::ExprKind::Call(call) => {
                 self.n2_walk_expr(&call.callee);
 
