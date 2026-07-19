@@ -111,7 +111,7 @@ impl Parser<'_, '_> {
             }
         };
 
-        let block = self.parse_block_expr()?;
+        let block = self.parse_block()?;
 
         Ok(FnDecl {
             ident,

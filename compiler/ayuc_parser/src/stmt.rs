@@ -14,7 +14,7 @@ impl Parser<'_, '_> {
         }
 
         let expr = self.parse_expression()?;
-        let block = self.parse_block_expr()?;
+        let block = self.parse_block()?;
         let alternate = if self.maybe(TokenKind::Keyword(Keyword::Else)) {
             if let Some(StructuredToken::Token(Token {
                 kind: TokenKind::Keyword(Keyword::If),
@@ -23,7 +23,7 @@ impl Parser<'_, '_> {
             {
                 Some(AlternateBranch::Another(Box::new(self.parse_if_stmt()?)))
             } else {
-                Some(AlternateBranch::Final(self.parse_block_expr()?))
+                Some(AlternateBranch::Final(self.parse_block()?))
             }
         } else {
             None
@@ -42,7 +42,7 @@ impl Parser<'_, '_> {
         }
 
         let expr = self.parse_expression()?;
-        let block = self.parse_block_expr()?;
+        let block = self.parse_block()?;
 
         Ok(WhileStmt { expr, block })
     }
@@ -52,7 +52,7 @@ impl Parser<'_, '_> {
             unreachable!()
         }
 
-        let block = self.parse_block_expr()?;
+        let block = self.parse_block()?;
 
         Ok(LoopStmt { block })
     }

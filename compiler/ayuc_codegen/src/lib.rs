@@ -271,7 +271,7 @@ impl LuauCodegen {
             ])),
             StmtKind::While(r#while) => Doc::Concat(Vec::from([
                 Doc::text("while "),
-                Self::expr_to_doc(lcx, &r#while.expr),
+                Self::expr_to_doc(lcx, &r#while.expr, false),
                 Doc::text(" do"),
                 Doc::Hardline,
                 Doc::indent(Self::block_to_doc(lcx, &r#while.block)),
@@ -287,24 +287,27 @@ impl LuauCodegen {
                     AssignOp::Assign => "=",
                 }),
                 Doc::text(" "),
-                Self::expr_to_doc(lcx, &assign.value),
+                Self::expr_to_doc(lcx, &assign.value, false),
             ])),
             StmtKind::Return(ret) => Doc::Concat(vec![
                 Doc::text("return"),
                 ret.expr
                     .as_ref()
                     .map(|expr| {
-                        Doc::Concat(Vec::from([Doc::text(" "), Self::expr_to_doc(lcx, expr)]))
+                        Doc::Concat(Vec::from([
+                            Doc::text(" "),
+                            Self::expr_to_doc(lcx, expr, false),
+                        ]))
                     })
                     .unwrap_or(Doc::Concat(Vec::new())),
             ]),
-            StmtKind::Expr(expr) => Self::expr_to_doc(lcx, expr),
+            StmtKind::Expr(expr) => Self::expr_to_doc(lcx, expr, false),
             StmtKind::If(if_stmt) => Self::if_stmt_to_doc(lcx, if_stmt, false),
             StmtKind::Let(decl) => Doc::Concat(Vec::from([
                 Doc::text("local "),
                 Doc::text(decl.ident.as_str()),
                 Doc::text(" = "),
-                Self::expr_to_doc(lcx, &decl.init),
+                Self::expr_to_doc(lcx, &decl.init, false),
             ])),
         }
     }
@@ -318,7 +321,7 @@ impl LuauCodegen {
 
         let mut parts = Vec::from([
             Doc::text("if "),
-            Self::expr_to_doc(lcx, expr),
+            Self::expr_to_doc(lcx, expr, false),
             Doc::text(" then"),
             Doc::Hardline,
             Doc::indent(Self::block_to_doc(lcx, block)),
@@ -347,7 +350,7 @@ impl LuauCodegen {
         Doc::Concat(parts)
     }
 
-    fn expr_to_doc(lcx: &LoweringContext, expr: &Expr) -> Doc {
+    fn expr_to_doc(lcx: &LoweringContext, expr: &Expr, wrap_bin_expr: bool) -> Doc {
         match &expr.kind {
             ExprKind::Lit(lit) => match lit {
                 Literal::Bool(value) => Doc::text(if *value { "true" } else { "false" }),
@@ -377,27 +380,35 @@ impl LuauCodegen {
                     Doc::text("`"),
                 ])),
             },
-            ExprKind::Binary(bin) => Doc::Concat(Vec::from([
-                Self::expr_to_doc(lcx, &bin.left),
-                Doc::text(" "),
-                Doc::text(match bin.operator {
-                    BinaryOp::Add => "+",
-                    BinaryOp::Gt => ">",
-                    BinaryOp::EqualsEquals => "==",
-                    BinaryOp::GtOrEqual => ">=",
-                    BinaryOp::Lt => "<",
-                    BinaryOp::LtOrEqual => "<=",
-                    BinaryOp::Minus => "-",
-                    BinaryOp::NotEquals => "~=",
-                    BinaryOp::Div => "/",
-                    BinaryOp::Modulus => "%",
-                    BinaryOp::Mul => "*",
-                }),
-                Doc::text(" "),
-                Self::expr_to_doc(lcx, &bin.right),
-            ])),
+            ExprKind::Binary(bin) => {
+                let doc = Doc::Concat(Vec::from([
+                    Self::expr_to_doc(lcx, &bin.left, true),
+                    Doc::text(" "),
+                    Doc::text(match bin.operator {
+                        BinaryOp::Add => "+",
+                        BinaryOp::Gt => ">",
+                        BinaryOp::EqualsEquals => "==",
+                        BinaryOp::GtOrEqual => ">=",
+                        BinaryOp::Lt => "<",
+                        BinaryOp::LtOrEqual => "<=",
+                        BinaryOp::Minus => "-",
+                        BinaryOp::NotEquals => "~=",
+                        BinaryOp::Div => "/",
+                        BinaryOp::Modulus => "%",
+                        BinaryOp::Mul => "*",
+                    }),
+                    Doc::text(" "),
+                    Self::expr_to_doc(lcx, &bin.right, true),
+                ]));
+
+                if wrap_bin_expr {
+                    Doc::concat([Doc::text("("), doc, Doc::text(")")])
+                } else {
+                    doc
+                }
+            }
             ExprKind::Call(call) => Doc::Concat(Vec::from([
-                Self::expr_to_doc(lcx, &call.callee),
+                Self::expr_to_doc(lcx, &call.callee, true),
                 Doc::text("("),
                 Doc::Concat(
                     call.args
@@ -405,9 +416,9 @@ impl LuauCodegen {
                         .enumerate()
                         .flat_map(|(i, expr)| {
                             if i != 0 {
-                                Vec::from([Doc::text(", "), Self::expr_to_doc(lcx, expr)])
+                                Vec::from([Doc::text(", "), Self::expr_to_doc(lcx, expr, false)])
                             } else {
-                                Vec::from([Self::expr_to_doc(lcx, expr)])
+                                Vec::from([Self::expr_to_doc(lcx, expr, false)])
                             }
                         })
                         .collect(),
