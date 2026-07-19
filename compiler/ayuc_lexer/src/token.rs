@@ -80,6 +80,12 @@ pub enum TokenKind {
     PlusEquals,
     /// -=
     MinusEquals,
+    /// *=
+    AsteriskEquals,
+    /// %=
+    PercentageEquals,
+    /// /=
+    SlashEquals,
     /// (
     OpenParen,
     /// )

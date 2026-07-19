@@ -222,6 +222,9 @@ impl<'a> AstLowering<'a> {
                     ast::AssignOperator::Add => hir::AssignOp::Add,
                     ast::AssignOperator::Assign => hir::AssignOp::Assign,
                     ast::AssignOperator::Subtract => hir::AssignOp::Sub,
+                    ast::AssignOperator::Div => hir::AssignOp::Div,
+                    ast::AssignOperator::Modulus => hir::AssignOp::Modulus,
+                    ast::AssignOperator::Mul => hir::AssignOp::Mul,
                 },
                 value: self.lower_expr(&assign.value),
             }),
@@ -273,6 +276,9 @@ impl<'a> AstLowering<'a> {
     fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {
         let id = self.lower_id(expr.id);
         let kind = match &expr.kind {
+            ast::ExprKind::Parenthesized(expr) => {
+                hir::ExprKind::Parenthesized(Box::new(self.lower_expr(expr)))
+            }
             ast::ExprKind::Path(path) => hir::ExprKind::Path(self.resolve_path(path)),
             ast::ExprKind::Call(call) => hir::ExprKind::Call(ayuc_hir::CallExpr {
                 callee: Box::new(self.lower_expr(&call.callee)),

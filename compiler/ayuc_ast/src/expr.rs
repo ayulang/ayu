@@ -16,9 +16,10 @@ pub enum ExprKind {
     Path(Path),
     Call(CallExpr),
     Binary(BinExpr),
+    Parenthesized(Box<Expr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Operator {
     /// a + b
     Add,

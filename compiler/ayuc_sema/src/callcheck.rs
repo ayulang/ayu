@@ -77,6 +77,7 @@ impl SemanticAnalyzer<'_> {
 
     fn cc_walk_expr(&mut self, expr: &Expr) {
         match &expr.kind {
+            ExprKind::Parenthesized(expr) => self.cc_walk_expr(expr),
             ExprKind::Call(call) => self.cc_check_call_expr(expr, call),
             ExprKind::Binary(bin) => {
                 self.cc_walk_expr(&bin.left);

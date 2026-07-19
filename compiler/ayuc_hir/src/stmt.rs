@@ -37,6 +37,9 @@ pub enum AssignOp {
     Assign,
     Add,
     Sub,
+    Modulus,
+    Mul,
+    Div,
 }
 
 #[derive(Debug)]

@@ -33,14 +33,20 @@ pub struct LoopStmt {
     pub block: Block,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum AssignOperator {
-    // a = b
+    /// a = b
     Assign,
-    // a += b
+    /// a += b
     Add,
-    // a -= b
+    /// a -= b
     Subtract,
+    /// *=
+    Mul,
+    /// /=
+    Div,
+    /// %=
+    Modulus,
 }
 
 #[derive(Debug)]

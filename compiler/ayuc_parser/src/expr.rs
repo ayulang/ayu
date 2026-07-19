@@ -1,95 +1,63 @@
 use ayuc_ast::{
     BinExpr, CallExpr, Expr, ExprKind, Ident, IntlSegment, Literal, Operator, expr::Block,
 };
+use ayuc_diagnostic::{Diagnostic, Label};
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, StructuredToken, Token, TokenKind},
 };
-use ayuc_span::symbol::Symbol;
+use ayuc_span::{Span, symbol::Symbol};
 
 use crate::{PResult, Parser};
 
+/// The precedence of a call expression.
+const CALL_PRECEDENCE: usize = 15;
+
+/// A list of tokens mapped to operators with their precedence.
+const OPERATORS: [(TokenKind, Operator, usize); 11] = [
+    (TokenKind::Asterisk, Operator::Mul, 13),
+    (TokenKind::Slash, Operator::Div, 13),
+    (TokenKind::Percentage, Operator::Modulus, 13),
+    (TokenKind::Plus, Operator::Add, 12),
+    (TokenKind::Minus, Operator::Minus, 12),
+    (TokenKind::Lt, Operator::Lt, 10),
+    (TokenKind::LtOrEqual, Operator::LtOrEqual, 10),
+    (TokenKind::Gt, Operator::Gt, 10),
+    (TokenKind::GtOrEqual, Operator::GtOrEqual, 10),
+    (TokenKind::EqualsEquals, Operator::EqualsEquals, 9),
+    (TokenKind::NotEquals, Operator::NotEquals, 9),
+];
+
 impl Parser<'_, '_> {
-    pub fn parse_call_expr(&mut self, prefix: Expr) -> PResult<CallExpr> {
-        let tokens = match self.stream.consume() {
-            Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens)) => tokens,
-            _ => todo!(),
-        };
-
-        let mut args = Vec::new();
-
-        if !tokens.is_empty() {
-            let mut inner = self.branch(TokenStream::new(tokens));
-            let mut expect_expr = true;
-
-            while expect_expr {
-                if let Ok(expr) = inner.parse_expression() {
-                    args.push(expr);
-                } else {
-                    break;
-                }
-
-                expect_expr = inner.maybe(TokenKind::Comma);
-            }
-        }
-
-        Ok(CallExpr {
-            callee: Box::new(prefix),
-            args,
-        })
-    }
-
-    pub fn parse_bin_expr(&mut self, left: Expr) -> PResult<BinExpr> {
-        let kind = match self.require_token()? {
-            StructuredToken::Token(Token { kind, .. }) => kind,
-            _ => todo!(),
-        };
-
-        let operator = match kind {
-            TokenKind::Plus => Operator::Add,
-            TokenKind::Gt => Operator::Gt,
-            TokenKind::GtOrEqual => Operator::GtOrEqual,
-            TokenKind::Lt => Operator::Lt,
-            TokenKind::LtOrEqual => Operator::LtOrEqual,
-            TokenKind::Minus => Operator::Minus,
-            TokenKind::EqualsEquals => Operator::EqualsEquals,
-            TokenKind::NotEquals => Operator::NotEquals,
-            TokenKind::Asterisk => Operator::Mul,
-            TokenKind::Slash => Operator::Div,
-            TokenKind::Percentage => Operator::Modulus,
-            _ => todo!(),
-        };
-
-        let right = self.parse_expression()?;
-
-        Ok(BinExpr {
-            left: Box::new(left),
-            operator,
-            right: Box::new(right),
-        })
-    }
-
-    pub fn parse_block_expr(&mut self) -> PResult<Block> {
-        let (span, tokens) = match self.stream.consume() {
-            Some(StructuredToken::Delimited(span, Delimiter::Braces, tokens)) => (*span, tokens),
-            _ => todo!(),
-        };
-
-        let mut inner = self.branch(TokenStream::new(tokens));
-        let mut children = Vec::new();
-
-        while !inner.stream.is_exhausted() {
-            children.push(inner.parse_statement()?);
-        }
-
-        Ok(Block { span, children })
-    }
-
     pub fn parse_expr_prefix(&mut self) -> PResult<Expr> {
         let snapshot = self.stream.snapshot();
         let first = self.require_token()?;
 
         Ok(match first {
+            StructuredToken::Delimited(span, Delimiter::Parenthesis, tokens) => {
+                let mut inner = self.branch(TokenStream::new(tokens));
+                let expr = inner.parse_expression()?;
+
+                if !inner.stream.is_exhausted() {
+                    let first = match inner.stream.first().unwrap() {
+                        StructuredToken::Token(Token { span, .. })
+                        | StructuredToken::Delimited(span, ..) => *span,
+                    };
+
+                    let span = Span::from((first.start, span.end));
+
+                    return Err(Diagnostic::error(self.file_id, span)
+                        .with_message("leftover tokens in parenthesized expression")
+                        .with_label(Label::help(expr.span, "the parsed inner expression"))
+                        .with_label(Label::primary(span, "the leftover tokens")));
+                }
+
+                Expr {
+                    id: self.node_id_allocator.allocate(),
+                    kind: ExprKind::Parenthesized(Box::new(expr)),
+                    span: *span,
+                }
+            }
             StructuredToken::Token(Token {
                 kind: TokenKind::Literal(lit),
                 span,
@@ -152,55 +120,113 @@ impl Parser<'_, '_> {
         })
     }
 
-    pub fn parse_expression(&mut self) -> PResult<Expr> {
-        let prefix = self.parse_expr_prefix()?;
-
-        let Some(first) = self.stream.first() else {
-            return Ok(prefix);
+    pub fn parse_block(&mut self) -> PResult<Block> {
+        let (span, tokens) = match self.stream.consume() {
+            Some(StructuredToken::Delimited(span, Delimiter::Braces, tokens)) => (*span, tokens),
+            _ => todo!(),
         };
 
-        let mut expr = match first {
-            StructuredToken::Delimited(span, Delimiter::Parenthesis, _) => Expr {
-                span: prefix.span.merged(*span),
-                id: self.node_id_allocator.allocate(),
-                kind: ExprKind::Call(self.parse_call_expr(prefix)?),
-            },
-            _ => prefix,
+        let mut inner = self.branch(TokenStream::new(tokens));
+        let mut children = Vec::new();
+
+        while !inner.stream.is_exhausted() {
+            children.push(inner.parse_statement()?);
+        }
+
+        Ok(Block { span, children })
+    }
+
+    fn parse_call_expr(&mut self, prefix: Expr) -> PResult<CallExpr> {
+        let tokens = match self.stream.consume() {
+            Some(StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens)) => tokens,
+            _ => todo!(),
         };
 
-        let Some(first) = self.stream.first() else {
-            return Ok(expr);
-        };
+        let mut args = Vec::new();
 
-        expr = match first {
-            StructuredToken::Token(Token { kind, .. })
-                if matches!(
-                    *kind,
-                    TokenKind::Plus
-                        | TokenKind::Minus
-                        | TokenKind::EqualsEquals
-                        | TokenKind::NotEquals
-                        | TokenKind::Gt
-                        | TokenKind::GtOrEqual
-                        | TokenKind::Lt
-                        | TokenKind::LtOrEqual
-                        | TokenKind::Asterisk
-                        | TokenKind::Slash
-                        | TokenKind::Percentage
-                ) =>
-            {
-                let bin = self.parse_bin_expr(expr)?;
+        if !tokens.is_empty() {
+            let mut inner = self.branch(TokenStream::new(tokens));
+            let mut expect_expr = true;
 
-                return Ok(Expr {
-                    span: bin.left.span.merged(bin.right.span),
+            while expect_expr {
+                if let Ok(expr) = inner.parse_expression() {
+                    args.push(expr);
+                } else {
+                    break;
+                }
+
+                expect_expr = inner.maybe(TokenKind::Comma);
+            }
+        }
+
+        Ok(CallExpr {
+            callee: Box::new(prefix),
+            args,
+        })
+    }
+
+    fn parse_expression_with_prec(&mut self, min_prec: usize) -> PResult<Expr> {
+        let mut left = self.parse_expr_prefix()?;
+
+        while let Some(token) = self.stream.first() {
+            // Check if it is a call expression and check it against `min_prec`
+            if matches!(
+                token,
+                StructuredToken::Delimited(_, Delimiter::Parenthesis, _)
+            ) {
+                if CALL_PRECEDENCE < min_prec {
+                    break;
+                }
+
+                let left_span = left.span;
+                let snapshot = self.stream.snapshot();
+                let parsed = self.parse_call_expr(left)?;
+
+                left = Expr {
+                    span: left_span.merged(self.stream.span_since(snapshot)),
                     id: self.node_id_allocator.allocate(),
-                    kind: ExprKind::Binary(bin),
-                });
+                    kind: ExprKind::Call(parsed),
+                };
+
+                continue;
             }
 
-            _ => expr,
-        };
+            // Handle binary expressions
+            let info = match token {
+                StructuredToken::Token(Token { kind, .. }) => OPERATORS
+                    .iter()
+                    .find(|(k, _, _)| k == kind)
+                    .map(|(_, operator, prec)| (*operator, *prec)),
+                _ => None,
+            };
 
-        Ok(expr)
+            let Some((operator, prec)) = info else {
+                break;
+            };
+
+            if prec < min_prec {
+                break;
+            }
+
+            self.stream.consume();
+
+            let right = self.parse_expression_with_prec(prec + 1)?;
+
+            left = Expr {
+                span: left.span.merged(right.span),
+                id: self.node_id_allocator.allocate(),
+                kind: ExprKind::Binary(BinExpr {
+                    left: Box::new(left),
+                    operator,
+                    right: Box::new(right),
+                }),
+            };
+        }
+
+        Ok(left)
+    }
+
+    pub fn parse_expression(&mut self) -> PResult<Expr> {
+        self.parse_expression_with_prec(0)
     }
 }
