@@ -77,6 +77,11 @@ impl<'dcx, 'sess> Resolver<'dcx, 'sess> {
         let mut this = Self::new(sess, dcx, file_id);
 
         this.resolve_names(ast);
+
+        if this.dcx.requires_abort() {
+            return this.rcx;
+        }
+
         this.resolve_types(ast);
 
         this.rcx

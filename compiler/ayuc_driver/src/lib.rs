@@ -78,7 +78,7 @@ pub fn drive() -> ExitCode {
     let parser = Parser::new(&mut dcx, file_id, source, TokenStream::new(&tokens));
     let ast = parser.parse_full();
 
-    if ast.is_none() || !dcx.errors().is_empty() {
+    if ast.is_none() || dcx.requires_abort() {
         let errors = dcx.errors().len();
 
         print_diagnostics(dcx, &source_cache);
@@ -96,7 +96,7 @@ pub fn drive() -> ExitCode {
 
     let rcx = Resolver::resolve(&mut sess, &mut dcx, file_id, &ast);
 
-    if !dcx.errors().is_empty() {
+    if dcx.requires_abort() {
         let errors = dcx.errors().len();
 
         print_diagnostics(dcx, &source_cache);

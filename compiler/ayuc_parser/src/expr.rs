@@ -1,7 +1,7 @@
 use ayuc_ast::{
     BinExpr, CallExpr, Expr, ExprKind, Ident, IntlSegment, Literal, Operator, expr::Block,
 };
-use ayuc_diagnostic::{Diagnostic, Label};
+use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, StructuredToken, Token, TokenKind},
@@ -46,7 +46,7 @@ impl Parser<'_, '_> {
 
                     let span = Span::from((first.start, span.end));
 
-                    return Err(Diagnostic::error(self.file_id, span)
+                    return Err(Diagnostic::error(self.file_id, span, Recovery::Fatal)
                         .with_message("leftover tokens in parenthesized expression")
                         .with_label(Label::help(expr.span, "the parsed inner expression"))
                         .with_label(Label::primary(span, "the leftover tokens")));

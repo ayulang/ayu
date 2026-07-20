@@ -2,7 +2,7 @@ use ayuc_ast::{
     AlternateBranch, AssignOperator, AssignStmt, IfStmt, LetStmt, LoopStmt, ReturnStmt, Stmt,
     StmtKind, WhileStmt,
 };
-use ayuc_diagnostic::{Diagnostic, Label};
+use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 
 use crate::{PResult, Parser};
@@ -76,7 +76,7 @@ impl Parser<'_, '_> {
         if !self.maybe(TokenKind::Equals) {
             let span = self.stream.span_since(snapshot);
 
-            return Err(Diagnostic::error(self.file_id, span)
+            return Err(Diagnostic::error(self.file_id, span, Recovery::Fatal)
                 .with_message("variables must be initialized with a value")
                 .with_label(Label::primary(span, "uninitialized variable")));
         }

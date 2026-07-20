@@ -1,7 +1,7 @@
 pub mod stream;
 pub mod token;
 
-use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label};
+use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label, Recovery};
 use ayuc_scanner::{
     Scanner,
     raw_token::{self, RawToken, RawTokenKind, RawTokenStream},
@@ -83,7 +83,7 @@ impl<'a> Lexer<'a> {
             raw_token::LiteralKind::Str { terminated } => {
                 let data_span = if !terminated {
                     self.dcx.emit(
-                        Diagnostic::error(self.file_id, span)
+                        Diagnostic::error(self.file_id, span, Recovery::Fatal)
                             .with_message("unterminated double-quote string")
                             .with_label(Label::primary(span, "string has no end"))
                             .with_label(Label::note(
@@ -108,7 +108,7 @@ impl<'a> Lexer<'a> {
             } => {
                 if !terminated {
                     self.dcx.emit(
-                        Diagnostic::error(self.file_id, span)
+                        Diagnostic::error(self.file_id, span, Recovery::Fatal)
                             .with_message("unterminated interpolated string")
                             .with_label(Label::primary(span, "string has no end"))
                             .with_label(Label::note(
@@ -126,7 +126,7 @@ impl<'a> Lexer<'a> {
                     .flat_map(|seg| match seg {
                         raw_token::InplSegment::InvalidClosing(closing_span) => {
                             self.dcx.emit(
-                                Diagnostic::error(self.file_id, closing_span)
+                                Diagnostic::error(self.file_id, closing_span, Recovery::Recovered)
                                     .with_message("unmatched `}` found")
                                     .with_label(Label::primary(
                                         closing_span,
@@ -145,7 +145,7 @@ impl<'a> Lexer<'a> {
                         } => {
                             if !terminated {
                                 self.dcx.emit(
-                                    Diagnostic::error(self.file_id, ident_span)
+                                    Diagnostic::error(self.file_id, ident_span, Recovery::Fatal)
                                         .with_message("unterminated interpolation segment")
                                         .with_label(Label::primary(
                                             Span::from((ident_span.start - 1, ident_span.end)),
@@ -175,7 +175,7 @@ impl<'a> Lexer<'a> {
                                 };
 
                                 self.dcx.emit(
-                                    Diagnostic::error(self.file_id, ident_span)
+                                    Diagnostic::error(self.file_id, ident_span, Recovery::Recovered)
                                         .with_message("invalid identifier")
                                         .with_label(label),
                                 );
@@ -220,7 +220,7 @@ impl<'a> Lexer<'a> {
                     };
 
                     self.dcx.emit(
-                        Diagnostic::error(self.file_id, span)
+                        Diagnostic::error(self.file_id, span, Recovery::Fatal)
                             .with_message("unclosed delimiter")
                             .with_label(Label::primary(
                                 span,
@@ -433,7 +433,7 @@ impl<'a> Lexer<'a> {
                     }
                     _ => {
                         self.dcx.emit(
-                            Diagnostic::error(self.file_id, span)
+                            Diagnostic::error(self.file_id, span, Recovery::Recovered)
                                 .with_message("exclamation tokens cannot be standalone")
                                 .with_label(Label::primary(span, "expected `=` after this `!`")),
                         );
@@ -460,7 +460,7 @@ impl<'a> Lexer<'a> {
                     };
 
                     self.dcx.emit(
-                        Diagnostic::error(self.file_id, span)
+                        Diagnostic::error(self.file_id, span, Recovery::Recovered)
                             .with_message("invalid identifier")
                             .with_label(label),
                     );
@@ -470,7 +470,7 @@ impl<'a> Lexer<'a> {
 
                 RawTokenKind::Unknown => {
                     self.dcx.emit(
-                        Diagnostic::error(self.file_id, span)
+                        Diagnostic::error(self.file_id, span, Recovery::Fatal)
                             .with_message("unknown token")
                             .with_label(Label::primary(span, "unknown start of a token")),
                     );
@@ -500,13 +500,13 @@ impl<'a> Lexer<'a> {
                     let src = &self.source[token.span];
 
                     self.dcx.emit(
-                        Diagnostic::error(self.file_id, token.span)
+                        Diagnostic::error(self.file_id, token.span, Recovery::Recovered)
                             .with_message(format!("unexpected closing delimiter: `{src}`"))
                             .with_label(Label::primary(token.span, "unexpected closing delimiter"))
                             .with_help(format!("this delimiter needs a matching `{pair}`")),
                     );
 
-                    return None;
+                    continue;
                 }
 
                 TokenKind::OpenParen | TokenKind::OpenBrace => {

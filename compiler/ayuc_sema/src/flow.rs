@@ -1,5 +1,5 @@
 use ayuc_ast::{Ast, Item, ItemKind, Stmt, StmtKind};
-use ayuc_diagnostic::{Diagnostic, Label};
+use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 
 use crate::SemanticAnalyzer;
 
@@ -38,7 +38,7 @@ impl SemanticAnalyzer<'_> {
             StmtKind::Break => {
                 if !within_loop {
                     self.dcx.emit(
-                        Diagnostic::error(self.file_id, stmt.span)
+                        Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
                             .with_message("`break` outside of a loop")
                             .with_label(Label::primary(stmt.span, "outside of a loop"))
                             .with_help("maybe you confused `break` with `return`"),

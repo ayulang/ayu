@@ -5,7 +5,7 @@ pub mod stmt;
 pub mod ty;
 
 use ayuc_ast::{Ast, Ident, Parameter, ParameterList};
-use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label};
+use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label, Recovery};
 use ayuc_id::ast::NodeIdAllocator;
 use ayuc_lexer::{
     stream::TokenStream,
@@ -75,7 +75,8 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
                 .unwrap_or(Span::from(self.source.len()));
 
             diag_fn(
-                Diagnostic::error(self.file_id, span).with_message("unexpected end of input"),
+                Diagnostic::error(self.file_id, span, Recovery::Fatal)
+                    .with_message("unexpected end of input"),
                 Span::from(span.end),
             )
         })
@@ -104,7 +105,7 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
             _ => {
                 let span = token.span();
 
-                Err(Diagnostic::error(self.file_id, span)
+                Err(Diagnostic::error(self.file_id, span, Recovery::Fatal)
                     .with_message("expected identifier")
                     .with_label(Label::primary(span, "expected identifier, got this")))
             }
@@ -135,12 +136,14 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
         let tokens = match token {
             StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens) => tokens,
             _ => {
-                return Err(Diagnostic::error(self.file_id, token.span())
-                    .with_message("expected parenthesized list of parameters")
-                    .with_label(Label::primary(
-                        token.span(),
-                        "expected a list in the shape of `(name: type)`",
-                    )));
+                return Err(
+                    Diagnostic::error(self.file_id, token.span(), Recovery::Fatal)
+                        .with_message("expected parenthesized list of parameters")
+                        .with_label(Label::primary(
+                            token.span(),
+                            "expected a list in the shape of `(name: type)`",
+                        )),
+                );
             }
         };
 
