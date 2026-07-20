@@ -45,7 +45,7 @@ impl Display for Ty {
 
                 write!(f, ") -> {ret}")?;
             }
-            Self::Error => unreachable!(),
+            Self::Error => write!(f, "<error>")?,
         };
 
         Ok(())
