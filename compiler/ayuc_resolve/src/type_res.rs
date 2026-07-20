@@ -4,7 +4,7 @@ use crate::{
     ty::{PrimTy, Ty},
 };
 
-use ayuc_ast::{self as ast, ExprKind, Literal};
+use ayuc_ast::{self as ast, AlternateBranch, ExprKind, IfStmt, Literal, Operator};
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_span::Span;
 
@@ -81,15 +81,39 @@ impl Resolver<'_, '_> {
                 }
             }
             ast::StmtKind::While(r#while) => {
+                self.tr_walk_expr(&r#while.expr);
+
                 for stmt in &r#while.block.children {
                     self.tr_walk_stmt(stmt);
                 }
             }
             ast::StmtKind::Assignment(assign) => self.tr_walk_expr(&assign.value),
-            ast::StmtKind::Expr(_)
-            | ast::StmtKind::If(_)
-            | ast::StmtKind::Return(_)
-            | ast::StmtKind::Break => {}
+            ast::StmtKind::Expr(expr) => self.tr_walk_expr(expr),
+            ast::StmtKind::If(r#if) => self.tr_walk_if_stmt(r#if),
+            ast::StmtKind::Return(ret) => {
+                if let Some(expr) = &ret.expr {
+                    self.tr_walk_expr(expr)
+                }
+            }
+            ast::StmtKind::Break => {}
+        }
+    }
+
+    fn tr_walk_if_stmt(&mut self, r#if: &IfStmt) {
+        self.tr_walk_expr(&r#if.expr);
+
+        for stmt in &r#if.block.children {
+            self.tr_walk_stmt(stmt);
+        }
+
+        match &r#if.alternate {
+            Some(AlternateBranch::Another(stmt)) => self.tr_walk_if_stmt(stmt),
+            Some(AlternateBranch::Final(block)) => {
+                for stmt in &block.children {
+                    self.tr_walk_stmt(stmt);
+                }
+            }
+            None => {}
         }
     }
 
@@ -169,7 +193,20 @@ impl Resolver<'_, '_> {
                     Ty::Error
                 }
             }
-            _ => Ty::Error,
+            ExprKind::Parenthesized(expr) => self.tr_evaluate_type_of_expr(expr),
+            ExprKind::Binary(bin) => match bin.operator {
+                Operator::Add
+                | Operator::Div
+                | Operator::Minus
+                | Operator::Modulus
+                | Operator::Mul => Ty::Prim(PrimTy::Integer),
+                Operator::EqualsEquals
+                | Operator::Gt
+                | Operator::GtOrEqual
+                | Operator::Lt
+                | Operator::LtOrEqual
+                | Operator::NotEquals => Ty::Prim(PrimTy::Boolean),
+            },
         }
     }
 

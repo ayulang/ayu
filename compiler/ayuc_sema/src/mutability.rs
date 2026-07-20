@@ -1,4 +1,4 @@
-use ayuc_ast::{Ast, Item, ItemKind, Stmt, StmtKind};
+use ayuc_ast::{AlternateBranch, Ast, IfStmt, Item, ItemKind, Stmt, StmtKind};
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_resolve::def::Def;
 
@@ -61,12 +61,24 @@ impl SemanticAnalyzer<'_> {
                     self.mc_walk_stmt(stmt);
                 }
             }
-            StmtKind::If(cond) => {
-                for stmt in &cond.block.children {
+            StmtKind::If(if_stmt) => self.mc_walk_if_stmt(if_stmt),
+            StmtKind::Expr(_) | StmtKind::Let(_) | StmtKind::Return(_) | StmtKind::Break => {}
+        }
+    }
+
+    fn mc_walk_if_stmt(&mut self, if_stmt: &IfStmt) {
+        for stmt in &if_stmt.block.children {
+            self.mc_walk_stmt(stmt);
+        }
+
+        match &if_stmt.alternate {
+            Some(AlternateBranch::Final(block)) => {
+                for stmt in &block.children {
                     self.mc_walk_stmt(stmt);
                 }
             }
-            StmtKind::Expr(_) | StmtKind::Let(_) | StmtKind::Return(_) | StmtKind::Break => {}
+            Some(AlternateBranch::Another(if_stmt)) => self.mc_walk_if_stmt(if_stmt),
+            None => {}
         }
     }
 }
