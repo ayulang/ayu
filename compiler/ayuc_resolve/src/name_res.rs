@@ -151,6 +151,10 @@ impl Resolver<'_, '_> {
             name: sym,
             kind,
             id: item.id,
+            vis: match item.vis {
+                ast::Visibility::Private => session::Visibility::Private,
+                ast::Visibility::Public => session::Visibility::Public,
+            },
         });
 
         self.register_def(sym, def_id, item.id);
@@ -415,19 +419,47 @@ impl Resolver<'_, '_> {
             .map(|id| Def::Def(*id))
             .unwrap_or(Def::Error);
 
-        if result == Def::Error {
-            self.dcx.emit(
-                Diagnostic::error(self.file_id, seg.ident.span, Recovery::Fatal)
-                    .with_message(format!(
-                        "member `{}` does not exist in module `{}`",
-                        seg.ident.sym, item.name
-                    ))
-                    .with_label(Label::primary(
-                        seg.ident.span,
-                        "unknown member accessed here",
-                    )),
-            );
-        };
+        match result {
+            Def::Error => {
+                self.dcx.emit(
+                    Diagnostic::error(self.file_id, seg.ident.span, Recovery::Fatal)
+                        .with_message(format!(
+                            "member `{}` does not exist in module `{}`",
+                            seg.ident.sym, item.name
+                        ))
+                        .with_label(Label::primary(
+                            seg.ident.span,
+                            "unknown member accessed here",
+                        )),
+                );
+            }
+            def @ Def::Def(id) => {
+                let member = self.sess.item(id);
+
+                if member.vis == session::Visibility::Private && !self.stack.is_in_scope(&def) {
+                    let message = format!(
+                        "member `{}` of `{}` is private and therefore inaccessible in current scope",
+                        member.name, item.name
+                    );
+
+                    let help = format!("consider making `{}` public", member.name);
+
+                    self.dcx.emit(
+                        Diagnostic::error(self.file_id, seg.ident.span, Recovery::Fatal)
+                            .with_message(message)
+                            .with_label(Label::help(
+                                member.signature_span(),
+                                "member is defined here",
+                            ))
+                            .with_label(Label::primary(seg.ident.span, "attempted access here"))
+                            .with_help(help),
+                    );
+
+                    return Def::Error;
+                }
+            }
+            Def::Local(_) => {}
+        }
 
         result
     }
