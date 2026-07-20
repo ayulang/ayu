@@ -1,7 +1,7 @@
 use ayuc_ast::{
     AlternateBranch, Ast, CallExpr, Expr, ExprKind, IfStmt, Item, ItemKind, Stmt, StmtKind,
 };
-use ayuc_diagnostic::{Diagnostic, Label};
+use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_resolve::def::Def;
 
 use crate::SemanticAnalyzer;
@@ -118,7 +118,7 @@ impl SemanticAnalyzer<'_> {
                 );
 
                 self.dcx.emit(
-                    Diagnostic::error(self.file_id, expr.span)
+                    Diagnostic::error(self.file_id, expr.span, Recovery::Fatal)
                         .with_message(format!(
                             "function `{}` takes {takes}, but {provided} were provided",
                             info.name

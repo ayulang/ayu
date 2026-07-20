@@ -5,7 +5,7 @@ use crate::{
 };
 
 use ayuc_ast::{self as ast, ExprKind, Literal};
-use ayuc_diagnostic::{Diagnostic, Label};
+use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_span::Span;
 
 impl Resolver<'_, '_> {
@@ -103,7 +103,7 @@ impl Resolver<'_, '_> {
 
         if inferred.is_error() {
             self.dcx.emit(
-                Diagnostic::error(self.file_id, stmt.span)
+                Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
                     .with_message(format!("unable to infer type of `{}`", decl.ident.sym))
                     .with_label(Label::primary(
                         Span::from((stmt.span.start, decl.ident.span.end)),
@@ -196,7 +196,7 @@ impl Resolver<'_, '_> {
             && let ast::TyKind::Path(p) = &ty.kind
         {
             self.dcx.emit(
-                Diagnostic::error(self.file_id, ty.span)
+                Diagnostic::error(self.file_id, ty.span, Recovery::Fatal)
                     .with_message(format!("cannot find type `{}` in this scope", p))
                     .with_label(Label::primary(ty.span, "not found in this scope")),
             );

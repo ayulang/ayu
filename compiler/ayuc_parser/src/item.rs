@@ -2,7 +2,7 @@ use ayuc_ast::{
     ExternFnDecl, ExternModItem, InlineModItem, Item, ItemKind, ParameterList, Ty, TyKind,
     Visibility, item::FnDecl,
 };
-use ayuc_diagnostic::{Diagnostic, Label, colored::Colorize};
+use ayuc_diagnostic::{Diagnostic, Label, Recovery, colored::Colorize};
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, Keyword, StructuredToken, Token, TokenKind},
@@ -37,7 +37,7 @@ impl Parser<'_, '_> {
                 let span = Span::from(name.span.end);
 
                 self.dcx.emit(
-                    Diagnostic::error(self.file_id, span)
+                    Diagnostic::error(self.file_id, span, Recovery::Recovered)
                         .with_message("missing parameter list")
                         .with_label(Label::primary(
                             span,
@@ -84,7 +84,7 @@ impl Parser<'_, '_> {
                 let span = Span::from(ident.span.end);
 
                 self.dcx.emit(
-                    Diagnostic::error(self.file_id, span)
+                    Diagnostic::error(self.file_id, span, Recovery::Recovered)
                         .with_message("missing parameter list")
                         .with_label(Label::primary(
                             span,
@@ -143,7 +143,7 @@ impl Parser<'_, '_> {
         let (block_span, tokens) = match self.require_token()? {
             StructuredToken::Delimited(span, Delimiter::Braces, tokens) => (span, tokens),
             StructuredToken::Token(Token { span, .. }) | StructuredToken::Delimited(span, _, _) => {
-                return Err(Diagnostic::error(self.file_id, *span)
+                return Err(Diagnostic::error(self.file_id, *span, Recovery::Fatal)
                     .with_message("expected a block of items")
                     .with_label(Label::primary(*span, "expected a block of items")));
             }
@@ -178,7 +178,7 @@ impl Parser<'_, '_> {
         let tokens = match self.require_token()? {
             StructuredToken::Delimited(_, Delimiter::Braces, tokens) => tokens,
             StructuredToken::Token(Token { span, .. }) | StructuredToken::Delimited(span, _, _) => {
-                return Err(Diagnostic::error(self.file_id, *span)
+                return Err(Diagnostic::error(self.file_id, *span, Recovery::Fatal)
                     .with_message("expected a block of items")
                     .with_label(Label::primary(*span, "expected a block of items")));
             }

@@ -10,6 +10,14 @@ const ARIADNE_CONFIG: ariadne::Config =
     ariadne::Config::new().with_index_type(ariadne::IndexType::Byte);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Recovery {
+    /// The compiler has recovered from the error.
+    Recovered,
+    /// The compiler requires an abort to avoid corruption.
+    Fatal,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
     BrightRed,
     BrightYellow,
@@ -23,7 +31,7 @@ pub enum Color {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
-    Error,
+    Error(Recovery),
     Warning,
     Advice,
 }
@@ -99,8 +107,8 @@ impl Diagnostic {
         }
     }
 
-    pub fn error(file_id: FileId, span: Span) -> Self {
-        Self::new(file_id, Severity::Error, span)
+    pub fn error(file_id: FileId, span: Span, recovery: Recovery) -> Self {
+        Self::new(file_id, Severity::Error(recovery), span)
     }
 
     pub fn warning(file_id: FileId, span: Span) -> Self {
@@ -184,33 +192,40 @@ impl DiagnosticContext {
     }
 
     #[inline]
-    pub fn diagnostics_by_severity(&self, severity: Severity) -> Vec<&Diagnostic> {
+    pub fn diagnostics_by_severity(&self, p: impl Fn(&Severity) -> bool) -> Vec<&Diagnostic> {
         self.diagnostics
             .iter()
-            .filter(|d| d.severity == severity)
+            .filter(|d| p(&d.severity))
             .collect::<Vec<_>>()
     }
 
     #[inline]
     pub fn errors(&self) -> Vec<&Diagnostic> {
-        self.diagnostics_by_severity(Severity::Error)
+        self.diagnostics_by_severity(|sev| matches!(sev, Severity::Error { .. }))
     }
 
     #[inline]
     pub fn warnings(&self) -> Vec<&Diagnostic> {
-        self.diagnostics_by_severity(Severity::Warning)
+        self.diagnostics_by_severity(|sev| *sev == Severity::Warning)
     }
 
     #[inline]
     pub fn advice(&self) -> Vec<&Diagnostic> {
-        self.diagnostics_by_severity(Severity::Advice)
+        self.diagnostics_by_severity(|sev| *sev == Severity::Advice)
+    }
+
+    #[inline]
+    pub fn requires_abort(&self) -> bool {
+        self.diagnostics
+            .iter()
+            .any(|d| matches!(d.severity, Severity::Error(Recovery::Fatal)))
     }
 }
 
 impl Severity {
     pub(crate) fn color(&self) -> Color {
         match self {
-            Self::Error => Color::BrightRed,
+            Self::Error { .. } => Color::BrightRed,
             Self::Warning => Color::BrightYellow,
             Self::Advice => Color::BrightBlue,
         }
@@ -218,7 +233,7 @@ impl Severity {
 
     pub(crate) fn secondary_color(&self) -> Color {
         match self {
-            Self::Error => Color::Red,
+            Self::Error { .. } => Color::Red,
             Self::Warning => Color::Yellow,
             Self::Advice => Color::Blue,
         }
@@ -251,7 +266,7 @@ impl Default for DiagnosticContext {
 impl From<Severity> for ariadne::ReportKind<'_> {
     fn from(value: Severity) -> Self {
         match value {
-            Severity::Error => Self::Error,
+            Severity::Error { .. } => Self::Error,
             Severity::Warning => Self::Warning,
             Severity::Advice => Self::Advice,
         }

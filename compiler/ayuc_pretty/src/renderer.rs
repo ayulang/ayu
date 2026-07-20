@@ -35,10 +35,10 @@ impl Renderer {
         self
     }
 
-    pub fn render(mut self, doc: Doc) -> String {
+    pub fn render(&mut self, doc: &Doc) -> String {
         let mut buf = String::new();
 
-        self.render_to(&mut buf, &doc);
+        self.render_to(&mut buf, doc);
 
         buf
     }
@@ -62,9 +62,13 @@ impl Renderer {
                 Mode::Pretty => {
                     self.bump_indentation();
 
-                    buf.push_str(&self.single_indent_str);
+                    let text = self.render(doc);
 
-                    self.render_to(buf, doc);
+                    if !text.is_empty() {
+                        buf.push_str(&self.single_indent_str);
+                        buf.push_str(&text);
+                    }
+
                     self.pop_indentation();
                 }
                 Mode::OneLine => self.render_to(buf, doc),

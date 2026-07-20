@@ -1,7 +1,7 @@
 use crate::{def::Def, resolver::Resolver};
 
 use ayuc_ast as ast;
-use ayuc_diagnostic::{Diagnostic, Label};
+use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
@@ -13,6 +13,11 @@ use ayuc_span::{Span, symbol::Symbol};
 impl Resolver<'_, '_> {
     pub(crate) fn resolve_names(&mut self, ast: &ast::Ast) {
         self.first_pass(ast);
+
+        if self.dcx.requires_abort() {
+            return;
+        }
+
         self.second_pass(ast);
     }
 
@@ -45,8 +50,8 @@ impl Resolver<'_, '_> {
         };
         let sym = ident.sym;
 
-        if let Some(def) = self.stack.lookup(sym) {
-            let mut diag = Diagnostic::error(self.file_id, ident.span)
+        if let Some(def) = self.stack.current().lookup(sym) {
+            let mut diag = Diagnostic::error(self.file_id, ident.span, Recovery::Fatal)
                 .with_message(format!("the name `{}` is defined multiple times", sym));
 
             if let Def::Def(id) = def {
@@ -319,7 +324,7 @@ impl Resolver<'_, '_> {
             self.rcx.name_resolutions.insert(ident.id, def);
         } else {
             self.dcx.emit(
-                Diagnostic::error(self.file_id, ident.span)
+                Diagnostic::error(self.file_id, ident.span, Recovery::Fatal)
                     .with_message(format!(
                         "unresolved symbol in current scope: `{}`",
                         ident.sym.as_str()
@@ -344,7 +349,7 @@ impl Resolver<'_, '_> {
             Some((Def::Error, _)) => return,
             None => {
                 self.dcx.emit(
-                    Diagnostic::error(self.file_id, ident.span)
+                    Diagnostic::error(self.file_id, ident.span, Recovery::Fatal)
                         .with_message(format!(
                             "unresolved symbol in current scope: `{}`",
                             ident.sym.as_str()
@@ -412,7 +417,7 @@ impl Resolver<'_, '_> {
 
         if result == Def::Error {
             self.dcx.emit(
-                Diagnostic::error(self.file_id, seg.ident.span)
+                Diagnostic::error(self.file_id, seg.ident.span, Recovery::Fatal)
                     .with_message(format!(
                         "member `{}` does not exist in module `{}`",
                         seg.ident.sym, item.name

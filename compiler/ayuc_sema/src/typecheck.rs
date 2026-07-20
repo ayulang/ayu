@@ -1,5 +1,5 @@
 use ayuc_ast as ast;
-use ayuc_diagnostic::{Diagnostic, Label};
+use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_resolve::def::Def;
 use ayuc_span::Span;
 
@@ -54,7 +54,7 @@ impl SemanticAnalyzer<'_> {
 
         if ty != expr_ty {
             self.dcx.emit(
-                Diagnostic::error(self.file_id, stmt.span)
+                Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
                     .with_message(format!("expected type {}, got type {}", ty, expr_ty))
                     .with_label(Label::help(
                         info.defined_where,
@@ -78,7 +78,7 @@ impl SemanticAnalyzer<'_> {
 
         if expr_ty != decl_ty {
             self.dcx.emit(
-                Diagnostic::error(self.file_id, stmt.span)
+                Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
                     .with_message(format!("expected type {}, got type {}", decl_ty, expr_ty))
                     .with_label(Label::help(
                         Span::from((

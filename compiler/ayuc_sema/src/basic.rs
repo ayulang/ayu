@@ -1,5 +1,5 @@
 use ayuc_ast::{Ast, Item, ItemKind};
-use ayuc_diagnostic::{Diagnostic, Label};
+use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_span::Span;
 
 use crate::SemanticAnalyzer;
@@ -33,7 +33,7 @@ impl SemanticAnalyzer<'_> {
                     let signature_span = Span::from((item.span.start, child.return_ty.span.end));
 
                     self.dcx.emit(
-                        Diagnostic::error(self.file_id, signature_span)
+                        Diagnostic::error(self.file_id, signature_span, Recovery::Fatal)
                             .with_message("non-extern item within extern module")
                             .with_label(Label::help(start, "extern module starts here"))
                             .with_label(Label::primary(

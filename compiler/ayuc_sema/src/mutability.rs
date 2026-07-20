@@ -1,5 +1,5 @@
 use ayuc_ast::{Ast, Item, ItemKind, Stmt, StmtKind};
-use ayuc_diagnostic::{Diagnostic, Label};
+use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_resolve::def::Def;
 
 use crate::SemanticAnalyzer;
@@ -31,7 +31,7 @@ impl SemanticAnalyzer<'_> {
 
                 if !info.mutable {
                     self.dcx.emit(
-                    Diagnostic::error(self.file_id, stmt.span)
+                    Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
                         .with_message(format!(
                             "cannot assign to immutable variable `{}`",
                             info.name
