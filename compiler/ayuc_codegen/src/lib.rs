@@ -91,7 +91,7 @@ impl LuauCodegen {
             ]);
         }
 
-        Renderer::new().render(doc)
+        Renderer::new().render(&doc)
     }
 
     fn export_to_doc(export: Export) -> Doc {
