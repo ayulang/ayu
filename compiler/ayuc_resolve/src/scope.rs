@@ -52,6 +52,14 @@ impl ScopeStack {
         Some(def)
     }
 
+    pub fn is_in_scope(&self, def: &Def) -> bool {
+        self.stack
+            .iter()
+            .rev()
+            .chain(std::iter::once(&self.top))
+            .any(|s| s.contains(def))
+    }
+
     pub fn lookup_path(&self, sym: Symbol) -> Option<(Def, Vec<Def>)> {
         let (scope, def) = self.lookup_get_scope(sym)?;
 
@@ -87,5 +95,10 @@ impl Scope {
     #[inline]
     pub fn lookup(&self, sym: Symbol) -> Option<Def> {
         self.symbols.get(&sym).copied()
+    }
+
+    #[inline]
+    pub fn contains(&self, def: &Def) -> bool {
+        self.symbols.values().any(|d| d == def)
     }
 }
