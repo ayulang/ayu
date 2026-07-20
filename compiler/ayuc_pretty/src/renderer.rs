@@ -38,7 +38,7 @@ impl Renderer {
     pub fn render(&mut self, doc: &Doc) -> String {
         let mut buf = String::new();
 
-        self.render_to(&mut buf, &doc);
+        self.render_to(&mut buf, doc);
 
         buf
     }

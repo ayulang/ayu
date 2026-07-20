@@ -216,10 +216,9 @@ impl DiagnosticContext {
 
     #[inline]
     pub fn requires_abort(&self) -> bool {
-        self.diagnostics.iter().any(|d| match d.severity {
-            Severity::Error(Recovery::Fatal) => true,
-            _ => false,
-        })
+        self.diagnostics
+            .iter()
+            .any(|d| matches!(d.severity, Severity::Error(Recovery::Fatal)))
     }
 }
 
