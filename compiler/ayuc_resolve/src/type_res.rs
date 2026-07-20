@@ -90,10 +90,11 @@ impl Resolver<'_, '_> {
             ast::StmtKind::Assignment(assign) => self.tr_walk_expr(&assign.value),
             ast::StmtKind::Expr(expr) => self.tr_walk_expr(expr),
             ast::StmtKind::If(r#if) => self.tr_walk_if_stmt(r#if),
-            ast::StmtKind::Return(ret) => match &ret.expr {
-                Some(expr) => self.tr_walk_expr(expr),
-                None => {}
-            },
+            ast::StmtKind::Return(ret) => {
+                if let Some(expr) = &ret.expr {
+                    self.tr_walk_expr(expr)
+                }
+            }
             ast::StmtKind::Break => {}
         }
     }
@@ -102,7 +103,7 @@ impl Resolver<'_, '_> {
         self.tr_walk_expr(&r#if.expr);
 
         for stmt in &r#if.block.children {
-            self.tr_walk_stmt(&stmt);
+            self.tr_walk_stmt(stmt);
         }
 
         match &r#if.alternate {
