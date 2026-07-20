@@ -1,4 +1,4 @@
-use ayuc_ast::{Ast, Item, ItemKind, Stmt, StmtKind};
+use ayuc_ast::{AlternateBranch, Ast, IfStmt, Item, ItemKind, Stmt, StmtKind};
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 
 use crate::SemanticAnalyzer;
@@ -30,11 +30,7 @@ impl SemanticAnalyzer<'_> {
                     self.fc_walk_stmt(stmt, true);
                 }
             }
-            StmtKind::If(cond) => {
-                for stmt in &cond.block.children {
-                    self.fc_walk_stmt(stmt, within_loop);
-                }
-            }
+            StmtKind::If(if_stmt) => self.fc_walk_if_stmt(if_stmt, within_loop),
             StmtKind::Break => {
                 if !within_loop {
                     self.dcx.emit(
@@ -49,6 +45,22 @@ impl SemanticAnalyzer<'_> {
             | StmtKind::Let(_)
             | StmtKind::Return(_)
             | StmtKind::Assignment(_) => {}
+        }
+    }
+
+    fn fc_walk_if_stmt(&mut self, if_stmt: &IfStmt, within_loop: bool) {
+        for stmt in &if_stmt.block.children {
+            self.fc_walk_stmt(stmt, within_loop);
+        }
+
+        match &if_stmt.alternate {
+            Some(AlternateBranch::Final(block)) => {
+                for stmt in &block.children {
+                    self.fc_walk_stmt(stmt, within_loop);
+                }
+            }
+            Some(AlternateBranch::Another(if_stmt)) => self.fc_walk_if_stmt(if_stmt, within_loop),
+            None => {}
         }
     }
 }
