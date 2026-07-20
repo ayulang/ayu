@@ -1,6 +1,6 @@
-use ayuc_ast as ast;
+use ayuc_ast::{self as ast, AlternateBranch, IfStmt};
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
-use ayuc_resolve::def::Def;
+use ayuc_resolve::{PrimTy, Ty, def::Def};
 use ayuc_span::Span;
 
 use crate::SemanticAnalyzer;
@@ -24,16 +24,56 @@ impl SemanticAnalyzer<'_> {
                 }
             }
             ast::StmtKind::While(r#while) => {
+                let condition_ty = self.rcx.ty_res(r#while.expr.id);
+
+                if !matches!(condition_ty, Ty::Prim(PrimTy::Boolean)) {
+                    self.dcx.emit(
+                        Diagnostic::error(self.file_id, r#while.expr.span, Recovery::Fatal)
+                            .with_message("condition of while statement must be of type bool")
+                            .with_label(Label::primary(
+                                r#while.expr.span,
+                                format!("expected bool, got {condition_ty}"),
+                            )),
+                    );
+                }
+
                 for stmt in &r#while.block.children {
                     self.tc_walk_stmt(stmt);
                 }
             }
             ast::StmtKind::Assignment(assign) => self.tc_check_assign_stmt(stmt, assign),
             ast::StmtKind::Let(decl) => self.tc_check_let_stmt(stmt, decl),
-            ast::StmtKind::Expr(_)
-            | ast::StmtKind::If(_)
-            | ast::StmtKind::Return(_)
-            | ast::StmtKind::Break => {}
+            ast::StmtKind::If(r#if) => self.tc_walk_if_stmt(r#if),
+            ast::StmtKind::Expr(_) | ast::StmtKind::Return(_) | ast::StmtKind::Break => {}
+        }
+    }
+
+    fn tc_walk_if_stmt(&mut self, if_stmt: &IfStmt) {
+        let condition_ty = self.rcx.ty_res(if_stmt.expr.id);
+
+        if !matches!(condition_ty, Ty::Prim(PrimTy::Boolean)) {
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, if_stmt.expr.span, Recovery::Fatal)
+                    .with_message("condition of if statements must be of type bool")
+                    .with_label(Label::primary(
+                        if_stmt.expr.span,
+                        format!("expected bool, got {condition_ty}"),
+                    )),
+            );
+        }
+
+        for stmt in &if_stmt.block.children {
+            self.tc_walk_stmt(stmt);
+        }
+
+        match &if_stmt.alternate {
+            Some(AlternateBranch::Another(stmt)) => self.tc_walk_if_stmt(stmt),
+            Some(AlternateBranch::Final(block)) => {
+                for stmt in &block.children {
+                    self.tc_walk_stmt(stmt);
+                }
+            }
+            None => {}
         }
     }
 
