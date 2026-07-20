@@ -1,5 +1,8 @@
-use ayuc_ast::{self as ast, AlternateBranch, IfStmt};
+use ayuc_ast::{
+    self as ast, AlternateBranch, FnDecl, IfStmt, Item, ItemKind, LoopStmt, StmtKind, WhileStmt,
+};
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
+use ayuc_id::ast::NodeId;
 use ayuc_resolve::{PrimTy, Ty, def::Def};
 use ayuc_span::Span;
 
@@ -8,11 +11,84 @@ use crate::SemanticAnalyzer;
 impl SemanticAnalyzer<'_> {
     pub fn typecheck(&mut self, ast: &ast::Ast) {
         for item in &ast.items {
-            if let ast::ItemKind::Fn(decl) = &item.kind {
-                for stmt in &decl.block.children {
-                    self.tc_walk_stmt(stmt);
+            self.tc_walk_item(item);
+        }
+    }
+
+    fn tc_walk_item(&mut self, item: &Item) {
+        match &item.kind {
+            ItemKind::Fn(decl) => self.tc_walk_fn_item(item.id, decl),
+            ItemKind::InlineMod(decl) => {
+                for member in &decl.items {
+                    self.tc_walk_item(member);
                 }
             }
+            ItemKind::ExternMod(decl) => {
+                for member in &decl.items {
+                    self.tc_walk_item(member);
+                }
+            }
+            ItemKind::ExternFn(_) => {}
+        }
+    }
+
+    fn tc_walk_fn_item(&mut self, item_id: NodeId, item: &FnDecl) {
+        let Ty::Fn(_, return_ty) = self.rcx.ty_res(item_id) else {
+            unreachable!()
+        };
+
+        for stmt in &item.block.children {
+            self.tc_walk_stmt(stmt);
+            self.tc_check_for_return(stmt, return_ty);
+        }
+    }
+
+    fn tc_check_for_return(&mut self, stmt: &ast::Stmt, return_ty: &Ty) {
+        match &stmt.kind {
+            StmtKind::Return(ret) => {
+                let ty = ret.expr.as_ref().map(|expr| self.rcx.ty_res(expr.id));
+                let (matches, ty_name) = if let Some(ty) = ty {
+                    (ty == return_ty, ty.to_string())
+                } else {
+                    (*return_ty == Ty::Unit, Ty::Unit.to_string())
+                };
+
+                if !matches {
+                    self.dcx.emit(
+                        Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
+                            .with_message("incorrect return type")
+                            .with_label(Label::primary(
+                                ret.expr.as_ref().map(|expr| expr.span).unwrap_or(stmt.span),
+                                format!("expected type {}, got {}", return_ty, ty_name,),
+                            )),
+                    );
+                }
+            }
+            StmtKind::If(if_stmt) => self.tc_check_if_for_return(if_stmt, return_ty),
+            StmtKind::Loop(LoopStmt { block }) | StmtKind::While(WhileStmt { block, .. }) => {
+                for stmt in &block.children {
+                    self.tc_check_for_return(stmt, return_ty);
+                }
+            }
+            StmtKind::Assignment(_) | StmtKind::Let(_) | StmtKind::Expr(_) | StmtKind::Break => {}
+        }
+    }
+
+    fn tc_check_if_for_return(&mut self, if_stmt: &IfStmt, return_ty: &Ty) {
+        for stmt in &if_stmt.block.children {
+            self.tc_check_for_return(stmt, return_ty);
+        }
+
+        match &if_stmt.alternate {
+            Some(AlternateBranch::Final(block)) => {
+                for stmt in &block.children {
+                    self.tc_check_for_return(stmt, return_ty);
+                }
+            }
+            Some(AlternateBranch::Another(if_stmt)) => {
+                self.tc_check_if_for_return(if_stmt, return_ty)
+            }
+            None => {}
         }
     }
 
