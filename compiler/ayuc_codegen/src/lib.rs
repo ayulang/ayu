@@ -190,6 +190,14 @@ impl LuauCodegen {
                             &[absolute_path, &[decl.name]].concat(),
                         )
                     })
+                    .enumerate()
+                    .map(|(i, doc)| {
+                        if i != 0 {
+                            Doc::concat([Doc::Hardline, Doc::Blankline, doc])
+                        } else {
+                            doc
+                        }
+                    })
                     .collect::<Vec<_>>();
 
                 if items.is_empty() {
