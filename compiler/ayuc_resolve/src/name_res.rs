@@ -45,7 +45,7 @@ impl Resolver<'_, '_> {
         };
         let sym = ident.sym;
 
-        if let Some(def) = self.stack.lookup(sym) {
+        if let Some(def) = self.stack.current().lookup(sym) {
             let mut diag = Diagnostic::error(self.file_id, ident.span)
                 .with_message(format!("the name `{}` is defined multiple times", sym));
 

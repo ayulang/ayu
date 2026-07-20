@@ -34,8 +34,8 @@ impl ScopeStack {
         self.stack.last_mut().unwrap_or(&mut self.top)
     }
 
-    pub fn lookup_top(&self, sym: Symbol) -> Option<Def> {
-        self.top.symbols.get(&sym).copied()
+    pub fn current(&self) -> &Scope {
+        self.stack.last().unwrap_or(&self.top)
     }
 
     fn lookup_get_scope(&self, sym: Symbol) -> Option<(&Scope, Def)> {
@@ -43,7 +43,7 @@ impl ScopeStack {
             .iter()
             .rev()
             .chain(std::iter::once(&self.top))
-            .find_map(|scope| scope.symbols.get(&sym).copied().map(|d| (scope, d)))
+            .find_map(|scope| scope.lookup(sym).map(|d| (scope, d)))
     }
 
     pub fn lookup(&self, sym: Symbol) -> Option<Def> {
@@ -82,5 +82,10 @@ impl Scope {
             .flat_map(|def| def.map(Def::Def))
             .chain(iter::once(target))
             .collect()
+    }
+
+    #[inline]
+    pub fn lookup(&self, sym: Symbol) -> Option<Def> {
+        self.symbols.get(&sym).copied()
     }
 }
