@@ -1,4 +1,5 @@
 use ayuc_ast::{Ty, TyKind};
+use ayuc_diagnostic::{Diagnostic, Label};
 use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, StructuredToken, TokenKind},
@@ -24,11 +25,23 @@ impl Parser<'_, '_, '_> {
             expect_another = inner.maybe(TokenKind::Comma);
         }
 
-        Ok(Ty {
-            id: self.node_id_allocator.allocate(),
-            span: *span,
-            kind: TyKind::Tuple(parts),
-        })
+        if parts.len() == 1 {
+            let part = parts.remove(0);
+
+            self.dcx.emit(
+                Diagnostic::warning(self.file_id, *span)
+                    .with_message("redundant parenthesis")
+                    .with_label(Label::primary(*span, "can be written without parenthesis")),
+            );
+
+            Ok(part)
+        } else {
+            Ok(Ty {
+                id: self.node_id_allocator.allocate(),
+                span: *span,
+                kind: TyKind::Tuple(parts),
+            })
+        }
     }
 
     fn parse_path_ty(&mut self) -> PResult<Ty> {
