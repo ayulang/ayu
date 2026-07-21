@@ -419,22 +419,33 @@ impl LuauCodegen {
         Doc::Concat(parts)
     }
 
-    fn expr_to_doc(lcx: &LoweringContext, expr: &Expr, wrap_bin_expr: bool) -> Doc {
+    fn expr_to_doc(lcx: &LoweringContext, expr: &Expr, wrap_expr: bool) -> Doc {
         match &expr.kind {
-            ExprKind::Tuple(inner) => Doc::Concat(
-                inner
-                    .iter()
-                    .map(|expr| Self::expr_to_doc(lcx, expr, false))
-                    .enumerate()
-                    .map(|(i, doc)| {
-                        if i == 0 {
-                            doc
-                        } else {
-                            Doc::concat([Doc::text(", "), doc])
-                        }
-                    })
-                    .collect(),
-            ),
+            ExprKind::Tuple(inner) => {
+                let all = Doc::Concat(
+                    inner
+                        .iter()
+                        .map(|expr| Self::expr_to_doc(lcx, expr, true))
+                        .enumerate()
+                        .map(|(i, doc)| {
+                            if i == 0 {
+                                doc
+                            } else {
+                                Doc::concat([Doc::text(", "), doc])
+                            }
+                        })
+                        .collect(),
+                );
+
+                if wrap_expr {
+                    // This only applies to tuples that are inside other exressions.
+                    // Lua doesn't allow ((number, number), number), so we convert it to ({number}, number).
+
+                    Doc::concat([Doc::text("{"), all, Doc::text("}")])
+                } else {
+                    all
+                }
+            }
             ExprKind::Lit(lit) => match lit {
                 Literal::Bool(value) => Doc::text(if *value { "true" } else { "false" }),
                 Literal::Integer(value) => Doc::text(value.to_string()),
@@ -484,7 +495,7 @@ impl LuauCodegen {
                     Self::expr_to_doc(lcx, &bin.right, true),
                 ]));
 
-                if wrap_bin_expr {
+                if wrap_expr {
                     Doc::concat([Doc::text("("), doc, Doc::text(")")])
                 } else {
                     doc
