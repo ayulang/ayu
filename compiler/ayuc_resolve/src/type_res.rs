@@ -90,11 +90,7 @@ impl Resolver<'_, '_> {
             ast::StmtKind::Assignment(assign) => self.tr_walk_expr(&assign.value),
             ast::StmtKind::Expr(expr) => self.tr_walk_expr(expr),
             ast::StmtKind::If(r#if) => self.tr_walk_if_stmt(r#if),
-            ast::StmtKind::Return(ret) => {
-                if let Some(expr) = &ret.expr {
-                    self.tr_walk_expr(expr)
-                }
-            }
+            ast::StmtKind::Return(ret) => self.tr_walk_expr(&ret.expr),
             ast::StmtKind::Break => {}
         }
     }
@@ -156,6 +152,12 @@ impl Resolver<'_, '_> {
 
     fn tr_evaluate_type_of_expr(&mut self, expr: &ast::Expr) -> Ty {
         match &expr.kind {
+            ExprKind::Tuple(inner) => Ty::Tuple(
+                inner
+                    .iter()
+                    .map(|child| self.tr_evaluate_type_of_expr(child))
+                    .collect(),
+            ),
             ExprKind::Lit(lit) => Ty::Prim(match lit {
                 Literal::Bool { .. } => PrimTy::Boolean,
                 Literal::Integer { .. } => PrimTy::Integer,
@@ -213,7 +215,12 @@ impl Resolver<'_, '_> {
     #[must_use = "resolved types are not automatically inserted into the ResolutionContext"]
     fn tr_resolve_ty(&mut self, ty: &ast::Ty) -> Ty {
         let resolved = match &ty.kind {
-            ast::TyKind::Unit => Ty::Unit,
+            ast::TyKind::Tuple(inner) => Ty::Tuple(
+                inner
+                    .iter()
+                    .map(|child| self.tr_resolve_ty(child))
+                    .collect(),
+            ),
             ast::TyKind::Path(p) => {
                 if p.segments.len() == 1 {
                     let segment = &p.segments[0];

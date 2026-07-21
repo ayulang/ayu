@@ -236,7 +236,7 @@ impl<'a> AstLowering<'a> {
                 init: self.lower_expr(&decl.init),
             }),
             ast::StmtKind::Return(ret) => hir::StmtKind::Return(hir::ReturnStmt {
-                expr: ret.expr.as_ref().map(|expr| self.lower_expr(expr)),
+                expr: self.lower_expr(&ret.expr),
             }),
             ayuc_ast::StmtKind::If(if_stmt) => hir::StmtKind::If(self.lower_if_stmt(if_stmt)),
         };
@@ -276,6 +276,10 @@ impl<'a> AstLowering<'a> {
     fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {
         let id = self.lower_id(expr.id);
         let kind = match &expr.kind {
+            ast::ExprKind::Tuple(inner) => {
+                hir::ExprKind::Tuple(inner.iter().map(|child| self.lower_expr(child)).collect())
+            }
+
             ast::ExprKind::Parenthesized(expr) => {
                 hir::ExprKind::Parenthesized(Box::new(self.lower_expr(expr)))
             }
@@ -360,7 +364,9 @@ impl<'a> AstLowering<'a> {
 
     fn lower_res(&self, res: &RTy) -> hir::Ty {
         match res {
-            RTy::Unit => hir::Ty::Unit,
+            RTy::Tuple(inner) => {
+                hir::Ty::Tuple(inner.iter().map(|child| self.lower_res(child)).collect())
+            }
             RTy::Prim(prim) => hir::Ty::Primitive(match prim {
                 RPrimTy::Boolean => hir::PrimTy::Boolean,
                 RPrimTy::Integer => hir::PrimTy::Integer,

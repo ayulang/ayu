@@ -75,7 +75,13 @@ pub fn drive() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    let parser = Parser::new(&mut dcx, file_id, source, TokenStream::new(&tokens));
+    let parser = Parser::new(
+        &mut dcx,
+        file_id,
+        source,
+        TokenStream::new(&tokens),
+        &mut sess,
+    );
     let ast = parser.parse_full();
 
     if ast.is_none() || dcx.requires_abort() {

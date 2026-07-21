@@ -59,7 +59,7 @@ pub struct LetStmt {
 
 #[derive(Debug)]
 pub struct ReturnStmt {
-    pub expr: Option<Expr>,
+    pub expr: Expr,
 }
 
 #[derive(Debug)]

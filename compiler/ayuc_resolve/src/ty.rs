@@ -4,13 +4,15 @@ use ayuc_span::symbol::Symbol;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ty {
-    Unit,
+    Tuple(Vec<Ty>),
     Prim(PrimTy),
     Fn(Vec<Ty>, Box<Ty>),
     Error,
 }
 
 impl Ty {
+    pub const UNIT: Self = Self::Tuple(Vec::new());
+
     pub fn is_error(&self) -> bool {
         matches!(self, Self::Error)
     }
@@ -31,16 +33,28 @@ impl Display for Ty {
                 PrimTy::Integer => write!(f, "int")?,
                 PrimTy::Str => write!(f, "str")?,
             },
-            Self::Unit => write!(f, "()")?,
-            Self::Fn(params, ret) => {
+            Self::Tuple(inner) => {
                 write!(f, "(")?;
 
-                for (i, params) in params.iter().enumerate() {
+                for (i, child) in inner.iter().enumerate() {
                     if i != 0 {
                         write!(f, ", ")?;
                     }
 
-                    write!(f, "{}", params)?;
+                    write!(f, "{child}")?;
+                }
+
+                write!(f, ")")?;
+            }
+            Self::Fn(params, ret) => {
+                write!(f, "(")?;
+
+                for (i, param) in params.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{param}")?;
                 }
 
                 write!(f, ") -> {ret}")?;

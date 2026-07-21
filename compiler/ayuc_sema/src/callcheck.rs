@@ -48,9 +48,7 @@ impl SemanticAnalyzer<'_> {
             }
             StmtKind::Let(decl) => self.cc_walk_expr(&decl.init),
             StmtKind::Return(ret) => {
-                if let Some(expr) = &ret.expr {
-                    self.cc_walk_expr(expr);
-                }
+                self.cc_walk_expr(&ret.expr);
             }
             StmtKind::Assignment(assign) => self.cc_walk_expr(&assign.value),
             StmtKind::Break => {}
@@ -77,6 +75,11 @@ impl SemanticAnalyzer<'_> {
 
     fn cc_walk_expr(&mut self, expr: &Expr) {
         match &expr.kind {
+            ExprKind::Tuple(inner) => {
+                for child in inner {
+                    self.cc_walk_expr(child);
+                }
+            }
             ExprKind::Parenthesized(expr) => self.cc_walk_expr(expr),
             ExprKind::Call(call) => self.cc_check_call_expr(expr, call),
             ExprKind::Binary(bin) => {

@@ -264,9 +264,9 @@ impl Resolver<'_, '_> {
 
             ast::StmtKind::If(if_stmt) => self.n2_walk_if_stmt(if_stmt),
             ast::StmtKind::Expr(expr) => self.n2_walk_expr(expr),
-            ast::StmtKind::Return(ast::ReturnStmt { expr: Some(expr) }) => self.n2_walk_expr(expr),
+            ast::StmtKind::Return(ast::ReturnStmt { expr }) => self.n2_walk_expr(expr),
 
-            ast::StmtKind::Return(_) | ast::StmtKind::Break => {}
+            ast::StmtKind::Break => {}
         }
     }
 
@@ -294,6 +294,12 @@ impl Resolver<'_, '_> {
 
     fn n2_walk_expr(&mut self, expr: &ast::Expr) {
         match &expr.kind {
+            ast::ExprKind::Tuple(inner) => {
+                for child in inner {
+                    self.n2_walk_expr(child);
+                }
+            }
+
             ast::ExprKind::Parenthesized(paren) => self.n2_walk_expr(paren),
             ast::ExprKind::Call(call) => {
                 self.n2_walk_expr(&call.callee);

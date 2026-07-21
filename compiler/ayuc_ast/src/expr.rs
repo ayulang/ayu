@@ -17,6 +17,11 @@ pub enum ExprKind {
     Call(CallExpr),
     Binary(BinExpr),
     Parenthesized(Box<Expr>),
+    Tuple(Vec<Expr>),
+}
+
+impl ExprKind {
+    pub const UNIT: Self = Self::Tuple(Vec::new());
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

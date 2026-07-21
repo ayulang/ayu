@@ -28,4 +28,14 @@ impl Doc {
     pub fn indent(doc: Doc) -> Self {
         Self::Indent(Box::new(doc))
     }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Skip => true,
+            Self::Text(s) => s.is_empty(),
+            Self::Concat(children) => children.is_empty() || children.iter().all(|d| d.is_empty()),
+            Self::Indent(doc) => doc.is_empty(),
+            _ => false,
+        }
+    }
 }

@@ -1,4 +1,9 @@
-use ayuc_id::hir::{DefId, LocalId};
+use std::collections::HashSet;
+
+use ayuc_id::{
+    ast::NodeId,
+    hir::{DefId, LocalId},
+};
 use slotmap::SlotMap;
 
 use crate::{ItemInfo, local::LocalInfo};
@@ -7,9 +12,19 @@ use crate::{ItemInfo, local::LocalInfo};
 pub struct Session {
     items: SlotMap<DefId, ItemInfo>,
     locals: SlotMap<LocalId, LocalInfo>,
+
+    synthetics: HashSet<NodeId>,
 }
 
 impl Session {
+    pub fn mark_as_synthetic(&mut self, id: NodeId) {
+        self.synthetics.insert(id);
+    }
+
+    pub fn is_synthetic(&self, id: NodeId) -> bool {
+        self.synthetics.contains(&id)
+    }
+
     pub fn register_item(&mut self, info: ItemInfo) -> DefId {
         self.items.insert(info)
     }

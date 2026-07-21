@@ -10,3 +10,4 @@ ayuc_span = { path = "../ayuc_span" }
 ayuc_diagnostic = { path = "../ayuc_diagnostic" }
 ayuc_ast = { path = "../ayuc_ast" }
 ayuc_id = { path = "../ayuc_id" }
+ayuc_session = { path = "../ayuc_session" }

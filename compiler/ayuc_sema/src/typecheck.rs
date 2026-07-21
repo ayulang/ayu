@@ -46,20 +46,19 @@ impl SemanticAnalyzer<'_> {
     fn tc_check_for_return(&mut self, stmt: &ast::Stmt, return_ty: &Ty) {
         match &stmt.kind {
             StmtKind::Return(ret) => {
-                let ty = ret.expr.as_ref().map(|expr| self.rcx.ty_res(expr.id));
-                let (matches, ty_name) = if let Some(ty) = ty {
-                    (ty == return_ty, ty.to_string())
-                } else {
-                    (*return_ty == Ty::Unit, Ty::Unit.to_string())
-                };
+                let ty = self.rcx.ty_res(ret.expr.id);
 
-                if !matches {
+                if ty != return_ty {
                     self.dcx.emit(
                         Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
                             .with_message("incorrect return type")
                             .with_label(Label::primary(
-                                ret.expr.as_ref().map(|expr| expr.span).unwrap_or(stmt.span),
-                                format!("expected type {}, got {}", return_ty, ty_name,),
+                                if self.sess.is_synthetic(ret.expr.id) {
+                                    stmt.span
+                                } else {
+                                    ret.expr.span
+                                },
+                                format!("expected type {}, got {}", return_ty, ty,),
                             )),
                     );
                 }

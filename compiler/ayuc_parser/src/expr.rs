@@ -28,7 +28,7 @@ const OPERATORS: [(TokenKind, Operator, usize); 11] = [
     (TokenKind::NotEquals, Operator::NotEquals, 9),
 ];
 
-impl Parser<'_, '_> {
+impl Parser<'_, '_, '_> {
     pub fn parse_expr_prefix(&mut self) -> PResult<Expr> {
         let snapshot = self.stream.snapshot();
         let first = self.require_token()?;

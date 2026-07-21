@@ -131,6 +131,7 @@ dependencies = [
  "ayuc_diagnostic",
  "ayuc_id",
  "ayuc_lexer",
+ "ayuc_session",
  "ayuc_source",
  "ayuc_span",
 ]

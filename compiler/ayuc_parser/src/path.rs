@@ -3,7 +3,7 @@ use ayuc_lexer::token::{StructuredToken, Token, TokenKind};
 
 use crate::{PResult, Parser};
 
-impl Parser<'_, '_> {
+impl Parser<'_, '_, '_> {
     pub fn parse_path(&mut self) -> PResult<Path> {
         let snapshot = self.stream.snapshot();
 

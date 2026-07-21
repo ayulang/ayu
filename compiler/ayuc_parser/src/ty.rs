@@ -2,7 +2,7 @@ use ayuc_ast::{Ty, TyKind};
 
 use crate::{PResult, Parser};
 
-impl Parser<'_, '_> {
+impl Parser<'_, '_, '_> {
     pub fn parse_ty(&mut self) -> PResult<Ty> {
         if let Ok(path) = self.parse_path() {
             Ok(Ty {

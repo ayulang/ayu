@@ -11,12 +11,13 @@ use ayuc_lexer::{
     stream::TokenStream,
     token::{Delimiter, StructuredToken, Token, TokenKind},
 };
+use ayuc_session::Session;
 use ayuc_span::Span;
 
 pub type PResult<T> = Result<T, Diagnostic>;
 
 /// Used for parsing an input file into an abstract syntax tree.
-pub struct Parser<'src, 'ctx> {
+pub struct Parser<'src, 'ctx, 'sess> {
     /// The input token stream.
     pub(crate) stream: TokenStream<'src>,
 
@@ -24,14 +25,16 @@ pub struct Parser<'src, 'ctx> {
     source: &'src str,
     node_id_allocator: NodeIdAllocator,
     dcx: &'ctx mut DiagnosticContext,
+    sess: &'sess mut Session,
 }
 
-impl<'src, 'ctx> Parser<'src, 'ctx> {
+impl<'src, 'ctx, 'sess> Parser<'src, 'ctx, 'sess> {
     pub fn new(
         dcx: &'ctx mut DiagnosticContext,
         file_id: usize,
         source: &'src str,
         stream: TokenStream<'src>,
+        sess: &'sess mut Session,
     ) -> Self {
         Self {
             stream,
@@ -39,16 +42,18 @@ impl<'src, 'ctx> Parser<'src, 'ctx> {
             source,
             node_id_allocator: NodeIdAllocator::default(),
             dcx,
+            sess,
         }
     }
 
-    pub fn branch<'b>(&'b mut self, stream: TokenStream<'src>) -> Parser<'src, 'b> {
+    pub fn branch<'b>(&'b mut self, stream: TokenStream<'src>) -> Parser<'src, 'b, 'b> {
         Parser {
             stream,
             file_id: self.file_id,
             source: self.source,
             node_id_allocator: self.node_id_allocator.clone(),
             dcx: self.dcx,
+            sess: self.sess,
         }
     }
 

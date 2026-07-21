@@ -360,25 +360,24 @@ impl LuauCodegen {
                 Self::expr_to_doc(lcx, &assign.value, false),
             ])),
             StmtKind::Return(ret) => Doc::Concat(vec![
-                Doc::text("return"),
-                ret.expr
-                    .as_ref()
-                    .map(|expr| {
-                        Doc::Concat(Vec::from([
-                            Doc::text(" "),
-                            Self::expr_to_doc(lcx, expr, false),
-                        ]))
-                    })
-                    .unwrap_or(Doc::Concat(Vec::new())),
+                Doc::text("return "),
+                Self::expr_to_doc(lcx, &ret.expr, false),
             ]),
             StmtKind::Expr(expr) => Self::expr_to_doc(lcx, expr, false),
             StmtKind::If(if_stmt) => Self::if_stmt_to_doc(lcx, if_stmt, false),
-            StmtKind::Let(decl) => Doc::Concat(Vec::from([
-                Doc::text("local "),
-                Doc::text(decl.ident.as_str()),
-                Doc::text(" = "),
-                Self::expr_to_doc(lcx, &decl.init, false),
-            ])),
+            StmtKind::Let(decl) => {
+                let expr_doc = Self::expr_to_doc(lcx, &decl.init, false);
+
+                Doc::Concat(Vec::from([
+                    Doc::text("local "),
+                    Doc::text(decl.ident.as_str()),
+                    if expr_doc.is_empty() {
+                        Doc::Skip
+                    } else {
+                        Doc::concat([Doc::text(" = "), expr_doc])
+                    },
+                ]))
+            }
         }
     }
 
@@ -422,6 +421,20 @@ impl LuauCodegen {
 
     fn expr_to_doc(lcx: &LoweringContext, expr: &Expr, wrap_bin_expr: bool) -> Doc {
         match &expr.kind {
+            ExprKind::Tuple(inner) => Doc::Concat(
+                inner
+                    .iter()
+                    .map(|expr| Self::expr_to_doc(lcx, expr, false))
+                    .enumerate()
+                    .map(|(i, doc)| {
+                        if i == 0 {
+                            doc
+                        } else {
+                            Doc::concat([Doc::text(", "), doc])
+                        }
+                    })
+                    .collect(),
+            ),
             ExprKind::Lit(lit) => match lit {
                 Literal::Bool(value) => Doc::text(if *value { "true" } else { "false" }),
                 Literal::Integer(value) => Doc::text(value.to_string()),
