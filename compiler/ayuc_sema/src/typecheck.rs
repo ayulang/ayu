@@ -200,7 +200,7 @@ impl SemanticAnalyzer<'_> {
                             stmt.span.start,
                             match &decl.ty {
                                 Some(ty) => ty.span.end,
-                                None => decl.ident.span.end,
+                                None => decl.pat.span.end,
                             },
                         )),
                         format!("this is of type {}", decl_ty),

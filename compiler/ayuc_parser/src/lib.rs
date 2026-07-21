@@ -1,5 +1,6 @@
 pub mod expr;
 pub mod item;
+pub mod pat;
 pub mod path;
 pub mod stmt;
 pub mod ty;

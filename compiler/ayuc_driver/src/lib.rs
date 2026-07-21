@@ -134,7 +134,7 @@ pub fn drive() -> ExitCode {
 
     let lowering = AstLowering::new(&rcx);
     let lcx = lowering.lower(&ast);
-    let code = LuauCodegen::emit(&lcx);
+    let code = LuauCodegen::emit(&lcx, &sess);
 
     if let Some(output) = output
         && let Ok(mut file) = File::create(output)

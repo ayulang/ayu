@@ -3,7 +3,7 @@ use ayuc_hir::{self as hir};
 
 use ayuc_id::{
     ast::NodeId,
-    hir::{DefId, HirId, HirIdAllocator, LocalId},
+    hir::{DefId, HirId, HirIdAllocator},
 };
 use ayuc_resolve::{
     def::Def as RDef,
@@ -16,7 +16,6 @@ use slotmap::SecondaryMap;
 #[derive(Default)]
 pub struct LoweringContext {
     pub items: SecondaryMap<DefId, hir::Item>,
-    pub locals: SecondaryMap<LocalId, hir::Local>,
 
     pub top_level_items: Vec<DefId>,
 }
@@ -94,23 +93,6 @@ impl<'a> AstLowering<'a> {
             .collect::<Vec<_>>();
 
         let return_ty = self.lower_res(return_ty);
-
-        for param in &fun.parameters.parameters {
-            let name = param.ident.sym;
-
-            // we could switch it to use session maybe
-            let local_id = self.rcx.locals_by_node[&param.id];
-
-            self.ctx.locals.insert(
-                local_id,
-                hir::Local {
-                    id: local_id,
-                    name,
-                    mutable: false, // for now
-                },
-            );
-        }
-
         let block = self.lower_block(&fun.block);
 
         hir::FnItem {
@@ -205,6 +187,21 @@ impl<'a> AstLowering<'a> {
         }
     }
 
+    fn lower_pat(&mut self, pat: &ast::Pat) -> hir::Pat {
+        hir::Pat {
+            id: self.lower_id(pat.id),
+            kind: match &pat.kind {
+                ast::PatKind::Identifier { sym, mutable } => hir::PatKind::Identifier {
+                    sym: *sym,
+                    mutable: *mutable,
+                },
+                ast::PatKind::Tuple(parts) => {
+                    hir::PatKind::Tuple(parts.iter().map(|part| self.lower_pat(part)).collect())
+                }
+            },
+        }
+    }
+
     fn lower_stmt(&mut self, stmt: &ast::Stmt) -> hir::Stmt {
         let id = self.lower_id(stmt.id);
         let kind = match &stmt.kind {
@@ -230,9 +227,8 @@ impl<'a> AstLowering<'a> {
             }),
             ast::StmtKind::Expr(expr) => hir::StmtKind::Expr(self.lower_expr(expr)),
             ast::StmtKind::Let(decl) => hir::StmtKind::Let(hir::LetStmt {
-                ident: decl.ident.sym,
+                pat: self.lower_pat(&decl.pat),
                 ty: self.lower_res(self.rcx.ty_res(stmt.id)),
-                mutable: decl.mutable,
                 init: self.lower_expr(&decl.init),
             }),
             ast::StmtKind::Return(ret) => hir::StmtKind::Return(hir::ReturnStmt {
@@ -240,20 +236,6 @@ impl<'a> AstLowering<'a> {
             }),
             ayuc_ast::StmtKind::If(if_stmt) => hir::StmtKind::If(self.lower_if_stmt(if_stmt)),
         };
-
-        if let hir::StmtKind::Let(decl) = &kind {
-            let name = decl.ident;
-            let local_id = self.rcx.locals_by_node[&stmt.id];
-
-            self.ctx.locals.insert(
-                local_id,
-                hir::Local {
-                    id: local_id,
-                    name,
-                    mutable: decl.mutable,
-                },
-            );
-        }
 
         hir::Stmt { id, kind }
     }

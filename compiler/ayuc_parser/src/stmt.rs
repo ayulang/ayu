@@ -64,8 +64,7 @@ impl Parser<'_, '_, '_> {
             todo!()
         }
 
-        let mutable = self.maybe(TokenKind::Keyword(Keyword::Mut));
-        let ident = self.parse_ident()?;
+        let pat = self.parse_pat()?;
 
         let ty = if self.maybe(TokenKind::Colon) {
             Some(self.parse_ty()?)
@@ -85,8 +84,7 @@ impl Parser<'_, '_, '_> {
 
         Ok(LetStmt {
             ty,
-            mutable,
-            ident,
+            pat,
             init: expr,
         })
     }

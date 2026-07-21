@@ -1,7 +1,7 @@
 use ayuc_id::ast::NodeId;
 use ayuc_span::Span;
 
-use crate::{Block, Expr, Ident, Ty};
+use crate::{Block, Expr, Ident, Pat, Ty};
 
 #[derive(Debug)]
 pub struct Stmt {
@@ -58,8 +58,7 @@ pub struct AssignStmt {
 
 #[derive(Debug)]
 pub struct LetStmt {
-    pub ident: Ident,
-    pub mutable: bool,
+    pub pat: Pat,
     pub init: Expr,
     pub ty: Option<Ty>,
 }

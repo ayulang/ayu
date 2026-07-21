@@ -87,6 +87,15 @@ impl Renderer {
 
                 buf.push_str(&self.full_indent_str);
             }
+            Doc::Separated(docs, sep) => {
+                for (i, doc) in docs.iter().enumerate() {
+                    if i != 0 {
+                        self.render_to(buf, sep);
+                    }
+
+                    self.render_to(buf, doc);
+                }
+            }
             Doc::Skip => {}
         }
     }

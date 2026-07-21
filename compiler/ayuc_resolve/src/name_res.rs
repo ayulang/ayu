@@ -1,6 +1,6 @@
 use crate::{def::Def, resolver::Resolver};
 
-use ayuc_ast as ast;
+use ayuc_ast::{self as ast, PatKind};
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_id::{
     ast::NodeId,
@@ -252,14 +252,7 @@ impl Resolver<'_, '_> {
                 // Walk the expression first, so stuff like `let x = x` won't reference itself.
                 self.n2_walk_expr(&decl.init);
 
-                let local_id = self.sess.register_local(LocalInfo {
-                    name: decl.ident.sym,
-                    defined_where: stmt.span,
-                    id: stmt.id,
-                    mutable: decl.mutable,
-                });
-
-                self.register_local(decl.ident.sym, local_id, stmt.id);
+                self.n2_walk_pat(&decl.pat);
             }
 
             ast::StmtKind::If(if_stmt) => self.n2_walk_if_stmt(if_stmt),
@@ -267,6 +260,26 @@ impl Resolver<'_, '_> {
             ast::StmtKind::Return(ast::ReturnStmt { expr }) => self.n2_walk_expr(expr),
 
             ast::StmtKind::Break => {}
+        }
+    }
+
+    fn n2_walk_pat(&mut self, pat: &ast::Pat) {
+        match &pat.kind {
+            PatKind::Identifier { sym, mutable } => {
+                let local_id = self.sess.register_local(LocalInfo {
+                    name: *sym,
+                    defined_where: pat.span,
+                    id: pat.id,
+                    mutable: *mutable,
+                });
+
+                self.register_local(*sym, local_id, pat.id);
+            }
+            PatKind::Tuple(pats) => {
+                for pat in pats {
+                    self.n2_walk_pat(pat);
+                }
+            }
         }
     }
 

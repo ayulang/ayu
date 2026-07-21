@@ -9,3 +9,4 @@ ayuc_id = { path = "../ayuc_id" }
 ayuc_pretty = { path = "../ayuc_pretty" }
 ayuc_lower = { path = "../ayuc_lower" }
 ayuc_span = { path = "../ayuc_span" }
+ayuc_session = { path = "../ayuc_session" }

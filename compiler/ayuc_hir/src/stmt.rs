@@ -1,7 +1,6 @@
 use ayuc_id::hir::HirId;
-use ayuc_span::symbol::Symbol;
 
-use crate::{Block, Def, Expr, Ty};
+use crate::{Block, Def, Expr, Pat, Ty};
 
 #[derive(Debug)]
 pub struct Stmt {
@@ -51,9 +50,8 @@ pub struct AssignStmt {
 
 #[derive(Debug)]
 pub struct LetStmt {
-    pub ident: Symbol,
+    pub pat: Pat,
     pub ty: Ty,
-    pub mutable: bool,
     pub init: Expr,
 }
 

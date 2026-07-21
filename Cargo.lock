@@ -53,6 +53,7 @@ dependencies = [
  "ayuc_id",
  "ayuc_lower",
  "ayuc_pretty",
+ "ayuc_session",
  "ayuc_span",
 ]
 
