@@ -36,26 +36,41 @@ impl Parser<'_, '_, '_> {
         Ok(match first {
             StructuredToken::Delimited(span, Delimiter::Parenthesis, tokens) => {
                 let mut inner = self.branch(TokenStream::new(tokens));
-                let expr = inner.parse_expression()?;
+                let snapshot = inner.stream.snapshot();
 
-                if !inner.stream.is_exhausted() {
-                    let first = match inner.stream.first().unwrap() {
-                        StructuredToken::Token(Token { span, .. })
-                        | StructuredToken::Delimited(span, ..) => *span,
-                    };
+                let mut parts = Vec::new();
+                let mut expect_expr = !inner.stream.is_exhausted();
 
-                    let span = Span::from((first.start, span.end));
+                while expect_expr && !inner.stream.is_exhausted() {
+                    parts.push(inner.parse_expression()?);
 
-                    return Err(Diagnostic::error(self.file_id, span, Recovery::Fatal)
-                        .with_message("leftover tokens in parenthesized expression")
-                        .with_label(Label::help(expr.span, "the parsed inner expression"))
-                        .with_label(Label::primary(span, "the leftover tokens")));
+                    expect_expr = inner.maybe(TokenKind::Comma);
                 }
 
-                Expr {
-                    id: self.node_id_allocator.allocate(),
-                    kind: ExprKind::Parenthesized(Box::new(expr)),
-                    span: *span,
+                if expect_expr {
+                    let span = Span::from(inner.stream.span_since(snapshot).end);
+
+                    self.dcx.emit(
+                        Diagnostic::error(self.file_id, span, Recovery::Recovered)
+                            .with_message("expected expression, got unexpected end of input")
+                            .with_label(Label::primary(span, "expected expression here")),
+                    );
+                }
+
+                if parts.len() == 1 {
+                    let part = parts.remove(0);
+
+                    Expr {
+                        id: self.node_id_allocator.allocate(),
+                        kind: ExprKind::Parenthesized(Box::new(part)),
+                        span: *span,
+                    }
+                } else {
+                    Expr {
+                        id: self.node_id_allocator.allocate(),
+                        kind: ExprKind::Tuple(parts),
+                        span: *span,
+                    }
                 }
             }
             StructuredToken::Token(Token {
