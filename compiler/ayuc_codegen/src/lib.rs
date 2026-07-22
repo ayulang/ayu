@@ -526,6 +526,7 @@ impl<'a> LuauCodegen<'a> {
                         Doc::concat([
                             Doc::text("local "),
                             Doc::separated(temps.iter().map(Doc::text), Doc::text(", ")),
+                            Doc::Hardline,
                         ])
                     };
 
@@ -534,7 +535,6 @@ impl<'a> LuauCodegen<'a> {
                         Doc::Hardline,
                         Doc::indent(Doc::concat([
                             tmp_decls,
-                            Doc::Hardline,
                             Doc::concat([
                                 Doc::separated(assignments.iter().map(Doc::text), Doc::text(", ")),
                                 Doc::text(" = "),
@@ -552,8 +552,14 @@ impl<'a> LuauCodegen<'a> {
                                     expr_doc
                                 },
                             ]),
-                            Doc::Hardline,
-                            Doc::separated(collected_assignments, Doc::StmtSep),
+                            if collected_assignments.is_empty() {
+                                Doc::Skip
+                            } else {
+                                Doc::concat([
+                                    Doc::Hardline,
+                                    Doc::separated(collected_assignments, Doc::StmtSep),
+                                ])
+                            },
                         ])),
                         Doc::Hardline,
                         Doc::text("end"),
