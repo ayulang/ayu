@@ -3,18 +3,22 @@ use std::collections::HashMap;
 use ayuc_ast as ast;
 use ayuc_diagnostic::DiagnosticContext;
 use ayuc_id::{
+    TyId,
     ast::NodeId,
     hir::{DefId, LocalId},
 };
 use ayuc_session::Session;
 use slotmap::SlotMap;
 
-use crate::{def::Def, scope::ScopeStack, ty::Ty};
+use crate::{Ty, def::Def, scope::ScopeStack};
 
 #[derive(Default)]
 pub struct ResolutionContext {
+    error_ty: Ty,
+
     /// Stores the resolved `Ty`s
-    pub ty_resolutions: HashMap<NodeId, Ty>,
+    pub ty_resolutions: SlotMap<TyId, Ty>,
+    pub tys_by_node: HashMap<NodeId, TyId>,
 
     /// Stores the resolved `Def`s (local or item definitions) of identifiers.
     pub name_resolutions: HashMap<NodeId, Def>,
@@ -30,8 +34,16 @@ pub struct ResolutionContext {
 }
 
 impl ResolutionContext {
-    pub fn ty_res(&self, id: NodeId) -> &Ty {
-        self.ty_resolutions.get(&id).unwrap_or(&Ty::Error)
+    pub fn ty(&self, id: TyId) -> &Ty {
+        self.ty_resolutions.get(id).unwrap_or(&self.error_ty)
+    }
+
+    pub fn ty_of(&self, id: NodeId) -> &Ty {
+        self.tys_by_node
+            .get(&id)
+            .copied()
+            .map(|ty_id| &self.ty_resolutions[ty_id])
+            .unwrap_or(&self.error_ty)
     }
 
     pub fn get_name_res(&self, id: NodeId) -> Def {

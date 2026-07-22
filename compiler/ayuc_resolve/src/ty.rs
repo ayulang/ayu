@@ -1,16 +1,60 @@
 use std::fmt::Display;
 
+use ayuc_id::TyId;
 use ayuc_span::symbol::Symbol;
+use slotmap::Key;
+
+#[derive(Debug, Clone)]
+pub struct Ty {
+    pub id: TyId,
+    pub kind: TyKind,
+}
+
+impl Ty {
+    pub fn is_error(&self) -> bool {
+        self.kind == TyKind::Error
+    }
+
+    pub fn error() -> Self {
+        Self {
+            id: TyId::null(),
+            kind: TyKind::Error,
+        }
+    }
+
+    #[inline]
+    pub fn is_unit(&self) -> bool {
+        self.kind == TyKind::UNIT
+    }
+}
+
+impl Default for Ty {
+    fn default() -> Self {
+        Self::error()
+    }
+}
+
+impl PartialEq for Ty {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+impl Eq for Ty {}
+impl Display for Ty {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.kind.fmt(f)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Ty {
+pub enum TyKind {
     Tuple(Vec<Ty>),
     Prim(PrimTy),
     Fn(Vec<Ty>, Box<Ty>),
     Error,
 }
 
-impl Ty {
+impl TyKind {
     pub const UNIT: Self = Self::Tuple(Vec::new());
 
     pub fn is_error(&self) -> bool {
@@ -25,7 +69,7 @@ pub enum PrimTy {
     Str,
 }
 
-impl Display for Ty {
+impl Display for TyKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Prim(ty) => match ty {

@@ -6,7 +6,7 @@ use ayuc_ast::{
 };
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_id::ast::NodeId;
-use ayuc_resolve::{PrimTy, Ty, def::Def};
+use ayuc_resolve::{PrimTy, Ty, TyKind, def::Def};
 use ayuc_span::Span;
 
 use crate::SemanticAnalyzer;
@@ -36,7 +36,7 @@ impl SemanticAnalyzer<'_> {
     }
 
     fn tc_walk_fn_item(&mut self, item_id: NodeId, item: &FnDecl) {
-        let Ty::Fn(_, return_ty) = self.rcx.ty_res(item_id) else {
+        let TyKind::Fn(_, return_ty) = &self.rcx.ty_of(item_id).kind else {
             unreachable!()
         };
 
@@ -49,7 +49,7 @@ impl SemanticAnalyzer<'_> {
     fn tc_check_for_return(&mut self, stmt: &ast::Stmt, return_ty: &Ty) {
         match &stmt.kind {
             StmtKind::Return(ret) => {
-                let ty = self.rcx.ty_res(ret.expr.id);
+                let ty = self.rcx.ty_of(ret.expr.id);
 
                 if ty != return_ty {
                     self.dcx.emit(
@@ -102,9 +102,9 @@ impl SemanticAnalyzer<'_> {
                 }
             }
             ast::StmtKind::While(r#while) => {
-                let condition_ty = self.rcx.ty_res(r#while.expr.id);
+                let condition_ty = self.rcx.ty_of(r#while.expr.id);
 
-                if !matches!(condition_ty, Ty::Prim(PrimTy::Boolean)) {
+                if !matches!(condition_ty.kind, TyKind::Prim(PrimTy::Boolean)) {
                     self.dcx.emit(
                         Diagnostic::error(self.file_id, r#while.expr.span, Recovery::Fatal)
                             .with_message("condition of while statement must be of type bool")
@@ -127,9 +127,9 @@ impl SemanticAnalyzer<'_> {
     }
 
     fn tc_walk_if_stmt(&mut self, if_stmt: &IfStmt) {
-        let condition_ty = self.rcx.ty_res(if_stmt.expr.id);
+        let condition_ty = self.rcx.ty_of(if_stmt.expr.id);
 
-        if !matches!(condition_ty, Ty::Prim(PrimTy::Boolean)) {
+        if !matches!(condition_ty.kind, TyKind::Prim(PrimTy::Boolean)) {
             self.dcx.emit(
                 Diagnostic::error(self.file_id, if_stmt.expr.span, Recovery::Fatal)
                     .with_message("condition of if statements must be of type bool")
@@ -163,8 +163,8 @@ impl SemanticAnalyzer<'_> {
 
         let info = self.sess.local(local);
 
-        let ty = self.rcx.ty_res(info.id);
-        let expr_ty = self.rcx.ty_res(assign.value.id);
+        let ty = self.rcx.ty_of(info.id);
+        let expr_ty = self.rcx.ty_of(assign.value.id);
 
         if ty.is_error() || expr_ty.is_error() {
             return;
@@ -187,8 +187,8 @@ impl SemanticAnalyzer<'_> {
     }
 
     fn tc_check_let_stmt(&mut self, stmt: &ast::Stmt, decl: &ast::LetStmt) {
-        let decl_ty = self.rcx.ty_res(stmt.id);
-        let expr_ty = self.rcx.ty_res(decl.init.id);
+        let decl_ty = self.rcx.ty_of(stmt.id);
+        let expr_ty = self.rcx.ty_of(decl.init.id);
 
         if decl_ty.is_error() || expr_ty.is_error() {
             return;
@@ -219,14 +219,14 @@ impl SemanticAnalyzer<'_> {
 
         // Pattern exhaustiveness check
 
-        if let Ty::Tuple(expr) = expr_ty
+        if let TyKind::Tuple(expr) = &expr_ty.kind
             && let PatKind::Tuple(pat) = &decl.pat.kind
         {
             let mut queue =
                 VecDeque::from_iter(expr.iter().enumerate().map(|(i, ty)| (ty, pat.get(i))));
 
             while let Some((ty, maybe_pat)) = queue.pop_front() {
-                if let Ty::Tuple(nested_tys) = ty
+                if let TyKind::Tuple(nested_tys) = &ty.kind
                     && let Some(pat) = maybe_pat
                     && let PatKind::Tuple(nested_pats) = &pat.kind
                 {

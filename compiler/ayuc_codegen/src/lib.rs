@@ -3,9 +3,9 @@ mod export;
 use std::collections::VecDeque;
 
 use ayuc_hir::{
-    AlternateBranch, AssignOp, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem, ExternModItem,
-    FnItem, IfStmt, InlineModItem, IntlSegment, Item, ItemKind, LetStmt, Literal, Parameter,
-    PatKind, Path, Stmt, StmtKind, Visibility,
+    AlternateBranch, AssignOp, AssignStmt, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem,
+    ExternModItem, FnItem, IfStmt, InlineModItem, IntlSegment, Item, ItemKind, LetStmt, Literal,
+    Parameter, PatKind, Path, Stmt, StmtKind, Visibility,
 };
 use ayuc_id::hir::DefId;
 use ayuc_lower::LoweringContext;
@@ -359,20 +359,7 @@ impl<'a> LuauCodegen<'a> {
                 Doc::Hardline,
                 Doc::text("end"),
             ])),
-            StmtKind::Assign(assign) => Doc::Concat(Vec::from([
-                Doc::text(self.def_to_sym(&assign.ident).as_str()),
-                Doc::text(" "),
-                Doc::text(match assign.op {
-                    AssignOp::Add => "+=",
-                    AssignOp::Sub => "-=",
-                    AssignOp::Assign => "=",
-                    AssignOp::Div => "/=",
-                    AssignOp::Modulus => "%=",
-                    AssignOp::Mul => "*=",
-                }),
-                Doc::text(" "),
-                self.expr_to_doc(&assign.value, false),
-            ])),
+            StmtKind::Assign(assign) => self.assign_stmt_to_doc(assign),
             StmtKind::Return(ret) => Doc::Concat(vec![
                 Doc::text("return "),
                 self.expr_to_doc(&ret.expr, false),
@@ -381,6 +368,43 @@ impl<'a> LuauCodegen<'a> {
             StmtKind::If(if_stmt) => self.if_stmt_to_doc(if_stmt, false),
             StmtKind::Let(let_stmt) => self.let_stmt_to_doc(let_stmt),
         }
+    }
+
+    fn assign_stmt_to_doc(&self, assign_stmt: &AssignStmt) -> Doc {
+        let node_id = self
+            .lcx
+            .id_mappings
+            .get_by_right(&assign_stmt.value.id)
+            .copied()
+            .unwrap();
+        let ty_res = self.rcx.ty_of(node_id);
+        let wrap_expr = if let ayuc_resolve::TyKind::Tuple(inner) = &ty_res.kind
+            && inner.len() > 1
+        {
+            matches!(assign_stmt.value.kind, ExprKind::Call(_))
+        } else {
+            false
+        };
+        let expr_doc = self.expr_to_doc(&assign_stmt.value, false);
+
+        Doc::Concat(Vec::from([
+            Doc::text(self.def_to_sym(&assign_stmt.ident).as_str()),
+            Doc::text(" "),
+            Doc::text(match assign_stmt.op {
+                AssignOp::Add => "+=",
+                AssignOp::Sub => "-=",
+                AssignOp::Assign => "=",
+                AssignOp::Div => "/=",
+                AssignOp::Modulus => "%=",
+                AssignOp::Mul => "*=",
+            }),
+            Doc::text(" "),
+            if wrap_expr {
+                Doc::concat([Doc::text("{"), expr_doc, Doc::text("}")])
+            } else {
+                expr_doc
+            },
+        ]))
     }
 
     fn let_stmt_to_doc(&self, let_stmt: &LetStmt) -> Doc {
@@ -394,11 +418,11 @@ impl<'a> LuauCodegen<'a> {
                     .get_by_right(&let_stmt.init.id)
                     .copied()
                     .unwrap();
-                let ty_res = self.rcx.ty_res(node_id);
-                let wrap_expr = if let ayuc_resolve::Ty::Tuple(inner) = ty_res
+                let ty_res = self.rcx.ty_of(node_id);
+                let wrap_expr = if let ayuc_resolve::TyKind::Tuple(inner) = &ty_res.kind
                     && inner.len() > 1
                 {
-                    true
+                    matches!(let_stmt.init.kind, ExprKind::Call(_))
                 } else {
                     false
                 };
@@ -421,11 +445,12 @@ impl<'a> LuauCodegen<'a> {
                 ])
             }
             PatKind::Tuple(parts) => {
+                let expr_needs_unpacking = !matches!(let_stmt.init.kind, ExprKind::Call(_));
                 let has_nested_tuples = parts
                     .iter()
                     .any(|part| matches!(part.kind, PatKind::Tuple(_)));
 
-                if has_nested_tuples {
+                if has_nested_tuples || expr_needs_unpacking {
                     let mut temps = Vec::new();
                     let mut assignments = Vec::new();
 
@@ -505,7 +530,19 @@ impl<'a> LuauCodegen<'a> {
                             Doc::concat([
                                 Doc::separated(assignments.iter().map(Doc::text), Doc::text(", ")),
                                 Doc::text(" = "),
-                                expr_doc,
+                                if expr_needs_unpacking {
+                                    Doc::separated(
+                                        (0..assignments.len()).into_iter().map(|i| {
+                                            Doc::concat([
+                                                expr_doc.clone(),
+                                                Doc::text(format!("[{}]", i + 1)),
+                                            ])
+                                        }),
+                                        Doc::text(", "),
+                                    )
+                                } else {
+                                    expr_doc
+                                },
                             ]),
                             Doc::Hardline,
                             Doc::separated(collected_assignments, Doc::StmtSep),

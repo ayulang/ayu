@@ -8,7 +8,7 @@ use ayuc_id::{
 use ayuc_resolve::{
     def::Def as RDef,
     resolver::ResolutionContext,
-    ty::{PrimTy as RPrimTy, Ty as RTy},
+    ty::{PrimTy as RPrimTy, Ty as RTy, TyKind as RTyKind},
 };
 use bimap::BiHashMap;
 use slotmap::SecondaryMap;
@@ -74,7 +74,7 @@ impl<'a> AstLowering<'a> {
     }
 
     fn lower_fn_item(&mut self, item: &ast::Item, fun: &ast::FnDecl) -> hir::FnItem {
-        let RTy::Fn(parameters, return_ty) = self.rcx.ty_res(item.id) else {
+        let RTyKind::Fn(parameters, return_ty) = &self.rcx.ty_of(item.id).kind else {
             unreachable!()
         };
 
@@ -149,7 +149,7 @@ impl<'a> AstLowering<'a> {
             }),
             ast::ItemKind::Fn(fun) => hir::ItemKind::Fn(self.lower_fn_item(item, fun)),
             ast::ItemKind::ExternFn(extern_fun) => {
-                let RTy::Fn(parameters, return_ty) = self.rcx.ty_res(item.id) else {
+                let RTyKind::Fn(parameters, return_ty) = &self.rcx.ty_of(item.id).kind else {
                     unreachable!()
                 };
 
@@ -227,7 +227,7 @@ impl<'a> AstLowering<'a> {
             ast::StmtKind::Expr(expr) => hir::StmtKind::Expr(self.lower_expr(expr)),
             ast::StmtKind::Let(decl) => hir::StmtKind::Let(hir::LetStmt {
                 pat: self.lower_pat(&decl.pat),
-                ty: self.lower_res(self.rcx.ty_res(stmt.id)),
+                ty: self.lower_res(self.rcx.ty_of(stmt.id)),
                 init: self.lower_expr(&decl.init),
             }),
             ast::StmtKind::Return(ret) => hir::StmtKind::Return(hir::ReturnStmt {
@@ -344,20 +344,20 @@ impl<'a> AstLowering<'a> {
     }
 
     fn lower_res(&self, res: &RTy) -> hir::Ty {
-        match res {
-            RTy::Tuple(inner) => {
+        match &res.kind {
+            RTyKind::Tuple(inner) => {
                 hir::Ty::Tuple(inner.iter().map(|child| self.lower_res(child)).collect())
             }
-            RTy::Prim(prim) => hir::Ty::Primitive(match prim {
+            RTyKind::Prim(prim) => hir::Ty::Primitive(match prim {
                 RPrimTy::Boolean => hir::PrimTy::Boolean,
                 RPrimTy::Integer => hir::PrimTy::Integer,
                 RPrimTy::Str => hir::PrimTy::Str,
             }),
-            RTy::Fn(params, return_ty) => hir::Ty::Fn(
+            RTyKind::Fn(params, return_ty) => hir::Ty::Fn(
                 params.iter().map(|id| self.lower_res(id)).collect(),
                 Box::new(self.lower_res(return_ty)),
             ),
-            RTy::Error => unreachable!(),
+            RTyKind::Error => unreachable!(),
         }
     }
 }
