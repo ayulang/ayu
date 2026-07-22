@@ -2,7 +2,7 @@ use ayuc_ast::{
     AlternateBranch, Ast, CallExpr, Expr, ExprKind, IfStmt, Item, ItemKind, Stmt, StmtKind,
 };
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
-use ayuc_resolve::def::Def;
+use ayuc_resolve::{Ty, TyKind, def::Def};
 
 use crate::SemanticAnalyzer;
 
@@ -91,6 +91,22 @@ impl SemanticAnalyzer<'_> {
     }
 
     fn cc_check_call_expr(&mut self, expr: &Expr, call: &CallExpr) {
+        let ty = self.rcx.ty_of(call.callee.id);
+        let is_fn = matches!(ty.kind, TyKind::Fn(_, _));
+
+        if !is_fn {
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, call.callee.span, Recovery::Fatal)
+                    .with_message("mismatched types")
+                    .with_label(Label::primary(
+                        call.callee.span,
+                        format!("expected a function, got {ty}"),
+                    )),
+            );
+
+            return;
+        }
+
         let id = match &call.callee.kind {
             ExprKind::Path(path) => path.id,
             _ => return,
