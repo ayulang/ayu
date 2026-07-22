@@ -6,6 +6,7 @@ use crate::{
 
 use ayuc_ast::{self as ast, AlternateBranch, ExprKind, IfStmt, Literal, Operator};
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
+use ayuc_span::Span;
 
 impl Resolver<'_, '_> {
     pub(crate) fn resolve_types(&mut self, ast: &ast::Ast) {
@@ -117,24 +118,22 @@ impl Resolver<'_, '_> {
     }
 
     #[must_use = "inferred types are not automatically inserted into the ResolutionContext"]
-    fn tr_infer_ty(&mut self, _stmt: &ast::Stmt, decl: &ast::LetStmt) -> Ty {
+    fn tr_infer_ty(&mut self, stmt: &ast::Stmt, decl: &ast::LetStmt) -> Ty {
         let inferred = self.tr_type_of_expr(&decl.init).clone();
 
         if inferred.is_error() {
-            /*self.dcx.emit(
+            self.dcx.emit(
                 Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
-                    .with_message(format!("unable to infer type of `{}`", decl.ident.sym))
+                    .with_message("unable to infer type")
                     .with_label(Label::primary(
-                        Span::from((stmt.span.start, decl.ident.span.end)),
+                        Span::from((stmt.span.start, decl.pat.span.end)),
                         "unable to infer type",
                     ))
                     .with_label(Label::help(
                         decl.init.span,
                         "initializer expression doesn't resolve to a clear type",
-                    ))
-                    .with_help(format!("consider assigning a type to `{}`", decl.ident.sym)),
-            );*/
-            todo!()
+                    )),
+            );
         }
 
         inferred
