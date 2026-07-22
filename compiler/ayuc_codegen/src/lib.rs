@@ -469,7 +469,7 @@ impl<'a> LuauCodegen<'a> {
                 ])
             }
             PatKind::Tuple(parts) => {
-                if parts.len() == 0 {
+                if parts.is_empty() {
                     return Doc::Skip; // Handling for `let () = ()`
                 }
 
