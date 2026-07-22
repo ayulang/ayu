@@ -469,6 +469,10 @@ impl<'a> LuauCodegen<'a> {
                 ])
             }
             PatKind::Tuple(parts) => {
+                if parts.len() == 0 {
+                    return Doc::Skip; // Handling for `let () = ()`
+                }
+
                 let expr_needs_unpacking =
                     !matches!(let_stmt.init.kind, ExprKind::Call(_) | ExprKind::Tuple(_));
                 let has_nested_tuples = parts
@@ -677,7 +681,11 @@ impl<'a> LuauCodegen<'a> {
 
                     Doc::concat([Doc::text("{"), all, Doc::text("}")])
                 } else {
-                    all
+                    if inner.is_empty() {
+                        Doc::text("nil")
+                    } else {
+                        all
+                    }
                 }
             }
             ExprKind::Lit(lit) => match lit {
