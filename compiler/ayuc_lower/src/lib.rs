@@ -3,12 +3,12 @@ use ayuc_hir::{self as hir};
 
 use ayuc_id::{
     ast::NodeId,
-    hir::{DefId, HirId, HirIdAllocator, LocalId},
+    hir::{DefId, HirId, HirIdAllocator},
 };
 use ayuc_resolve::{
     def::Def as RDef,
     resolver::ResolutionContext,
-    ty::{PrimTy as RPrimTy, Ty as RTy},
+    ty::{PrimTy as RPrimTy, Ty as RTy, TyKind as RTyKind},
 };
 use bimap::BiHashMap;
 use slotmap::SecondaryMap;
@@ -16,15 +16,14 @@ use slotmap::SecondaryMap;
 #[derive(Default)]
 pub struct LoweringContext {
     pub items: SecondaryMap<DefId, hir::Item>,
-    pub locals: SecondaryMap<LocalId, hir::Local>,
 
     pub top_level_items: Vec<DefId>,
+    pub id_mappings: BiHashMap<NodeId, HirId>,
 }
 
 pub struct AstLowering<'a> {
     ctx: LoweringContext,
     rcx: &'a ResolutionContext,
-    id_mappings: BiHashMap<NodeId, HirId>,
 
     hir_id_allocator: HirIdAllocator,
 }
@@ -44,7 +43,6 @@ impl<'a> AstLowering<'a> {
         Self {
             ctx: LoweringContext::default(),
             rcx,
-            id_mappings: BiHashMap::new(),
             hir_id_allocator: HirIdAllocator::new(),
         }
     }
@@ -64,19 +62,19 @@ impl<'a> AstLowering<'a> {
 
     #[must_use]
     fn lower_id(&mut self, id: NodeId) -> HirId {
-        if self.id_mappings.get_by_left(&id).is_some() {
+        if self.ctx.id_mappings.get_by_left(&id).is_some() {
             panic!("tried to lower NodeId ({id:?}) into HirId: it has already been lowered");
         }
 
         let hir_id = self.hir_id_allocator.allocate();
 
-        self.id_mappings.insert(id, hir_id);
+        self.ctx.id_mappings.insert(id, hir_id);
 
         hir_id
     }
 
     fn lower_fn_item(&mut self, item: &ast::Item, fun: &ast::FnDecl) -> hir::FnItem {
-        let RTy::Fn(parameters, return_ty) = self.rcx.ty_res(item.id) else {
+        let RTyKind::Fn(parameters, return_ty) = &self.rcx.ty_of(item.id).kind else {
             unreachable!()
         };
 
@@ -94,23 +92,6 @@ impl<'a> AstLowering<'a> {
             .collect::<Vec<_>>();
 
         let return_ty = self.lower_res(return_ty);
-
-        for param in &fun.parameters.parameters {
-            let name = param.ident.sym;
-
-            // we could switch it to use session maybe
-            let local_id = self.rcx.locals_by_node[&param.id];
-
-            self.ctx.locals.insert(
-                local_id,
-                hir::Local {
-                    id: local_id,
-                    name,
-                    mutable: false, // for now
-                },
-            );
-        }
-
         let block = self.lower_block(&fun.block);
 
         hir::FnItem {
@@ -168,7 +149,7 @@ impl<'a> AstLowering<'a> {
             }),
             ast::ItemKind::Fn(fun) => hir::ItemKind::Fn(self.lower_fn_item(item, fun)),
             ast::ItemKind::ExternFn(extern_fun) => {
-                let RTy::Fn(parameters, return_ty) = self.rcx.ty_res(item.id) else {
+                let RTyKind::Fn(parameters, return_ty) = &self.rcx.ty_of(item.id).kind else {
                     unreachable!()
                 };
 
@@ -205,6 +186,21 @@ impl<'a> AstLowering<'a> {
         }
     }
 
+    fn lower_pat(&mut self, pat: &ast::Pat) -> hir::Pat {
+        hir::Pat {
+            id: self.lower_id(pat.id),
+            kind: match &pat.kind {
+                ast::PatKind::Identifier { sym, mutable } => hir::PatKind::Identifier {
+                    sym: *sym,
+                    mutable: *mutable,
+                },
+                ast::PatKind::Tuple(parts) => {
+                    hir::PatKind::Tuple(parts.iter().map(|part| self.lower_pat(part)).collect())
+                }
+            },
+        }
+    }
+
     fn lower_stmt(&mut self, stmt: &ast::Stmt) -> hir::Stmt {
         let id = self.lower_id(stmt.id);
         let kind = match &stmt.kind {
@@ -230,30 +226,15 @@ impl<'a> AstLowering<'a> {
             }),
             ast::StmtKind::Expr(expr) => hir::StmtKind::Expr(self.lower_expr(expr)),
             ast::StmtKind::Let(decl) => hir::StmtKind::Let(hir::LetStmt {
-                ident: decl.ident.sym,
-                ty: self.lower_res(self.rcx.ty_res(stmt.id)),
-                mutable: decl.mutable,
+                pat: self.lower_pat(&decl.pat),
+                ty: self.lower_res(self.rcx.ty_of(stmt.id)),
                 init: self.lower_expr(&decl.init),
             }),
             ast::StmtKind::Return(ret) => hir::StmtKind::Return(hir::ReturnStmt {
-                expr: ret.expr.as_ref().map(|expr| self.lower_expr(expr)),
+                expr: self.lower_expr(&ret.expr),
             }),
             ayuc_ast::StmtKind::If(if_stmt) => hir::StmtKind::If(self.lower_if_stmt(if_stmt)),
         };
-
-        if let hir::StmtKind::Let(decl) = &kind {
-            let name = decl.ident;
-            let local_id = self.rcx.locals_by_node[&stmt.id];
-
-            self.ctx.locals.insert(
-                local_id,
-                hir::Local {
-                    id: local_id,
-                    name,
-                    mutable: decl.mutable,
-                },
-            );
-        }
 
         hir::Stmt { id, kind }
     }
@@ -276,6 +257,10 @@ impl<'a> AstLowering<'a> {
     fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {
         let id = self.lower_id(expr.id);
         let kind = match &expr.kind {
+            ast::ExprKind::Tuple(inner) => {
+                hir::ExprKind::Tuple(inner.iter().map(|child| self.lower_expr(child)).collect())
+            }
+
             ast::ExprKind::Parenthesized(expr) => {
                 hir::ExprKind::Parenthesized(Box::new(self.lower_expr(expr)))
             }
@@ -359,18 +344,20 @@ impl<'a> AstLowering<'a> {
     }
 
     fn lower_res(&self, res: &RTy) -> hir::Ty {
-        match res {
-            RTy::Unit => hir::Ty::Unit,
-            RTy::Prim(prim) => hir::Ty::Primitive(match prim {
+        match &res.kind {
+            RTyKind::Tuple(inner) => {
+                hir::Ty::Tuple(inner.iter().map(|child| self.lower_res(child)).collect())
+            }
+            RTyKind::Prim(prim) => hir::Ty::Primitive(match prim {
                 RPrimTy::Boolean => hir::PrimTy::Boolean,
                 RPrimTy::Integer => hir::PrimTy::Integer,
                 RPrimTy::Str => hir::PrimTy::Str,
             }),
-            RTy::Fn(params, return_ty) => hir::Ty::Fn(
+            RTyKind::Fn(params, return_ty) => hir::Ty::Fn(
                 params.iter().map(|id| self.lower_res(id)).collect(),
                 Box::new(self.lower_res(return_ty)),
             ),
-            RTy::Error => unreachable!(),
+            RTyKind::Error => unreachable!(),
         }
     }
 }

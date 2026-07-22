@@ -26,6 +26,7 @@ pub enum ExprKind {
     Path(Path),
     Binary(BinExpr),
     Parenthesized(Box<Expr>),
+    Tuple(Vec<Expr>),
 }
 
 #[derive(Debug)]

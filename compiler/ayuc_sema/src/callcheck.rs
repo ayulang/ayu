@@ -2,7 +2,7 @@ use ayuc_ast::{
     AlternateBranch, Ast, CallExpr, Expr, ExprKind, IfStmt, Item, ItemKind, Stmt, StmtKind,
 };
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
-use ayuc_resolve::def::Def;
+use ayuc_resolve::{TyKind, def::Def};
 
 use crate::SemanticAnalyzer;
 
@@ -48,9 +48,7 @@ impl SemanticAnalyzer<'_> {
             }
             StmtKind::Let(decl) => self.cc_walk_expr(&decl.init),
             StmtKind::Return(ret) => {
-                if let Some(expr) = &ret.expr {
-                    self.cc_walk_expr(expr);
-                }
+                self.cc_walk_expr(&ret.expr);
             }
             StmtKind::Assignment(assign) => self.cc_walk_expr(&assign.value),
             StmtKind::Break => {}
@@ -77,6 +75,11 @@ impl SemanticAnalyzer<'_> {
 
     fn cc_walk_expr(&mut self, expr: &Expr) {
         match &expr.kind {
+            ExprKind::Tuple(inner) => {
+                for child in inner {
+                    self.cc_walk_expr(child);
+                }
+            }
             ExprKind::Parenthesized(expr) => self.cc_walk_expr(expr),
             ExprKind::Call(call) => self.cc_check_call_expr(expr, call),
             ExprKind::Binary(bin) => {
@@ -88,6 +91,22 @@ impl SemanticAnalyzer<'_> {
     }
 
     fn cc_check_call_expr(&mut self, expr: &Expr, call: &CallExpr) {
+        let ty = self.rcx.ty_of(call.callee.id);
+        let is_fn = matches!(ty.kind, TyKind::Fn(_, _));
+
+        if !is_fn {
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, call.callee.span, Recovery::Fatal)
+                    .with_message("mismatched types")
+                    .with_label(Label::primary(
+                        call.callee.span,
+                        format!("expected a function, got {ty}"),
+                    )),
+            );
+
+            return;
+        }
+
         let id = match &call.callee.kind {
             ExprKind::Path(path) => path.id,
             _ => return,

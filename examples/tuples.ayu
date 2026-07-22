@@ -1,0 +1,92 @@
+extern fn print(msg: str)
+
+//== Basic tuples ==\\
+
+// Functions can return multiple values as a tuple.
+// Top-level tuple returns transpile efficiently to native Luau multi-returns.
+fn get_coordinates() -> (int, int) {
+    return (10, 25)
+}
+
+fn basic_tuples() {
+    // Deconstruct tuples into individual variables:
+    let (x, y) = get_coordinates()
+    print(`x: {x}, y: {y}`)
+
+    // Destructuring with fewer or more elements than the tuple length
+    // will result in a compile-time error.
+}
+
+//== Nested tuples ==\\
+
+// Tuples can contain other tuples inside them.
+fn get_player_info() -> (str, (int, int)) {
+    return ("Player1", (100, 50))
+}
+
+fn nested_tuples() {
+    // Put a nested tuple into a single variable:
+    let info = get_player_info()
+
+    // Unpack it layer by layer:
+    let (name, stats) = info
+    let (hp, mp) = stats
+
+    print(`Name: {name}, HP: {hp}, MP: {mp}`)
+
+    // ...or unpack nested tuples directly in one pattern statement!
+    let (p_name, (p_hp, p_mp)) = get_player_info()
+
+    // Note: Re-binding the same variable name in a pattern causes a compile-time error:
+    // let (x, x) = (1, 2) // ERROR: `x` is defined more than once in pattern
+}
+
+//== Passing tuples to functions and mutability ==\\
+
+// Functions can accept a tuple as a single argument type:
+fn sum_pair(pair: (int, int)) -> int {
+    let (a, b) = pair
+
+    return a + b
+}
+
+fn mutability_and_passing() {
+    // Declare a mutable tuple variable:
+    let mut point = (5, 10)
+
+    let initial_sum = sum_pair(point)
+
+    print(`Initial sum: {initial_sum}`)
+
+    // Reassign the whole tuple variable:
+    point = (20, 30)
+
+    let updated_sum = sum_pair(point)
+
+    print(`Updated sum: {updated_sum}`)
+}
+
+//== Unit tuples ==\\
+
+// An empty tuple () represents the unit / void type.
+fn do_nothing() -> () {
+    return ()
+}
+
+fn unit_tuple_example() {
+    // Standalone unit tuples evaluate cleanly to nil:
+    let empty_val = do_nothing()
+
+    // When nested, () automatically translates to an empty table {} at runtime
+    // to preserve slot alignment and prevent Luau sparse-table issues:
+    let nested_unit: (int, ()) = (42, ())
+    let (number, unit_var) = nested_unit
+}
+
+// Main function
+fn main() {
+    basic_tuples()
+    nested_tuples()
+    mutability_and_passing()
+    unit_tuple_example()
+}

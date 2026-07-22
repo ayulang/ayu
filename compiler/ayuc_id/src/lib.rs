@@ -1,5 +1,7 @@
 //! This crate contains identifier definitions for the Ayu compiler.
 
+use slotmap::new_key_type;
+
 pub mod allocator;
 pub mod ast;
 pub mod hir;
@@ -35,3 +37,5 @@ macro_rules! define_id {
         }
     };
 }
+
+new_key_type! { pub struct TyId; }

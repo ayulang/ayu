@@ -11,7 +11,7 @@ use ayuc_span::Span;
 
 use crate::{PResult, Parser};
 
-impl Parser<'_, '_> {
+impl Parser<'_, '_, '_> {
     pub fn parse_extern_fn_item(&mut self) -> PResult<ExternFnDecl> {
         if !self.maybe(TokenKind::Keyword(Keyword::Extern)) {
             unreachable!()
@@ -60,7 +60,7 @@ impl Parser<'_, '_> {
             Ty {
                 id: self.node_id_allocator.allocate(),
                 span: params.span.end.into(),
-                kind: TyKind::Unit,
+                kind: TyKind::UNIT,
             }
         };
 
@@ -107,7 +107,7 @@ impl Parser<'_, '_> {
             Ty {
                 id: self.node_id_allocator.allocate(),
                 span: params.span.end.into(),
-                kind: TyKind::Unit,
+                kind: TyKind::UNIT,
             }
         };
 

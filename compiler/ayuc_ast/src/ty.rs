@@ -12,6 +12,10 @@ pub struct Ty {
 
 #[derive(Debug)]
 pub enum TyKind {
-    Unit, // replace later with tuples! Luau has tuples too :)
     Path(Path),
+    Tuple(Vec<Ty>),
+}
+
+impl TyKind {
+    pub const UNIT: Self = Self::Tuple(Vec::new());
 }

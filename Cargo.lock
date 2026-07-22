@@ -53,6 +53,8 @@ dependencies = [
  "ayuc_id",
  "ayuc_lower",
  "ayuc_pretty",
+ "ayuc_resolve",
+ "ayuc_session",
  "ayuc_span",
 ]
 
@@ -131,6 +133,7 @@ dependencies = [
  "ayuc_diagnostic",
  "ayuc_id",
  "ayuc_lexer",
+ "ayuc_session",
  "ayuc_source",
  "ayuc_span",
 ]

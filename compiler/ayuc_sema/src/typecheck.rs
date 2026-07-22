@@ -1,9 +1,12 @@
+use std::collections::VecDeque;
+
 use ayuc_ast::{
-    self as ast, AlternateBranch, FnDecl, IfStmt, Item, ItemKind, LoopStmt, StmtKind, WhileStmt,
+    self as ast, AlternateBranch, FnDecl, IfStmt, Item, ItemKind, LoopStmt, PatKind, StmtKind,
+    WhileStmt,
 };
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_id::ast::NodeId;
-use ayuc_resolve::{PrimTy, Ty, def::Def};
+use ayuc_resolve::{PrimTy, Ty, TyKind, def::Def};
 use ayuc_span::Span;
 
 use crate::SemanticAnalyzer;
@@ -33,7 +36,7 @@ impl SemanticAnalyzer<'_> {
     }
 
     fn tc_walk_fn_item(&mut self, item_id: NodeId, item: &FnDecl) {
-        let Ty::Fn(_, return_ty) = self.rcx.ty_res(item_id) else {
+        let TyKind::Fn(_, return_ty) = &self.rcx.ty_of(item_id).kind else {
             unreachable!()
         };
 
@@ -46,20 +49,19 @@ impl SemanticAnalyzer<'_> {
     fn tc_check_for_return(&mut self, stmt: &ast::Stmt, return_ty: &Ty) {
         match &stmt.kind {
             StmtKind::Return(ret) => {
-                let ty = ret.expr.as_ref().map(|expr| self.rcx.ty_res(expr.id));
-                let (matches, ty_name) = if let Some(ty) = ty {
-                    (ty == return_ty, ty.to_string())
-                } else {
-                    (*return_ty == Ty::Unit, Ty::Unit.to_string())
-                };
+                let ty = self.rcx.ty_of(ret.expr.id);
 
-                if !matches {
+                if ty != return_ty {
                     self.dcx.emit(
                         Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
                             .with_message("incorrect return type")
                             .with_label(Label::primary(
-                                ret.expr.as_ref().map(|expr| expr.span).unwrap_or(stmt.span),
-                                format!("expected type {}, got {}", return_ty, ty_name,),
+                                if self.sess.is_synthetic(ret.expr.id) {
+                                    stmt.span
+                                } else {
+                                    ret.expr.span
+                                },
+                                format!("expected type {}, got {}", return_ty, ty,),
                             )),
                     );
                 }
@@ -100,9 +102,9 @@ impl SemanticAnalyzer<'_> {
                 }
             }
             ast::StmtKind::While(r#while) => {
-                let condition_ty = self.rcx.ty_res(r#while.expr.id);
+                let condition_ty = self.rcx.ty_of(r#while.expr.id);
 
-                if !matches!(condition_ty, Ty::Prim(PrimTy::Boolean)) {
+                if !matches!(condition_ty.kind, TyKind::Prim(PrimTy::Boolean)) {
                     self.dcx.emit(
                         Diagnostic::error(self.file_id, r#while.expr.span, Recovery::Fatal)
                             .with_message("condition of while statement must be of type bool")
@@ -125,9 +127,9 @@ impl SemanticAnalyzer<'_> {
     }
 
     fn tc_walk_if_stmt(&mut self, if_stmt: &IfStmt) {
-        let condition_ty = self.rcx.ty_res(if_stmt.expr.id);
+        let condition_ty = self.rcx.ty_of(if_stmt.expr.id);
 
-        if !matches!(condition_ty, Ty::Prim(PrimTy::Boolean)) {
+        if !matches!(condition_ty.kind, TyKind::Prim(PrimTy::Boolean)) {
             self.dcx.emit(
                 Diagnostic::error(self.file_id, if_stmt.expr.span, Recovery::Fatal)
                     .with_message("condition of if statements must be of type bool")
@@ -161,8 +163,8 @@ impl SemanticAnalyzer<'_> {
 
         let info = self.sess.local(local);
 
-        let ty = self.rcx.ty_res(info.id);
-        let expr_ty = self.rcx.ty_res(assign.value.id);
+        let ty = self.rcx.ty_of(info.id);
+        let expr_ty = self.rcx.ty_of(assign.value.id);
 
         if ty.is_error() || expr_ty.is_error() {
             return;
@@ -185,8 +187,8 @@ impl SemanticAnalyzer<'_> {
     }
 
     fn tc_check_let_stmt(&mut self, stmt: &ast::Stmt, decl: &ast::LetStmt) {
-        let decl_ty = self.rcx.ty_res(stmt.id);
-        let expr_ty = self.rcx.ty_res(decl.init.id);
+        let decl_ty = self.rcx.ty_of(stmt.id);
+        let expr_ty = self.rcx.ty_of(decl.init.id);
 
         if decl_ty.is_error() || expr_ty.is_error() {
             return;
@@ -201,7 +203,7 @@ impl SemanticAnalyzer<'_> {
                             stmt.span.start,
                             match &decl.ty {
                                 Some(ty) => ty.span.end,
-                                None => decl.ident.span.end,
+                                None => decl.pat.span.end,
                             },
                         )),
                         format!("this is of type {}", decl_ty),
@@ -211,6 +213,60 @@ impl SemanticAnalyzer<'_> {
                         format!("this is of type {}", expr_ty),
                     )),
             );
+
+            return;
+        }
+
+        // Pattern exhaustiveness check
+
+        if let TyKind::Tuple(expr) = &expr_ty.kind
+            && let PatKind::Tuple(pat) = &decl.pat.kind
+        {
+            let mut queue =
+                VecDeque::from_iter(expr.iter().enumerate().map(|(i, ty)| (ty, pat.get(i))));
+
+            while let Some((ty, maybe_pat)) = queue.pop_front() {
+                if let TyKind::Tuple(nested_tys) = &ty.kind
+                    && let Some(pat) = maybe_pat
+                    && let PatKind::Tuple(nested_pats) = &pat.kind
+                {
+                    queue.extend(
+                        nested_tys
+                            .iter()
+                            .enumerate()
+                            .map(|(i, ty)| (ty, nested_pats.get(i))),
+                    );
+
+                    if nested_tys.len() != nested_pats.len() {
+                        let mut diagnostic = Diagnostic::error(
+                            self.file_id,
+                            pat.span,
+                            Recovery::Fatal,
+                        )
+                        .with_message("mismatched types")
+                        .with_label(Label::primary(
+                            pat.span,
+                            format!(
+                                "expected a tuple with {} elements, found one with {} elements",
+                                nested_tys.len(),
+                                nested_pats.len()
+                            ),
+                        ))
+                        .with_label(Label::help(
+                            decl.init.span,
+                            format!("this expression has type `{expr_ty}`"),
+                        ));
+
+                        if nested_tys.len() > nested_pats.len() {
+                            diagnostic = diagnostic.with_help(
+                                "consider discarding the missing elements with a `_` variable",
+                            );
+                        }
+
+                        self.dcx.emit(diagnostic);
+                    }
+                }
+            }
         }
     }
 }

@@ -75,7 +75,13 @@ pub fn drive() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    let parser = Parser::new(&mut dcx, file_id, source, TokenStream::new(&tokens));
+    let parser = Parser::new(
+        &mut dcx,
+        file_id,
+        source,
+        TokenStream::new(&tokens),
+        &mut sess,
+    );
     let ast = parser.parse_full();
 
     if ast.is_none() || dcx.requires_abort() {
@@ -128,7 +134,7 @@ pub fn drive() -> ExitCode {
 
     let lowering = AstLowering::new(&rcx);
     let lcx = lowering.lower(&ast);
-    let code = LuauCodegen::emit(&lcx);
+    let code = LuauCodegen::emit(&rcx, &lcx, &sess);
 
     if let Some(output) = output
         && let Ok(mut file) = File::create(output)

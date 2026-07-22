@@ -1,13 +1,13 @@
 use ayuc_ast::{
-    AlternateBranch, AssignOperator, AssignStmt, IfStmt, LetStmt, LoopStmt, ReturnStmt, Stmt,
-    StmtKind, WhileStmt,
+    AlternateBranch, AssignOperator, AssignStmt, Expr, ExprKind, IfStmt, LetStmt, LoopStmt,
+    ReturnStmt, Stmt, StmtKind, WhileStmt,
 };
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_lexer::token::{Keyword, StructuredToken, Token, TokenKind};
 
 use crate::{PResult, Parser};
 
-impl Parser<'_, '_> {
+impl Parser<'_, '_, '_> {
     pub fn parse_if_stmt(&mut self) -> PResult<IfStmt> {
         if !self.maybe(TokenKind::Keyword(Keyword::If)) {
             unreachable!()
@@ -64,8 +64,7 @@ impl Parser<'_, '_> {
             todo!()
         }
 
-        let mutable = self.maybe(TokenKind::Keyword(Keyword::Mut));
-        let ident = self.parse_ident()?;
+        let pat = self.parse_pat()?;
 
         let ty = if self.maybe(TokenKind::Colon) {
             Some(self.parse_ty()?)
@@ -85,18 +84,32 @@ impl Parser<'_, '_> {
 
         Ok(LetStmt {
             ty,
-            mutable,
-            ident,
+            pat,
             init: expr,
         })
     }
 
     pub fn parse_return_stmt(&mut self) -> PResult<ReturnStmt> {
+        let snapshot = self.stream.snapshot();
+
         if !self.maybe(TokenKind::Keyword(Keyword::Return)) {
             todo!()
         }
 
-        let expr = self.with_rollback(|this| this.parse_expression()).ok();
+        let expr = self
+            .with_rollback(|this| this.parse_expression())
+            .ok()
+            .unwrap_or_else(|| {
+                let id = self.node_id_allocator.allocate();
+
+                self.sess.mark_as_synthetic(id);
+
+                Expr {
+                    id,
+                    kind: ExprKind::UNIT,
+                    span: self.stream.span_since(snapshot),
+                }
+            });
 
         Ok(ReturnStmt { expr })
     }
