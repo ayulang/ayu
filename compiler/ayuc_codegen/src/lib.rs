@@ -360,10 +360,31 @@ impl<'a> LuauCodegen<'a> {
                 Doc::text("end"),
             ])),
             StmtKind::Assign(assign) => self.assign_stmt_to_doc(assign),
-            StmtKind::Return(ret) => Doc::Concat(vec![
-                Doc::text("return "),
-                self.expr_to_doc(&ret.expr, false),
-            ]),
+            StmtKind::Return(ret) => {
+                if let ExprKind::Tuple(elements) = &ret.expr.kind {
+                    let safe_exprs = elements.iter().map(|expr| {
+                        if matches!(expr.kind, ExprKind::Call(_)) {
+                            Doc::concat([
+                                Doc::text("{"),
+                                self.expr_to_doc(expr, true),
+                                Doc::text("}"),
+                            ])
+                        } else {
+                            self.expr_to_doc(expr, true)
+                        }
+                    });
+
+                    Doc::concat([
+                        Doc::text("return "),
+                        Doc::separated(safe_exprs, Doc::text(", ")),
+                    ])
+                } else {
+                    Doc::Concat(vec![
+                        Doc::text("return "),
+                        self.expr_to_doc(&ret.expr, false),
+                    ])
+                }
+            }
             StmtKind::Expr(expr) => self.expr_to_doc(expr, false),
             StmtKind::If(if_stmt) => self.if_stmt_to_doc(if_stmt, false),
             StmtKind::Let(let_stmt) => self.let_stmt_to_doc(let_stmt),
