@@ -85,7 +85,7 @@ impl SemanticAnalyzer<'_> {
         }
 
         for (sym, mut definitions) in defined_identifiers {
-            if definitions.len() <= 1 {
+            if definitions.len() <= 1 || sym.as_str() == "_" {
                 continue;
             }
 
