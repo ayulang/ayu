@@ -381,7 +381,10 @@ impl<'a> LuauCodegen<'a> {
         let wrap_expr = if let ayuc_resolve::TyKind::Tuple(inner) = &ty_res.kind
             && inner.len() > 1
         {
-            matches!(assign_stmt.value.kind, ExprKind::Call(_))
+            matches!(
+                assign_stmt.value.kind,
+                ExprKind::Call(_) | ExprKind::Tuple(_)
+            )
         } else {
             false
         };
@@ -422,7 +425,7 @@ impl<'a> LuauCodegen<'a> {
                 let wrap_expr = if let ayuc_resolve::TyKind::Tuple(inner) = &ty_res.kind
                     && inner.len() > 1
                 {
-                    matches!(let_stmt.init.kind, ExprKind::Call(_))
+                    matches!(let_stmt.init.kind, ExprKind::Call(_) | ExprKind::Tuple(_))
                 } else {
                     false
                 };
@@ -445,7 +448,8 @@ impl<'a> LuauCodegen<'a> {
                 ])
             }
             PatKind::Tuple(parts) => {
-                let expr_needs_unpacking = !matches!(let_stmt.init.kind, ExprKind::Call(_));
+                let expr_needs_unpacking =
+                    !matches!(let_stmt.init.kind, ExprKind::Call(_) | ExprKind::Tuple(_));
                 let has_nested_tuples = parts
                     .iter()
                     .any(|part| matches!(part.kind, PatKind::Tuple(_)));
@@ -516,10 +520,14 @@ impl<'a> LuauCodegen<'a> {
                         }
                     }
 
-                    let tmp_decls = Doc::concat([
-                        Doc::text("local "),
-                        Doc::separated(temps.iter().map(Doc::text), Doc::text(", ")),
-                    ]);
+                    let tmp_decls = if temps.is_empty() {
+                        Doc::Skip
+                    } else {
+                        Doc::concat([
+                            Doc::text("local "),
+                            Doc::separated(temps.iter().map(Doc::text), Doc::text(", ")),
+                        ])
+                    };
 
                     let assignments = Doc::concat([
                         Doc::text("do"),
