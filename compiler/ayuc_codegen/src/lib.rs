@@ -651,7 +651,7 @@ impl<'a> LuauCodegen<'a> {
                 );
 
                 if wrap_expr {
-                    // This only applies to tuples that are inside other exressions.
+                    // This only applies to tuples that are inside other expressions.
                     // Lua doesn't allow ((number, number), number), so we convert it to ({number}, number).
 
                     Doc::concat([Doc::text("{"), all, Doc::text("}")])
