@@ -1,5 +1,8 @@
+use std::collections::VecDeque;
+
 use ayuc_ast::{
-    self as ast, AlternateBranch, FnDecl, IfStmt, Item, ItemKind, LoopStmt, StmtKind, WhileStmt,
+    self as ast, AlternateBranch, FnDecl, IfStmt, Item, ItemKind, LoopStmt, PatKind, StmtKind,
+    WhileStmt,
 };
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_id::ast::NodeId;
@@ -210,6 +213,60 @@ impl SemanticAnalyzer<'_> {
                         format!("this is of type {}", expr_ty),
                     )),
             );
+
+            return;
+        }
+
+        // Pattern exhaustiveness check
+
+        if let Ty::Tuple(expr) = expr_ty
+            && let PatKind::Tuple(pat) = &decl.pat.kind
+        {
+            let mut queue =
+                VecDeque::from_iter(expr.iter().enumerate().map(|(i, ty)| (ty, pat.get(i))));
+
+            while let Some((ty, maybe_pat)) = queue.pop_front() {
+                if let Ty::Tuple(nested_tys) = ty
+                    && let Some(pat) = maybe_pat
+                    && let PatKind::Tuple(nested_pats) = &pat.kind
+                {
+                    queue.extend(
+                        nested_tys
+                            .iter()
+                            .enumerate()
+                            .map(|(i, ty)| (ty, nested_pats.get(i))),
+                    );
+
+                    if nested_tys.len() != nested_pats.len() {
+                        let mut diagnostic = Diagnostic::error(
+                            self.file_id,
+                            pat.span,
+                            Recovery::Fatal,
+                        )
+                        .with_message("mismatched types")
+                        .with_label(Label::primary(
+                            pat.span,
+                            format!(
+                                "expected a tuple with {} elements, found one with {} elements",
+                                nested_tys.len(),
+                                nested_pats.len()
+                            ),
+                        ))
+                        .with_label(Label::help(
+                            decl.init.span,
+                            format!("this expression has type `{expr_ty}`"),
+                        ));
+
+                        if nested_tys.len() > nested_pats.len() {
+                            diagnostic = diagnostic.with_help(
+                                "consider discarding the missing elements with a `_` variable",
+                            );
+                        }
+
+                        self.dcx.emit(diagnostic);
+                    }
+                }
+            }
         }
     }
 }
