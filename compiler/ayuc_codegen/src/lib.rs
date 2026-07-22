@@ -327,17 +327,10 @@ impl<'a> LuauCodegen<'a> {
     }
 
     fn block_to_doc(&self, block: &Block) -> Doc {
-        let mut docs = Vec::new();
-
-        for (i, stmt) in block.stmts.iter().enumerate() {
-            if i != 0 {
-                docs.push(Doc::StmtSep);
-            }
-
-            docs.push(self.stmt_to_doc(stmt));
-        }
-
-        Doc::Concat(docs)
+        Doc::separated(
+            block.stmts.iter().map(|stmt| self.stmt_to_doc(stmt)),
+            Doc::StmtSep,
+        )
     }
 
     fn stmt_to_doc(&self, stmt: &Stmt) -> Doc {
