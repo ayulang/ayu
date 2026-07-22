@@ -89,6 +89,10 @@ impl Renderer {
             }
             Doc::Separated(docs, sep) => {
                 for (i, doc) in docs.iter().enumerate() {
+                    if doc.is_empty() {
+                        continue;
+                    }
+
                     if i != 0 {
                         self.render_to(buf, sep);
                     }
