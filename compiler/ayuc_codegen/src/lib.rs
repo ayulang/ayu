@@ -10,23 +10,25 @@ use ayuc_hir::{
 use ayuc_id::hir::DefId;
 use ayuc_lower::LoweringContext;
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
+use ayuc_resolve::resolver::ResolutionContext;
 use ayuc_session::Session;
 use ayuc_span::symbol::Symbol;
 
 use crate::export::Export;
 
 pub struct LuauCodegen<'a> {
+    rcx: &'a ResolutionContext,
     lcx: &'a LoweringContext,
     sess: &'a Session,
 }
 
 impl<'a> LuauCodegen<'a> {
-    pub fn new(lcx: &'a LoweringContext, sess: &'a Session) -> Self {
-        Self { lcx, sess }
+    pub fn new(rcx: &'a ResolutionContext, lcx: &'a LoweringContext, sess: &'a Session) -> Self {
+        Self { rcx, lcx, sess }
     }
 
-    pub fn emit(lcx: &'a LoweringContext, sess: &'a Session) -> String {
-        let this = Self::new(lcx, sess);
+    pub fn emit(rcx: &'a ResolutionContext, lcx: &'a LoweringContext, sess: &'a Session) -> String {
+        let this = Self::new(rcx, lcx, sess);
 
         this.generate_code()
     }
@@ -385,15 +387,39 @@ impl<'a> LuauCodegen<'a> {
         let expr_doc = self.expr_to_doc(&let_stmt.init, false);
 
         match &let_stmt.pat.kind {
-            PatKind::Identifier { sym, .. } => Doc::concat([
-                Doc::text("local "),
-                Doc::text(sym.as_str()),
-                if expr_doc.is_empty() {
-                    Doc::Skip
+            PatKind::Identifier { sym, .. } => {
+                let node_id = self
+                    .lcx
+                    .id_mappings
+                    .get_by_right(&let_stmt.init.id)
+                    .copied()
+                    .unwrap();
+                let ty_res = self.rcx.ty_res(node_id);
+                let wrap_expr = if let ayuc_resolve::Ty::Tuple(inner) = ty_res
+                    && inner.len() > 1
+                {
+                    true
                 } else {
-                    Doc::concat([Doc::text(" = "), expr_doc])
-                },
-            ]),
+                    false
+                };
+
+                Doc::concat([
+                    Doc::text("local "),
+                    Doc::text(sym.as_str()),
+                    if expr_doc.is_empty() {
+                        Doc::Skip
+                    } else {
+                        Doc::concat([
+                            Doc::text(" = "),
+                            if wrap_expr {
+                                Doc::concat([Doc::text("{"), expr_doc, Doc::text("}")])
+                            } else {
+                                expr_doc
+                            },
+                        ])
+                    },
+                ])
+            }
             PatKind::Tuple(parts) => {
                 let has_nested_tuples = parts
                     .iter()

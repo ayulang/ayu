@@ -18,12 +18,12 @@ pub struct LoweringContext {
     pub items: SecondaryMap<DefId, hir::Item>,
 
     pub top_level_items: Vec<DefId>,
+    pub id_mappings: BiHashMap<NodeId, HirId>,
 }
 
 pub struct AstLowering<'a> {
     ctx: LoweringContext,
     rcx: &'a ResolutionContext,
-    id_mappings: BiHashMap<NodeId, HirId>,
 
     hir_id_allocator: HirIdAllocator,
 }
@@ -43,7 +43,6 @@ impl<'a> AstLowering<'a> {
         Self {
             ctx: LoweringContext::default(),
             rcx,
-            id_mappings: BiHashMap::new(),
             hir_id_allocator: HirIdAllocator::new(),
         }
     }
@@ -63,13 +62,13 @@ impl<'a> AstLowering<'a> {
 
     #[must_use]
     fn lower_id(&mut self, id: NodeId) -> HirId {
-        if self.id_mappings.get_by_left(&id).is_some() {
+        if self.ctx.id_mappings.get_by_left(&id).is_some() {
             panic!("tried to lower NodeId ({id:?}) into HirId: it has already been lowered");
         }
 
         let hir_id = self.hir_id_allocator.allocate();
 
-        self.id_mappings.insert(id, hir_id);
+        self.ctx.id_mappings.insert(id, hir_id);
 
         hir_id
     }
