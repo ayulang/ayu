@@ -44,14 +44,14 @@ pub enum LabelKind {
     Note,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Label {
     pub span: Span,
     pub kind: LabelKind,
     pub message: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Diagnostic {
     pub file_id: FileId,
     pub severity: Severity,
