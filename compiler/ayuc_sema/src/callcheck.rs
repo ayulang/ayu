@@ -2,7 +2,7 @@ use ayuc_ast::{
     AlternateBranch, Ast, CallExpr, Expr, ExprKind, IfStmt, Item, ItemKind, Stmt, StmtKind,
 };
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
-use ayuc_resolve::{Ty, TyKind, def::Def};
+use ayuc_resolve::{TyKind, def::Def};
 
 use crate::SemanticAnalyzer;
 
