@@ -1,6 +1,8 @@
-use ayuc_ast::{Ast, Item, ItemKind};
+use std::collections::HashMap;
+
+use ayuc_ast::{Ast, Item, ItemKind, LetStmt, PatKind, Stmt, StmtKind};
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
-use ayuc_span::Span;
+use ayuc_span::{Span, symbol::Symbol};
 
 use crate::SemanticAnalyzer;
 
@@ -47,8 +49,58 @@ impl SemanticAnalyzer<'_> {
                             )),
                     );
                 }
+
+                for stmt in &child.block.children {
+                    self.bc_walk_stmt(stmt);
+                }
             }
             ItemKind::ExternFn(_) => {}
+        }
+    }
+
+    fn bc_walk_stmt(&mut self, stmt: &Stmt) {
+        if let StmtKind::Let(let_stmt) = &stmt.kind {
+            self.bc_walk_let_stmt(let_stmt)
+        }
+    }
+
+    fn bc_walk_let_stmt(&mut self, let_stmt: &LetStmt) {
+        let PatKind::Tuple(inner) = &let_stmt.pat.kind else {
+            return;
+        };
+
+        let mut defined_identifiers: HashMap<Symbol, Vec<Span>> = HashMap::new();
+        let mut queue = Vec::from_iter(inner.iter());
+
+        while let Some(pat) = queue.pop() {
+            match &pat.kind {
+                PatKind::Identifier { sym, .. } => {
+                    defined_identifiers
+                        .entry(*sym)
+                        .and_modify(|s| s.push(pat.span))
+                        .or_insert(vec![pat.span]);
+                }
+                PatKind::Tuple(inner) => queue.extend(inner),
+            }
+        }
+
+        for (sym, mut definitions) in defined_identifiers {
+            if definitions.len() <= 1 {
+                continue;
+            }
+
+            definitions.sort_by_key(|a| a.start);
+
+            let diag = Diagnostic::error(self.file_id, let_stmt.pat.span, Recovery::Fatal)
+                .with_message(format!("`{sym}` is defined more than once in pattern"))
+                .with_label(Label::help(definitions.remove(0), "first definition here"));
+
+            for def in definitions {
+                self.dcx.emit(
+                    diag.clone()
+                        .with_label(Label::primary(def, "second definition here")),
+                );
+            }
         }
     }
 }
