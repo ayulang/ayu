@@ -77,8 +77,7 @@ pub trait Visitor<'ast>: Sized {
         pat.walk(self);
     }
 
-    #[allow(unused)]
-    fn visit_pat_binding(&mut self, binding: &'ast PatBinding) {}
+    fn visit_pat_binding(&mut self, #[allow(unused)] binding: &'ast PatBinding) {}
 
     fn visit_pat_tuple(&mut self, elements: &'ast [Pat]) {
         elements.walk(self);
@@ -104,14 +103,9 @@ pub trait Visitor<'ast>: Sized {
         elements.walk(self);
     }
 
-    #[allow(unused)]
-    fn visit_literal(&mut self, literal: &'ast Literal) {}
-
-    #[allow(unused)]
-    fn visit_path(&mut self, path: &'ast Path) {}
-
-    #[allow(unused)]
-    fn visit_identifier(&mut self, ident: &'ast Ident) {}
+    fn visit_literal(&mut self, #[allow(unused)] literal: &'ast Literal) {}
+    fn visit_path(&mut self, #[allow(unused)] path: &'ast Path) {}
+    fn visit_identifier(&mut self, #[allow(unused)] ident: &'ast Ident) {}
 
     fn visit_ty(&mut self, ty: &'ast Ty) {
         ty.walk(self);
