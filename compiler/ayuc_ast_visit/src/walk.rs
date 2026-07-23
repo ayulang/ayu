@@ -156,7 +156,7 @@ mod stmt {
             Some(AlternateBranch::Another(if_stmt)) => visitor.visit_if_stmt(if_stmt),
             Some(AlternateBranch::Final(block)) => visitor.visit_block(block),
             None => {}
-        };
+        }
     }
 
     pub fn walk_loop_stmt<'ast, V: Visitor<'ast>>(visitor: &mut V, loop_stmt: &'ast LoopStmt) {
