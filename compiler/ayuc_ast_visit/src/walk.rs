@@ -45,7 +45,7 @@ mod item {
         parameters.parameters.walk(visitor);
 
         visitor.visit_ty(return_ty);
-        visitor.visit_block(block);
+        visitor.visit_block_expr(block);
     }
 
     pub fn walk_extern_fn_item<'ast, V: Visitor<'ast>>(
@@ -156,11 +156,11 @@ mod stmt {
         } = if_stmt;
 
         visitor.visit_expr(expr);
-        visitor.visit_block(block);
+        visitor.visit_block_expr(block);
 
         match alternate {
             Some(AlternateBranch::Another(if_stmt)) => visitor.visit_if_stmt(if_stmt),
-            Some(AlternateBranch::Final(block)) => visitor.visit_block(block),
+            Some(AlternateBranch::Final(block)) => visitor.visit_block_expr(block),
             None => {}
         }
     }
@@ -168,14 +168,14 @@ mod stmt {
     pub fn walk_loop_stmt<'ast, V: Visitor<'ast>>(visitor: &mut V, loop_stmt: &'ast LoopStmt) {
         let LoopStmt { block } = loop_stmt;
 
-        visitor.visit_block(block);
+        visitor.visit_block_expr(block);
     }
 
     pub fn walk_while_stmt<'ast, V: Visitor<'ast>>(visitor: &mut V, while_stmt: &'ast WhileStmt) {
         let WhileStmt { expr, block } = while_stmt;
 
         visitor.visit_expr(expr);
-        visitor.visit_block(block);
+        visitor.visit_block_expr(block);
     }
 
     pub fn walk_let_stmt<'ast, V: Visitor<'ast>>(visitor: &mut V, let_stmt: &'ast LetStmt) {
@@ -204,7 +204,7 @@ mod expr {
             ExprKind::Parenthesized(inner) => visitor.visit_parenthesized_expression(inner),
             ExprKind::Lit(literal) => visitor.visit_literal(literal),
             ExprKind::Path(path) => visitor.visit_path(path),
-            ExprKind::Tuple(elements) => visitor.visit_tuple(elements),
+            ExprKind::Tuple(elements) => visitor.visit_tuple_expr(elements),
         }
     }
 

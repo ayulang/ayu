@@ -40,7 +40,7 @@ pub trait Visitor<'ast>: Sized {
     }
 
     /// Visits a block expression.
-    fn visit_block(&mut self, block: &'ast Block) {
+    fn visit_block_expr(&mut self, block: &'ast Block) {
         block.walk(self);
     }
 
@@ -136,7 +136,7 @@ pub trait Visitor<'ast>: Sized {
     }
 
     /// Visits a tuple expression.
-    fn visit_tuple(&mut self, elements: &'ast [Expr]) {
+    fn visit_tuple_expr(&mut self, elements: &'ast [Expr]) {
         elements.walk(self);
     }
 
