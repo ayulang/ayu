@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use ayuc_ast::{
-    self as ast, AlternateBranch, FnDecl, IfStmt, Item, ItemKind, LoopStmt, PatKind, StmtKind,
+    self as ast, AlternateBranch, FnItem, IfStmt, Item, ItemKind, LoopStmt, PatKind, StmtKind,
     WhileStmt,
 };
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
@@ -35,7 +35,7 @@ impl SemanticAnalyzer<'_> {
         }
     }
 
-    fn tc_walk_fn_item(&mut self, item_id: NodeId, item: &FnDecl) {
+    fn tc_walk_fn_item(&mut self, item_id: NodeId, item: &FnItem) {
         let TyKind::Fn(_, return_ty) = &self.rcx.ty_of(item_id).kind else {
             unreachable!()
         };

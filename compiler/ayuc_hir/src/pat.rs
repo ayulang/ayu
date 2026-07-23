@@ -9,6 +9,12 @@ pub struct Pat {
 
 #[derive(Debug)]
 pub enum PatKind {
-    Identifier { sym: Symbol, mutable: bool },
+    Binding(PatBinding),
     Tuple(Vec<Pat>),
+}
+
+#[derive(Debug)]
+pub struct PatBinding {
+    pub sym: Symbol,
+    pub mutable: bool,
 }

@@ -74,9 +74,9 @@ impl SemanticAnalyzer<'_> {
 
         while let Some(pat) = queue.pop() {
             match &pat.kind {
-                PatKind::Identifier { sym, .. } => {
+                PatKind::Binding(binding) => {
                     defined_identifiers
-                        .entry(*sym)
+                        .entry(binding.sym)
                         .and_modify(|s| s.push(pat.span))
                         .or_insert(vec![pat.span]);
                 }

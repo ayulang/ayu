@@ -1,6 +1,6 @@
 use ayuc_ast::{
-    ExternFnDecl, ExternModItem, InlineModItem, Item, ItemKind, ParameterList, Ty, TyKind,
-    Visibility, item::FnDecl,
+    ExternFnItem, ExternModItem, Item, ItemKind, ModItem, ParameterList, Ty, TyKind, Visibility,
+    item::FnItem,
 };
 use ayuc_diagnostic::{Diagnostic, Label, Recovery, colored::Colorize};
 use ayuc_lexer::{
@@ -12,7 +12,7 @@ use ayuc_span::Span;
 use crate::{PResult, Parser};
 
 impl Parser<'_, '_, '_> {
-    pub fn parse_extern_fn_item(&mut self) -> PResult<ExternFnDecl> {
+    pub fn parse_extern_fn_item(&mut self) -> PResult<ExternFnItem> {
         if !self.maybe(TokenKind::Keyword(Keyword::Extern)) {
             unreachable!()
         }
@@ -64,7 +64,7 @@ impl Parser<'_, '_, '_> {
             }
         };
 
-        Ok(ExternFnDecl {
+        Ok(ExternFnItem {
             name,
             ffi_name,
             parameters: params,
@@ -72,7 +72,7 @@ impl Parser<'_, '_, '_> {
         })
     }
 
-    pub fn parse_fn_item(&mut self) -> PResult<FnDecl> {
+    pub fn parse_fn_item(&mut self) -> PResult<FnItem> {
         if !self.maybe(TokenKind::Keyword(Keyword::Fn)) {
             unreachable!()
         }
@@ -113,7 +113,7 @@ impl Parser<'_, '_, '_> {
 
         let block = self.parse_block()?;
 
-        Ok(FnDecl {
+        Ok(FnItem {
             ident,
             block,
             parameters: params,
@@ -169,7 +169,7 @@ impl Parser<'_, '_, '_> {
         })
     }
 
-    pub fn parse_inline_mod(&mut self) -> PResult<InlineModItem> {
+    pub fn parse_inline_mod(&mut self) -> PResult<ModItem> {
         if !self.maybe(TokenKind::Keyword(Keyword::Mod)) {
             unreachable!()
         }
@@ -196,7 +196,7 @@ impl Parser<'_, '_, '_> {
             }
         }
 
-        Ok(InlineModItem { ident, items })
+        Ok(ModItem { ident, items })
     }
 
     pub fn parse_item(&mut self) -> PResult<Item> {

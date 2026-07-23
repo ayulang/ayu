@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "compiler/ayuc",
     "compiler/ayuc_ast",
+    "compiler/ayuc_ast_visit",
     "compiler/ayuc_codegen",
     "compiler/ayuc_diagnostic",
     "compiler/ayuc_driver",

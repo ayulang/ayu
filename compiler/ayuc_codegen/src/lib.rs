@@ -428,7 +428,7 @@ impl<'a> LuauCodegen<'a> {
         let expr_doc = self.expr_to_doc(&let_stmt.init, false);
 
         match &let_stmt.pat.kind {
-            PatKind::Identifier { sym, .. } => {
+            PatKind::Binding(binding) => {
                 let node_id = self
                     .lcx
                     .id_mappings
@@ -446,7 +446,7 @@ impl<'a> LuauCodegen<'a> {
 
                 Doc::concat([
                     Doc::text("local "),
-                    Doc::text(sym.as_str()),
+                    Doc::text(binding.sym.as_str()),
                     if expr_doc.is_empty() {
                         Doc::Skip
                     } else {
@@ -478,7 +478,7 @@ impl<'a> LuauCodegen<'a> {
 
                     for (idx, pat) in parts.iter().enumerate() {
                         match &pat.kind {
-                            PatKind::Identifier { sym, .. } => assignments.push(sym.to_string()),
+                            PatKind::Binding(binding) => assignments.push(binding.sym.to_string()),
                             PatKind::Tuple(_) => {
                                 let temp_name = format!("tmp_{}", idx);
 
@@ -500,8 +500,8 @@ impl<'a> LuauCodegen<'a> {
 
                     while let Some((i, pat, path)) = pats_left.pop_front() {
                         match &pat.kind {
-                            PatKind::Identifier { sym, .. } => {
-                                collected_identifiers.push(*sym);
+                            PatKind::Binding(binding) => {
+                                collected_identifiers.push(binding.sym);
 
                                 if path.is_empty() {
                                     continue;
@@ -512,7 +512,7 @@ impl<'a> LuauCodegen<'a> {
                                 let indexers = &path[1..];
 
                                 collected_assignments.push(Doc::concat([
-                                    Doc::text(sym.as_str()),
+                                    Doc::text(binding.sym.as_str()),
                                     Doc::text(" = "),
                                     Doc::concat([
                                         Doc::text(top_level),
@@ -599,7 +599,7 @@ impl<'a> LuauCodegen<'a> {
                         Doc::text("local "),
                         Doc::separated(
                             parts.iter().map(|part| match &part.kind {
-                                PatKind::Identifier { sym, .. } => Doc::text(sym.as_str()),
+                                PatKind::Binding(binding) => Doc::text(binding.sym.as_str()),
                                 _ => unreachable!(),
                             }),
                             Doc::text(", "),

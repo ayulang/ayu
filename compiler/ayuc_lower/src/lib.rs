@@ -73,7 +73,7 @@ impl<'a> AstLowering<'a> {
         hir_id
     }
 
-    fn lower_fn_item(&mut self, item: &ast::Item, fun: &ast::FnDecl) -> hir::FnItem {
+    fn lower_fn_item(&mut self, item: &ast::Item, fun: &ast::FnItem) -> hir::FnItem {
         let RTyKind::Fn(parameters, return_ty) = &self.rcx.ty_of(item.id).kind else {
             unreachable!()
         };
@@ -190,10 +190,10 @@ impl<'a> AstLowering<'a> {
         hir::Pat {
             id: self.lower_id(pat.id),
             kind: match &pat.kind {
-                ast::PatKind::Identifier { sym, mutable } => hir::PatKind::Identifier {
-                    sym: *sym,
-                    mutable: *mutable,
-                },
+                ast::PatKind::Binding(binding) => hir::PatKind::Binding(hir::PatBinding {
+                    sym: binding.sym,
+                    mutable: binding.mutable,
+                }),
                 ast::PatKind::Tuple(parts) => {
                     hir::PatKind::Tuple(parts.iter().map(|part| self.lower_pat(part)).collect())
                 }
