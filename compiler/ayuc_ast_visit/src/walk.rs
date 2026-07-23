@@ -1,3 +1,6 @@
+//! This module contains private logic for traversing nodes. It's kept private to not pollute the environment. Instead,
+//!   developers have to use the [`Walkable`](crate::walkable::Walkable) trait to access it, which is way more readable.
+
 use crate::visitor::Visitor;
 
 use ayuc_ast::Ast;
@@ -9,10 +12,12 @@ pub use pat::*;
 pub use stmt::*;
 pub use ty::*;
 
+/// Traverses an AST by calling [`Visitor::visit_item_list`] on the AST's item list.
 pub fn walk_ast<'ast, V: Visitor<'ast>>(visitor: &mut V, ast: &'ast Ast) {
     visitor.visit_item_list(&ast.items);
 }
 
+/// Contains the logic for traversing items.
 mod item {
     use ayuc_ast::{ExternFnItem, ExternModItem, FnItem, Item, ItemKind, ModItem};
 
@@ -92,6 +97,7 @@ mod item {
     }
 }
 
+/// Contains logic for traversing statements.
 mod stmt {
     use ayuc_ast::{
         AlternateBranch, AssignStmt, IfStmt, LetStmt, LoopStmt, ReturnStmt, Stmt, StmtKind,
@@ -185,6 +191,7 @@ mod stmt {
     }
 }
 
+/// Contains logic for traversing expressions.
 mod expr {
     use ayuc_ast::{BinExpr, Block, CallExpr, Expr, ExprKind};
 
@@ -227,6 +234,7 @@ mod expr {
     }
 }
 
+/// Contains logic for traversing patterns.
 mod pat {
     use ayuc_ast::{Pat, PatKind};
 
@@ -246,6 +254,7 @@ mod pat {
     }
 }
 
+/// Contains logic for traversing types.
 mod ty {
     use ayuc_ast::{Ty, TyKind};
 
@@ -265,6 +274,7 @@ mod ty {
     }
 }
 
+/// Contains logic for traversing parameters.
 mod parameter {
     use ayuc_ast::Parameter;
 

@@ -27,7 +27,10 @@ macro_rules! make_walkable {
     };
 }
 
+/// Walkable trait providing traversal logic for AST nodes. It's used to decide what visitor
+///   functions are called when and where in the current node.
 pub trait Walkable<'ast> {
+    /// Walks the node and calls visitor functions for traversal.
     fn walk<V: Visitor<'ast>>(&'ast self, visitor: &mut V);
 }
 
