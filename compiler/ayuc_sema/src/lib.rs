@@ -51,7 +51,7 @@ impl<'a> SemanticAnalyzer<'a> {
     ) {
         let mut this = Self::new(file_id, rcx, dcx, sess);
 
-        run_phase!(ast, GeneralPhase::new(&mut this.dcx, this.file_id));
+        run_phase!(ast, GeneralPhase::new(this.dcx, this.file_id));
 
         this.callcheck(ast);
         this.typecheck(ast);
