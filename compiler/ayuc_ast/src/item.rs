@@ -22,9 +22,9 @@ pub struct Item {
 
 #[derive(Debug)]
 pub enum ItemKind {
-    Fn(FnDecl),
-    ExternFn(ExternFnDecl),
-    InlineMod(InlineModItem),
+    Fn(FnItem),
+    ExternFn(ExternFnItem),
+    InlineMod(ModItem),
     ExternMod(ExternModItem),
 }
 
@@ -37,13 +37,13 @@ pub struct ExternModItem {
 }
 
 #[derive(Debug)]
-pub struct InlineModItem {
+pub struct ModItem {
     pub ident: Ident,
     pub items: Vec<Item>,
 }
 
 #[derive(Debug)]
-pub struct FnDecl {
+pub struct FnItem {
     pub parameters: ParameterList,
     pub ident: Ident,
     pub block: Block,
@@ -51,7 +51,7 @@ pub struct FnDecl {
 }
 
 #[derive(Debug)]
-pub struct ExternFnDecl {
+pub struct ExternFnItem {
     pub parameters: ParameterList,
     pub ffi_name: Option<Ident>,
     pub name: Ident,

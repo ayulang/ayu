@@ -48,6 +48,9 @@ dependencies = [
 [[package]]
 name = "ayuc_ast_visit"
 version = "0.1.0"
+dependencies = [
+ "ayuc_ast",
+]
 
 [[package]]
 name = "ayuc_codegen"

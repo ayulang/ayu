@@ -265,15 +265,15 @@ impl Resolver<'_, '_> {
 
     fn n2_walk_pat(&mut self, pat: &ast::Pat) {
         match &pat.kind {
-            PatKind::Identifier { sym, mutable } => {
+            PatKind::Binding(binding) => {
                 let local_id = self.sess.register_local(LocalInfo {
-                    name: *sym,
+                    name: binding.sym,
                     defined_where: pat.span,
                     id: pat.id,
-                    mutable: *mutable,
+                    mutable: binding.mutable,
                 });
 
-                self.register_local(*sym, local_id, pat.id);
+                self.register_local(binding.sym, local_id, pat.id);
             }
             PatKind::Tuple(pats) => {
                 for pat in pats {

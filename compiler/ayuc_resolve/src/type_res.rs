@@ -21,7 +21,7 @@ impl Resolver<'_, '_> {
 
     fn tr_walk_item(&mut self, item: &ast::Item) {
         match &item.kind {
-            ast::ItemKind::InlineMod(ast::InlineModItem { items, .. })
+            ast::ItemKind::InlineMod(ast::ModItem { items, .. })
             | ast::ItemKind::ExternMod(ast::ExternModItem { items, .. }) => {
                 for item in items {
                     self.tr_walk_item(item);

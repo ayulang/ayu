@@ -1,4 +1,4 @@
-use ayuc_ast::{Pat, PatKind};
+use ayuc_ast::{Pat, PatBinding, PatKind};
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_lexer::{
     stream::TokenStream,
@@ -29,7 +29,7 @@ impl Parser<'_, '_, '_> {
         Ok(Pat {
             span: self.stream.span_since(snapshot),
             id: self.node_id_allocator.allocate(),
-            kind: PatKind::Identifier { sym, mutable },
+            kind: PatKind::Binding(PatBinding { sym, mutable }),
         })
     }
 
