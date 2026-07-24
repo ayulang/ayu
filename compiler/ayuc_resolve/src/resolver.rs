@@ -94,7 +94,7 @@ impl<'dcx, 'sess> Resolver<'dcx, 'sess> {
             return this.rcx;
         }
 
-        this.resolve_types(ast);
+        this.run_type_resolution(ast);
 
         this.rcx
     }
