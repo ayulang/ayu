@@ -4,8 +4,8 @@ use std::collections::VecDeque;
 
 use ayuc_hir::{
     AlternateBranch, AssignOp, AssignStmt, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem,
-    ExternModItem, FnItem, IfStmt, InlineModItem, IntlSegment, Item, ItemKind, LetStmt, Literal,
-    Parameter, PatKind, Path, Stmt, StmtKind, Visibility,
+    ExternModItem, FileModItem, FnItem, IfStmt, InlineModItem, IntlSegment, Item, ItemKind,
+    LetStmt, Literal, Parameter, PatKind, Path, Stmt, StmtKind, Visibility,
 };
 use ayuc_id::hir::DefId;
 use ayuc_lower::LoweringContext;
@@ -103,6 +103,7 @@ impl<'a> LuauCodegen<'a> {
                         &[absolute_path, &[modu.name.as_str()]].concat(),
                     ),
                 )),
+                ItemKind::FileMod(_) => todo!(),
             })
             .collect()
     }
@@ -148,6 +149,7 @@ impl<'a> LuauCodegen<'a> {
     fn sym_of_item(item: &Item) -> Symbol {
         match &item.kind {
             ItemKind::Fn(FnItem { name: sym, .. })
+            | ItemKind::FileMod(FileModItem { name: sym })
             | ItemKind::ExternFn(ExternFnItem {
                 name: sym,
                 ffi_name: None,
@@ -205,6 +207,7 @@ impl<'a> LuauCodegen<'a> {
                 .iter()
                 .map(|id| &self.lcx.items[*id])
                 .any(|item| self.is_visible_item(item)),
+            ItemKind::FileMod(_) => true, // maybe?
         }
     }
 
@@ -247,6 +250,7 @@ impl<'a> LuauCodegen<'a> {
             ItemKind::Fn(decl) => {
                 (!within_module).then_some(Doc::text(format!("local {}", decl.name)))
             }
+            ItemKind::FileMod(_decl) => todo!(),
             ItemKind::ExternMod(_) | ItemKind::ExternFn(_) => None,
         }
     }
@@ -303,6 +307,7 @@ impl<'a> LuauCodegen<'a> {
                     Doc::text("end"),
                 ])))
             }
+            ItemKind::FileMod(_) => todo!(),
             ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
         }
     }
@@ -797,7 +802,7 @@ impl<'a> LuauCodegen<'a> {
         if let Def::Def(id) = def {
             match &self.lcx.items[*id].kind {
                 ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => true,
-                ItemKind::Fn(_) | ItemKind::InlineMod(_) => false,
+                ItemKind::Fn(_) | ItemKind::InlineMod(_) | ItemKind::FileMod(_) => false,
             }
         } else {
             false

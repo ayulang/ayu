@@ -23,6 +23,7 @@ pub enum ItemKind {
     ExternFn(ExternFnItem),
     InlineMod(InlineModItem),
     ExternMod(ExternModItem),
+    FileMod(FileModItem),
 }
 
 #[derive(Debug)]
@@ -36,6 +37,11 @@ pub struct ExternModItem {
 pub struct InlineModItem {
     pub name: Symbol,
     pub items: Vec<DefId>,
+}
+
+#[derive(Debug)]
+pub struct FileModItem {
+    pub name: Symbol,
 }
 
 #[derive(Debug)]

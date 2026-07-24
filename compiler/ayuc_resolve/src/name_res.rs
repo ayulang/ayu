@@ -19,6 +19,7 @@ fn ident_of_item(item: &Item) -> &Ident {
         ItemKind::ExternMod(decl) => &decl.ident,
         ItemKind::Fn(decl) => &decl.ident,
         ItemKind::ExternFn(decl) => &decl.name,
+        ItemKind::FileMod(decl) => &decl.name,
     }
 }
 
@@ -71,15 +72,7 @@ impl FirstPass<'_, '_, '_> {
             if let Def::Def(id) = def {
                 let item = self.res.sess.item(id);
 
-                diag = diag.with_label(Label::help(
-                    match &item.kind {
-                        session::ItemKind::ExternFn { signature_span, .. }
-                        | session::ItemKind::Fn { signature_span, .. }
-                        | session::ItemKind::InlineMod { signature_span, .. }
-                        | session::ItemKind::ExternMod { signature_span, .. } => *signature_span,
-                    },
-                    "first definition here",
-                ))
+                diag = diag.with_label(Label::help(item.signature_span(), "first definition here"))
             }
 
             diag = diag.with_label(Label::primary(ident.span, "name is already defined"));
@@ -94,6 +87,7 @@ impl FirstPass<'_, '_, '_> {
             ItemKind::ExternMod(decl) => Span::from((item.span.start, decl.ident.span.end)),
             ItemKind::Fn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
             ItemKind::ExternFn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
+            ItemKind::FileMod(_) => item.span,
         };
 
         let kind = match &item.kind {
@@ -109,13 +103,7 @@ impl FirstPass<'_, '_, '_> {
                     .items
                     .iter()
                     .flat_map(|item| {
-                        let sym = match &item.kind {
-                            ItemKind::ExternMod(decl) => &decl.ident,
-                            ItemKind::InlineMod(decl) => &decl.ident,
-                            ItemKind::Fn(decl) => &decl.ident,
-                            ItemKind::ExternFn(decl) => &decl.name,
-                        }
-                        .sym;
+                        let sym = ident_of_item(item).sym;
 
                         self.visit_item(item).map(|id| (sym, id))
                     })
@@ -136,13 +124,7 @@ impl FirstPass<'_, '_, '_> {
                     .items
                     .iter()
                     .flat_map(|item| {
-                        let sym = match &item.kind {
-                            ItemKind::ExternMod(decl) => &decl.ident,
-                            ItemKind::InlineMod(decl) => &decl.ident,
-                            ItemKind::Fn(decl) => &decl.ident,
-                            ItemKind::ExternFn(decl) => &decl.name,
-                        }
-                        .sym;
+                        let sym = ident_of_item(item).sym;
 
                         self.visit_item(item).map(|id| (sym, id))
                     })
@@ -155,6 +137,7 @@ impl FirstPass<'_, '_, '_> {
                     signature_span,
                 }
             }
+            ItemKind::FileMod(_) => session::ItemKind::FileMod { signature_span },
         };
 
         let def_id = self.res.sess.register_item(session::ItemInfo {

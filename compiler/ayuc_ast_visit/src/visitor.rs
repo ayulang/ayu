@@ -1,9 +1,9 @@
 //! This module contains the definition of the [`Visitor`] trait used for traversing an [`Ast`].
 
 use ayuc_ast::{
-    AssignStmt, Ast, BinExpr, Block, CallExpr, Expr, ExternFnItem, ExternModItem, FnItem, Ident,
-    IfStmt, Item, LetStmt, Literal, LoopStmt, ModItem, Parameter, Pat, PatBinding, Path,
-    ReturnStmt, Stmt, Ty, WhileStmt,
+    AssignStmt, Ast, BinExpr, Block, CallExpr, Expr, ExternFnItem, ExternModItem, FileModItem,
+    FnItem, Ident, IfStmt, Item, LetStmt, Literal, LoopStmt, ModItem, Parameter, Pat, PatBinding,
+    Path, ReturnStmt, Stmt, Ty, WhileStmt,
 };
 
 use crate::walkable::Walkable;
@@ -48,6 +48,11 @@ pub trait Visitor<'ast>: Sized {
     /// Visits a module item.
     fn visit_mod_item(&mut self, module: &'ast ModItem) {
         module.walk(self);
+    }
+
+    /// Visits a file-based module.
+    fn visit_file_mod_item(&mut self, file_module: &'ast FileModItem) {
+        file_module.walk(self);
     }
 
     /// Visits an extern module item.

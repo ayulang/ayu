@@ -170,6 +170,9 @@ impl<'a> AstLowering<'a> {
                         .collect(),
                 })
             }
+            ast::ItemKind::FileMod(file_module) => hir::ItemKind::FileMod(hir::FileModItem {
+                name: file_module.name.sym,
+            }),
         };
 
         hir::Item {
