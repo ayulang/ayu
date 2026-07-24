@@ -55,6 +55,14 @@ pub trait Visitor<'ast>: Sized {
         extern_module.walk(self);
     }
 
+    /// Visits an item's identifier.
+    ///
+    /// This method is basically a proxy for calling [`Self::visit_identifier`]. It exists to give you the
+    ///   option whether to let item identifiers bleed into [`Self::visit_identifier`].
+    fn visit_item_identifier(&mut self, ident: &'ast Ident) {
+        self.visit_identifier(ident);
+    }
+
     /// Visits a statement (break, if, let, ...).
     fn visit_stmt(&mut self, stmt: &'ast Stmt) {
         stmt.walk(self);
