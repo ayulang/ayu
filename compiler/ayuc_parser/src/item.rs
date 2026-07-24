@@ -11,6 +11,11 @@ use ayuc_span::Span;
 
 use crate::{PResult, Parser};
 
+pub enum Either<A, B> {
+    A(A),
+    B(B),
+}
+
 impl Parser<'_, '_, '_> {
     pub fn parse_extern_fn_item(&mut self) -> PResult<ExternFnItem> {
         if !self.maybe(TokenKind::Keyword(Keyword::Extern)) {
@@ -169,30 +174,19 @@ impl Parser<'_, '_, '_> {
         })
     }
 
-    pub fn parse_file_module(&mut self) -> PResult<FileModItem> {
+    pub fn parse_module(&mut self) -> PResult<Either<ModItem, FileModItem>> {
         if !self.maybe(TokenKind::Keyword(Keyword::Mod)) {
             unreachable!()
         }
 
         let ident = self.parse_ident()?;
 
-        Ok(FileModItem { name: ident })
-    }
-
-    pub fn parse_module(&mut self) -> PResult<ModItem> {
-        if !self.maybe(TokenKind::Keyword(Keyword::Mod)) {
-            unreachable!()
-        }
-
-        let ident = self.parse_ident()?;
-        let tokens = match self.require_token()? {
-            StructuredToken::Delimited(_, Delimiter::Braces, tokens) => tokens,
-            StructuredToken::Token(Token { span, .. }) | StructuredToken::Delimited(span, _, _) => {
-                return Err(Diagnostic::error(self.file_id, *span, Recovery::Fatal)
-                    .with_message("expected a block of items")
-                    .with_label(Label::primary(*span, "expected a block of items")));
-            }
+        let tokens = match self.stream.first() {
+            Some(StructuredToken::Delimited(_, Delimiter::Braces, tokens)) => tokens,
+            _ => return Ok(Either::B(FileModItem { name: ident })),
         };
+
+        self.stream.consume();
 
         let mut inner = self.branch(TokenStream::new(tokens));
         let mut items = Vec::new();
@@ -206,7 +200,7 @@ impl Parser<'_, '_, '_> {
             }
         }
 
-        Ok(ModItem { ident, items })
+        Ok(Either::A(ModItem { ident, items }))
     }
 
     pub fn parse_item(&mut self) -> PResult<Item> {
@@ -234,11 +228,9 @@ impl Parser<'_, '_, '_> {
                 ..
             }) => (
                 self.node_id_allocator.allocate(),
-                match self.stream.third() {
-                    Some(StructuredToken::Delimited(_, _, _)) => {
-                        ItemKind::InlineMod(self.parse_module()?)
-                    }
-                    _ => ItemKind::FileMod(self.parse_file_module()?),
+                match self.parse_module()? {
+                    Either::A(module) => ItemKind::InlineMod(module),
+                    Either::B(file_module) => ItemKind::FileMod(file_module),
                 },
             ),
             StructuredToken::Token(Token {
