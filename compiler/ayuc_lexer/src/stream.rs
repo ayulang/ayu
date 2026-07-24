@@ -69,17 +69,17 @@ impl<'a> TokenStream<'a> {
     }
 
     #[inline]
-    pub fn first(&self) -> Option<&StructuredToken> {
+    pub fn first(&self) -> Option<&'a StructuredToken> {
         self.tokens.get(self.pos)
     }
 
     #[inline]
-    pub fn second(&self) -> Option<&StructuredToken> {
+    pub fn second(&self) -> Option<&'a StructuredToken> {
         self.tokens.get(self.pos + 1)
     }
 
     #[inline]
-    pub fn third(&self) -> Option<&StructuredToken> {
+    pub fn third(&self) -> Option<&'a StructuredToken> {
         self.tokens.get(self.pos + 2)
     }
 }
