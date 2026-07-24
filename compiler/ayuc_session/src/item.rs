@@ -30,12 +30,10 @@ impl ItemInfo {
 pub enum ItemKind {
     Fn {
         signature_span: Span,
-        n_args: usize,
     },
     ExternFn {
         ffi_name: Option<Symbol>,
         signature_span: Span,
-        n_args: usize,
     },
     InlineMod {
         signature_span: Span,
