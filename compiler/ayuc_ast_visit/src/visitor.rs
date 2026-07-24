@@ -13,6 +13,7 @@ use crate::walkable::Walkable;
 /// Default implementations recursively walk the AST via [`Walkable`] implementations. Override
 ///   methods to add custom logic at specific nodes. All methods take immutable references, so
 ///   this is for read-only traversal.
+#[allow(unused_variables)]
 pub trait Visitor<'ast>: Sized {
     /// Entry point that visits the entire AST.
     fn visit_ast(&mut self, ast: &'ast Ast) {
@@ -52,6 +53,14 @@ pub trait Visitor<'ast>: Sized {
     /// Visits an extern module item.
     fn visit_extern_mod_item(&mut self, extern_module: &'ast ExternModItem) {
         extern_module.walk(self);
+    }
+
+    /// Visits an item's identifier.
+    ///
+    /// This method is basically a proxy for calling [`Self::visit_identifier`]. It exists to give you the
+    ///   option whether to let item identifiers bleed into [`Self::visit_identifier`].
+    fn visit_item_identifier(&mut self, ident: &'ast Ident) {
+        self.visit_identifier(ident);
     }
 
     /// Visits a statement (break, if, let, ...).
@@ -108,7 +117,7 @@ pub trait Visitor<'ast>: Sized {
     /// Visits a pattern that binds to a name.
     ///
     /// This node is a leaf node and has no further traversal logic.
-    fn visit_pat_binding(&mut self, #[allow(unused)] binding: &'ast PatBinding) {}
+    fn visit_pat_binding(&mut self, binding: &'ast PatBinding) {}
 
     /// Visits a tuple pattern.
     fn visit_pat_tuple(&mut self, elements: &'ast [Pat]) {
@@ -143,17 +152,17 @@ pub trait Visitor<'ast>: Sized {
     /// Visits a literal (string, boolean, ...).
     ///
     /// This node is a leaf node and has no further traversal logic.
-    fn visit_literal(&mut self, #[allow(unused)] literal: &'ast Literal) {}
+    fn visit_literal(&mut self, literal: &'ast Literal) {}
 
     /// Visits a path.
     ///
     /// This node is a leaf node and has no further traversal logic.
-    fn visit_path(&mut self, #[allow(unused)] path: &'ast Path) {}
+    fn visit_path(&mut self, path: &'ast Path) {}
 
     /// Visits an identifier.
     ///
     /// This node is a leaf node and has no further traversal logic.
-    fn visit_identifier(&mut self, #[allow(unused)] ident: &'ast Ident) {}
+    fn visit_identifier(&mut self, ident: &'ast Ident) {}
 
     /// Visits a type.
     fn visit_ty(&mut self, ty: &'ast Ty) {

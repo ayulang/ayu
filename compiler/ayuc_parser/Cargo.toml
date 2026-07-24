@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 ayuc_lexer = { path = "../ayuc_lexer" }
-ayuc_source = { path = "../ayuc_source" }
 ayuc_span = { path = "../ayuc_span" }
 ayuc_diagnostic = { path = "../ayuc_diagnostic" }
 ayuc_ast = { path = "../ayuc_ast" }

@@ -88,13 +88,13 @@ impl<'dcx, 'sess> Resolver<'dcx, 'sess> {
     ) -> ResolutionContext {
         let mut this = Self::new(sess, dcx, file_id);
 
-        this.resolve_names(ast);
+        this.run_name_resolution(ast);
 
         if this.dcx.requires_abort() {
             return this.rcx;
         }
 
-        this.resolve_types(ast);
+        this.run_type_resolution(ast);
 
         this.rcx
     }

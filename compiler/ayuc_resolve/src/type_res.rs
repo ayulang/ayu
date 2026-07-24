@@ -1,239 +1,46 @@
 use std::collections::VecDeque;
 
-use crate::{
-    Ty,
-    def::Def,
-    resolver::Resolver,
-    ty::{PrimTy, TyKind},
+use ayuc_ast::{
+    Ast, Expr, ExprKind, ExternFnItem, FnItem, Item, LetStmt, Literal, Operator, Parameter, Pat,
+    PatKind, Stmt,
 };
-
-use ayuc_ast::{self as ast, AlternateBranch, ExprKind, IfStmt, Literal, Operator, PatKind};
+use ayuc_ast_visit::{visitor::Visitor, walkable::Walkable};
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_id::TyId;
 use ayuc_span::Span;
 
-impl Resolver<'_, '_> {
-    pub(crate) fn resolve_types(&mut self, ast: &ast::Ast) {
-        for item in &ast.items {
-            self.tr_walk_item(item);
+use crate::{Def, PrimTy, Resolver, Ty, TyKind};
+
+impl<'dcx, 'sess> Resolver<'dcx, 'sess> {
+    pub(crate) fn run_type_resolution(&mut self, ast: &Ast) {
+        TypeResolutionPhase {
+            res: self,
+            current_item: None,
+            current_stmt: None,
+            current_ty: None,
         }
+        .visit_ast(ast);
     }
+}
 
-    fn tr_walk_item(&mut self, item: &ast::Item) {
-        match &item.kind {
-            ast::ItemKind::InlineMod(ast::ModItem { items, .. })
-            | ast::ItemKind::ExternMod(ast::ExternModItem { items, .. }) => {
-                for item in items {
-                    self.tr_walk_item(item);
-                }
-            }
-            ast::ItemKind::Fn(fun) => {
-                let mut parameters = Vec::with_capacity(fun.parameters.parameters.len());
+pub struct TypeResolutionPhase<'a, 'dcx, 'sess, 'ast> {
+    res: &'a mut Resolver<'dcx, 'sess>,
 
-                for param in &fun.parameters.parameters {
-                    let id = self.tr_resolve_ty(&param.ty);
+    current_item: Option<&'ast Item>,
+    current_stmt: Option<&'ast Stmt>,
+    current_ty: Option<&'ast ayuc_ast::Ty>,
+}
 
-                    self.rcx.tys_by_node.insert(param.id, id);
-
-                    parameters.push(self.rcx.ty(id).clone());
-                }
-
-                let return_ty_id = self.tr_resolve_ty(&fun.return_ty);
-                let kind = TyKind::Fn(parameters, Box::new(self.rcx.ty(return_ty_id).clone()));
-                let id = self
-                    .rcx
-                    .ty_resolutions
-                    .insert_with_key(|key| Ty { id: key, kind });
-
-                self.rcx.tys_by_node.insert(item.id, id);
-
-                for stmt in &fun.block.children {
-                    self.tr_walk_stmt(stmt);
-                }
-            }
-            ast::ItemKind::ExternFn(extern_fun) => {
-                let mut parameters = Vec::with_capacity(extern_fun.parameters.parameters.len());
-
-                for param in &extern_fun.parameters.parameters {
-                    let id = self.tr_resolve_ty(&param.ty);
-
-                    self.rcx.tys_by_node.insert(param.id, id);
-
-                    parameters.push(self.rcx.ty(id).clone());
-                }
-
-                let return_ty_id = self.tr_resolve_ty(&extern_fun.return_ty);
-                let kind = TyKind::Fn(parameters, Box::new(self.rcx.ty(return_ty_id).clone()));
-                let id = self
-                    .rcx
-                    .ty_resolutions
-                    .insert_with_key(|key| Ty { id: key, kind });
-
-                self.rcx.tys_by_node.insert(item.id, id);
-            }
-        }
-    }
-
-    fn tr_walk_stmt(&mut self, stmt: &ast::Stmt) {
-        match &stmt.kind {
-            ast::StmtKind::Let(decl) => {
-                self.tr_walk_expr(&decl.init);
-
-                let ty = if let Some(ty) = &decl.ty {
-                    self.tr_resolve_ty(ty)
-                } else {
-                    self.tr_infer_ty(stmt, decl)
-                };
-
-                self.tr_walk_pat_expr_pair(&decl.pat, &decl.init);
-
-                self.rcx.tys_by_node.insert(stmt.id, ty);
-            }
-            ast::StmtKind::Loop(r#loop) => {
-                for stmt in &r#loop.block.children {
-                    self.tr_walk_stmt(stmt);
-                }
-            }
-            ast::StmtKind::While(r#while) => {
-                self.tr_walk_expr(&r#while.expr);
-
-                for stmt in &r#while.block.children {
-                    self.tr_walk_stmt(stmt);
-                }
-            }
-            ast::StmtKind::Assignment(assign) => self.tr_walk_expr(&assign.value),
-            ast::StmtKind::Expr(expr) => self.tr_walk_expr(expr),
-            ast::StmtKind::If(r#if) => self.tr_walk_if_stmt(r#if),
-            ast::StmtKind::Return(ret) => self.tr_walk_expr(&ret.expr),
-            ast::StmtKind::Break => {}
-        }
-    }
-
-    fn tr_walk_if_stmt(&mut self, r#if: &IfStmt) {
-        self.tr_walk_expr(&r#if.expr);
-
-        for stmt in &r#if.block.children {
-            self.tr_walk_stmt(stmt);
-        }
-
-        match &r#if.alternate {
-            Some(AlternateBranch::Another(stmt)) => self.tr_walk_if_stmt(stmt),
-            Some(AlternateBranch::Final(block)) => {
-                for stmt in &block.children {
-                    self.tr_walk_stmt(stmt);
-                }
-            }
-            None => {}
-        }
-    }
-
-    fn tr_walk_pat_expr_pair(&mut self, pat: &ast::Pat, expr: &ast::Expr) {
-        let expr_ty_id = self.tr_type_of_expr(expr);
-        let expr_ty = self.rcx.ty(expr_ty_id);
-
-        let mut collected = Vec::new();
-
-        if let TyKind::Tuple(expr) = &expr_ty.kind
-            && let PatKind::Tuple(pat) = &pat.kind
-        {
-            let mut queue =
-                VecDeque::from_iter(expr.iter().enumerate().map(|(i, ty)| (ty, pat.get(i))));
-
-            while let Some((ty, maybe_pat)) = queue.pop_front() {
-                if let Some(pat) = maybe_pat {
-                    collected.push((pat.id, ty.id));
-                }
-
-                if let TyKind::Tuple(nested_tys) = &ty.kind
-                    && let Some(pat) = maybe_pat
-                    && let PatKind::Tuple(nested_pats) = &pat.kind
-                {
-                    queue.extend(
-                        nested_tys
-                            .iter()
-                            .enumerate()
-                            .map(|(i, ty)| (ty, nested_pats.get(i))),
-                    );
-                }
-            }
-        }
-
-        for (id, ty) in collected {
-            self.rcx.tys_by_node.insert(id, ty);
-        }
-
-        self.rcx.tys_by_node.insert(pat.id, expr_ty_id);
-    }
-
-    fn tr_walk_expr(&mut self, expr: &ast::Expr) {
-        let _ = self.tr_type_of_expr(expr);
-
-        match &expr.kind {
-            ExprKind::Tuple(elements) => {
-                let mut queue = Vec::from_iter(elements);
-
-                while let Some(expr) = queue.pop() {
-                    let _ = self.tr_type_of_expr(expr); // We do this so tuples get their types inserted to the rcx.tys_of_node.
-
-                    if let ExprKind::Tuple(elements) = &expr.kind {
-                        queue.extend(elements);
-                    }
-                }
-            }
-            ExprKind::Call(call_expr) => {
-                self.tr_walk_expr(&call_expr.callee);
-
-                for arg in &call_expr.args {
-                    self.tr_walk_expr(arg);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    #[must_use = "inferred types are not automatically inserted into the ResolutionContext"]
-    fn tr_infer_ty(&mut self, stmt: &ast::Stmt, decl: &ast::LetStmt) -> TyId {
-        let inferred = self.tr_type_of_expr(&decl.init);
-
-        if self.rcx.ty(inferred).is_error() {
-            self.dcx.emit(
-                Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
-                    .with_message("unable to infer type")
-                    .with_label(Label::primary(
-                        Span::from((stmt.span.start, decl.pat.span.end)),
-                        "unable to infer type",
-                    ))
-                    .with_label(Label::help(
-                        decl.init.span,
-                        "initializer expression doesn't resolve to a clear type",
-                    )),
-            );
-        }
-
-        inferred
-    }
-
-    fn tr_type_of_expr(&mut self, expr: &ast::Expr) -> TyId {
-        if !self.rcx.tys_by_node.contains_key(&expr.id) {
-            let id = self.tr_evaluate_type_of_expr(expr);
-
-            self.rcx.tys_by_node.insert(expr.id, id);
-
-            return id;
-        }
-
-        self.rcx.tys_by_node[&expr.id]
-    }
-
-    fn tr_evaluate_type_of_expr(&mut self, expr: &ast::Expr) -> TyId {
+impl TypeResolutionPhase<'_, '_, '_, '_> {
+    fn evaluate_type_of_expr(&mut self, expr: &Expr) -> TyId {
         let kind = match &expr.kind {
             ExprKind::Tuple(inner) => TyKind::Tuple(
                 inner
                     .iter()
                     .map(|child| {
-                        let id = self.tr_evaluate_type_of_expr(child);
+                        let id = self.evaluate_type_of_expr(child);
 
-                        self.rcx.ty(id).clone()
+                        self.res.rcx.ty(id).clone()
                     })
                     .collect(),
             ),
@@ -243,39 +50,39 @@ impl Resolver<'_, '_> {
                 Literal::Str { .. } | Literal::InterpolatedStr { .. } => PrimTy::Str,
             }),
             ExprKind::Path(path) => {
-                let target = self.rcx.get_name_res(path.id);
+                let target = self.res.rcx.get_name_res(path.id);
 
                 match target {
                     Def::Def(id) => {
-                        let item = self.sess.item(id);
+                        let item = self.res.sess.item(id);
 
                         match &item.kind {
                             ayuc_session::ItemKind::Fn { .. }
                             | ayuc_session::ItemKind::ExternFn { .. } => {
-                                return self.rcx.tys_by_node[&item.id];
+                                return self.res.rcx.tys_by_node[&item.id];
                             }
                             _ => TyKind::Error,
                         }
                     }
                     Def::Local(id) => {
-                        let local = self.sess.local(id);
+                        let local = self.res.sess.local(id);
 
-                        return self.rcx.tys_by_node[&local.id];
+                        return self.res.rcx.tys_by_node[&local.id];
                     }
                     Def::Error => TyKind::Error,
                 }
             }
             ExprKind::Call(call) => {
-                let callee_ty = self.tr_type_of_expr(&call.callee);
+                let callee_ty = self.res.rcx.ty_of(call.callee.id);
 
-                if let TyKind::Fn(_, ret) = &self.rcx.ty(callee_ty).kind {
+                if let TyKind::Fn(_, ret) = &callee_ty.kind {
                     return ret.id;
                 } else {
                     TyKind::Error
                 }
             }
             ExprKind::Parenthesized(expr) => {
-                return self.tr_evaluate_type_of_expr(expr);
+                return self.evaluate_type_of_expr(expr);
             }
             ExprKind::Binary(bin) => match bin.operator {
                 Operator::Add
@@ -292,51 +99,241 @@ impl Resolver<'_, '_> {
             },
         };
 
-        self.rcx
+        self.res
+            .rcx
             .ty_resolutions
             .insert_with_key(|id| Ty { id, kind })
     }
 
-    #[must_use = "resolved types are not automatically inserted into the ResolutionContext"]
-    fn tr_resolve_ty(&mut self, ty: &ast::Ty) -> TyId {
-        let kind = match &ty.kind {
-            ast::TyKind::Tuple(inner) => TyKind::Tuple(
-                inner
-                    .iter()
-                    .map(|child| {
-                        let id = self.tr_resolve_ty(child);
+    fn tr_walk_pat_expr_pair(&mut self, pat: &Pat, expr: &Expr) {
+        let expr_ty_id = self.res.rcx.tys_by_node[&expr.id];
+        let mut collected = Vec::new();
 
-                        self.rcx.ty(id).clone() // can we optimise this?
-                    })
-                    .collect(),
-            ),
-            ast::TyKind::Path(p) => {
-                if p.segments.len() == 1 {
-                    let segment = &p.segments[0];
+        {
+            let expr_ty = self.res.rcx.ty(expr_ty_id);
 
-                    if let Some(prim) = PrimTy::from_name(segment.ident.sym) {
-                        TyKind::Prim(prim)
-                    } else {
-                        TyKind::Error
+            if let TyKind::Tuple(expr) = &expr_ty.kind
+                && let PatKind::Tuple(pat) = &pat.kind
+            {
+                let mut queue =
+                    VecDeque::from_iter(expr.iter().enumerate().map(|(i, ty)| (ty, pat.get(i))));
+
+                while let Some((ty, maybe_pat)) = queue.pop_front() {
+                    if let Some(pat) = maybe_pat {
+                        collected.push((pat.id, ty.id));
                     }
-                } else {
-                    TyKind::Error // not yet.
+
+                    if let TyKind::Tuple(nested_tys) = &ty.kind
+                        && let Some(pat) = maybe_pat
+                        && let PatKind::Tuple(nested_pats) = &pat.kind
+                    {
+                        queue.extend(
+                            nested_tys
+                                .iter()
+                                .enumerate()
+                                .map(|(i, ty)| (ty, nested_pats.get(i))),
+                        );
+                    }
                 }
             }
+        }
+
+        for (id, ty) in collected {
+            self.res.rcx.tys_by_node.insert(id, ty);
+        }
+
+        self.res.rcx.tys_by_node.insert(pat.id, expr_ty_id);
+    }
+}
+
+impl<'ast> Visitor<'ast> for TypeResolutionPhase<'_, '_, '_, 'ast> {
+    fn visit_item(&mut self, item: &'ast Item) {
+        let old_item = self.current_item.replace(item);
+
+        item.walk(self);
+
+        self.current_item = old_item;
+    }
+
+    fn visit_parameter(&mut self, parameter: &'ast Parameter) {
+        parameter.walk(self);
+
+        self.res
+            .rcx
+            .tys_by_node
+            .insert(parameter.id, self.res.rcx.tys_by_node[&parameter.ty.id]);
+    }
+
+    fn visit_fn_item(&mut self, fun: &'ast FnItem) {
+        let item = self
+            .current_item
+            .expect("visit_fn_item called outside of item context");
+
+        fun.walk(self); // So the `Ty`s can be resolved
+
+        let mut parameters = Vec::with_capacity(fun.parameters.parameters.len());
+
+        for param in &fun.parameters.parameters {
+            parameters.push(self.res.rcx.ty_of(param.ty.id).clone());
+        }
+
+        let return_ty_id = self.res.rcx.ty_of(fun.return_ty.id);
+        let kind = TyKind::Fn(parameters, Box::new(return_ty_id.clone()));
+
+        let id = self
+            .res
+            .rcx
+            .ty_resolutions
+            .insert_with_key(|key| Ty { id: key, kind });
+
+        self.res.rcx.tys_by_node.insert(item.id, id);
+    }
+
+    fn visit_extern_fn_item(&mut self, extern_fun: &'ast ExternFnItem) {
+        let item = self
+            .current_item
+            .expect("visit_fn_item called outside of item context");
+
+        extern_fun.walk(self); // So the `Ty`s can be resolved
+
+        let mut parameters = Vec::with_capacity(extern_fun.parameters.parameters.len());
+
+        for param in &extern_fun.parameters.parameters {
+            parameters.push(self.res.rcx.ty_of(param.ty.id).clone());
+        }
+
+        let return_ty_id = self.res.rcx.ty_of(extern_fun.return_ty.id);
+        let kind = TyKind::Fn(parameters, Box::new(return_ty_id.clone()));
+
+        let id = self
+            .res
+            .rcx
+            .ty_resolutions
+            .insert_with_key(|key| Ty { id: key, kind });
+
+        self.res.rcx.tys_by_node.insert(item.id, id);
+    }
+
+    fn visit_path_ty(&mut self, path: &'ast ayuc_ast::Path) {
+        let current_ty = self
+            .current_ty
+            .expect("visit_tuple_ty called outside of type context");
+
+        let kind = if path.segments.len() == 1 {
+            let segment = &path.segments[0];
+
+            if let Some(prim) = PrimTy::from_name(segment.ident.sym) {
+                TyKind::Prim(prim)
+            } else {
+                TyKind::Error
+            }
+        } else {
+            TyKind::Error // not yet.
         };
 
-        if kind == TyKind::Error
-            && let ast::TyKind::Path(p) = &ty.kind
+        let id = self
+            .res
+            .rcx
+            .ty_resolutions
+            .insert_with_key(|key| Ty { id: key, kind });
+
+        self.res.rcx.tys_by_node.insert(current_ty.id, id);
+    }
+
+    fn visit_tuple_ty(&mut self, elements: &'ast [ayuc_ast::Ty]) {
+        let current_ty = self
+            .current_ty
+            .expect("visit_tuple_ty called outside of type context");
+
+        elements.walk(self); // runs `visit_ty` on all elements
+
+        let kind = TyKind::Tuple(
+            elements
+                .iter()
+                .map(|child| self.res.rcx.ty_of(child.id))
+                .cloned() // Because we need Ty's, not TyId's
+                .collect(),
+        );
+
+        let id = self
+            .res
+            .rcx
+            .ty_resolutions
+            .insert_with_key(|key| Ty { id: key, kind });
+
+        self.res.rcx.tys_by_node.insert(current_ty.id, id);
+    }
+
+    fn visit_ty(&mut self, ty: &'ast ayuc_ast::Ty) {
+        let old_ty = self.current_ty.replace(ty);
+
+        ty.walk(self);
+
+        self.current_ty = old_ty;
+
+        let resolved_ty = self.res.rcx.ty_of(ty.id);
+
+        if resolved_ty.kind == TyKind::Error
+            && let ayuc_ast::TyKind::Path(p) = &ty.kind
         {
-            self.dcx.emit(
-                Diagnostic::error(self.file_id, ty.span, Recovery::Fatal)
+            self.res.dcx.emit(
+                Diagnostic::error(self.res.file_id, ty.span, Recovery::Fatal)
                     .with_message(format!("cannot find type `{}` in this scope", p))
                     .with_label(Label::primary(ty.span, "not found in this scope")),
             );
         }
+    }
 
-        self.rcx
-            .ty_resolutions
-            .insert_with_key(|key| Ty { id: key, kind })
+    fn visit_expr(&mut self, expr: &'ast ayuc_ast::Expr) {
+        expr.walk(self); // resolve all children types first
+
+        if !self.res.rcx.tys_by_node.contains_key(&expr.id) {
+            let id = self.evaluate_type_of_expr(expr);
+
+            self.res.rcx.tys_by_node.insert(expr.id, id);
+        }
+    }
+
+    fn visit_stmt(&mut self, stmt: &'ast Stmt) {
+        let old_stmt = self.current_stmt.replace(stmt);
+
+        stmt.walk(self);
+
+        self.current_stmt = old_stmt;
+    }
+
+    fn visit_let_stmt(&mut self, let_stmt: &'ast LetStmt) {
+        let stmt = self
+            .current_stmt
+            .expect("visit_let_stmt called outside of statement context");
+
+        let_stmt.walk(self);
+
+        let ty = if let Some(ty) = &let_stmt.ty {
+            self.res.rcx.ty_of(ty.id)
+        } else {
+            let inferred = self.res.rcx.ty_of(let_stmt.init.id);
+
+            if inferred.is_error() {
+                self.res.dcx.emit(
+                    Diagnostic::error(self.res.file_id, stmt.span, Recovery::Fatal)
+                        .with_message("unable to infer type")
+                        .with_label(Label::primary(
+                            Span::from((stmt.span.start, let_stmt.pat.span.end)),
+                            "unable to infer type",
+                        ))
+                        .with_label(Label::help(
+                            let_stmt.init.span,
+                            "initializer expression doesn't resolve to a clear type",
+                        )),
+                );
+            }
+
+            inferred
+        };
+
+        self.res.rcx.tys_by_node.insert(stmt.id, ty.id);
+
+        self.tr_walk_pat_expr_pair(&let_stmt.pat, &let_stmt.init);
     }
 }

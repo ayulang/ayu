@@ -9,7 +9,8 @@ mod math_stuff {
 // We can also use regular modules to group extern functions together:
 
 mod ffi {
-    extern fn print(msg: str)
+    // Removing the `pub` would throw a compile-time error.
+    pub extern fn print(msg: str)
 }
 
 fn use_ffi() {

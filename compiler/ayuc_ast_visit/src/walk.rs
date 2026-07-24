@@ -40,7 +40,7 @@ mod item {
             return_ty,
         } = fun;
 
-        visitor.visit_identifier(ident);
+        visitor.visit_item_identifier(ident);
 
         parameters.parameters.walk(visitor);
 
@@ -60,10 +60,10 @@ mod item {
         } = extern_fun;
 
         if let Some(ffi_name) = ffi_name {
-            visitor.visit_identifier(ffi_name);
+            visitor.visit_item_identifier(ffi_name);
         }
 
-        visitor.visit_identifier(name);
+        visitor.visit_item_identifier(name);
 
         parameters.parameters.walk(visitor);
 
@@ -73,7 +73,7 @@ mod item {
     pub fn walk_mod_item<'ast, V: Visitor<'ast>>(visitor: &mut V, module: &'ast ModItem) {
         let ModItem { ident, items } = module;
 
-        visitor.visit_identifier(ident);
+        visitor.visit_item_identifier(ident);
         visitor.visit_item_list(items);
     }
 
@@ -89,10 +89,10 @@ mod item {
         } = extern_module;
 
         if let Some(ffi_name) = ffi_name {
-            visitor.visit_identifier(ffi_name);
+            visitor.visit_item_identifier(ffi_name);
         }
 
-        visitor.visit_identifier(ident);
+        visitor.visit_item_identifier(ident);
         visitor.visit_item_list(items);
     }
 }

@@ -81,8 +81,6 @@ version = "0.1.0"
 dependencies = [
  "ayuc_codegen",
  "ayuc_diagnostic",
- "ayuc_hir",
- "ayuc_id",
  "ayuc_lexer",
  "ayuc_lower",
  "ayuc_parser",
@@ -98,7 +96,6 @@ version = "0.1.0"
 dependencies = [
  "ayuc_id",
  "ayuc_span",
- "slotmap",
 ]
 
 [[package]]
@@ -114,7 +111,6 @@ version = "0.1.0"
 dependencies = [
  "ayuc_diagnostic",
  "ayuc_scanner",
- "ayuc_source",
  "ayuc_span",
  "unicode-properties",
 ]
@@ -127,7 +123,6 @@ dependencies = [
  "ayuc_hir",
  "ayuc_id",
  "ayuc_resolve",
- "ayuc_span",
  "bimap",
  "slotmap",
 ]
@@ -141,7 +136,6 @@ dependencies = [
  "ayuc_id",
  "ayuc_lexer",
  "ayuc_session",
- "ayuc_source",
  "ayuc_span",
 ]
 
@@ -158,6 +152,7 @@ name = "ayuc_resolve"
 version = "0.1.0"
 dependencies = [
  "ayuc_ast",
+ "ayuc_ast_visit",
  "ayuc_diagnostic",
  "ayuc_id",
  "ayuc_session",
@@ -181,7 +176,6 @@ dependencies = [
  "ayuc_ast",
  "ayuc_ast_visit",
  "ayuc_diagnostic",
- "ayuc_id",
  "ayuc_resolve",
  "ayuc_session",
  "ayuc_span",
@@ -201,7 +195,6 @@ name = "ayuc_source"
 version = "0.1.0"
 dependencies = [
  "ariadne",
- "ayuc_span",
 ]
 
 [[package]]
