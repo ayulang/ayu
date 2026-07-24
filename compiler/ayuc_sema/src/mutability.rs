@@ -1,84 +1,77 @@
-use ayuc_ast::{AlternateBranch, Ast, IfStmt, Item, ItemKind, Stmt, StmtKind};
-use ayuc_diagnostic::{Diagnostic, Label, Recovery};
-use ayuc_resolve::def::Def;
+use ayuc_ast::AssignStmt;
+use ayuc_ast_visit::{visitor::Visitor, walkable::Walkable};
+use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label, Recovery};
+use ayuc_resolve::{def::Def, resolver::ResolutionContext};
+use ayuc_session::Session;
+use ayuc_span::Span;
 
-use crate::SemanticAnalyzer;
+pub struct MutabilityAnalysisPhase<'a> {
+    dcx: &'a mut DiagnosticContext,
+    rcx: &'a ResolutionContext,
+    sess: &'a Session,
+    file_id: usize,
 
-impl SemanticAnalyzer<'_> {
-    pub fn mutabilitycheck(&mut self, ast: &Ast) {
-        for item in &ast.items {
-            self.mc_walk_item(item);
+    stmt_span: Option<Span>,
+}
+
+impl<'a> MutabilityAnalysisPhase<'a> {
+    pub fn new(
+        dcx: &'a mut DiagnosticContext,
+        rcx: &'a ResolutionContext,
+        sess: &'a Session,
+        file_id: usize,
+    ) -> Self {
+        Self {
+            dcx,
+            rcx,
+            sess,
+            file_id,
+            stmt_span: None,
         }
     }
+}
 
-    fn mc_walk_item(&mut self, item: &Item) {
-        if let ItemKind::Fn(fun) = &item.kind {
-            for stmt in &fun.block.children {
-                self.mc_walk_stmt(stmt);
-            }
-        }
+impl Visitor<'_> for MutabilityAnalysisPhase<'_> {
+    fn visit_stmt(&mut self, stmt: &'_ ayuc_ast::Stmt) {
+        let old = self.stmt_span.replace(stmt.span);
+
+        stmt.walk(self);
+
+        self.stmt_span = old;
     }
 
-    fn mc_walk_stmt(&mut self, stmt: &Stmt) {
-        match &stmt.kind {
-            StmtKind::Assignment(assign) => {
-                let local = match self.rcx.get_name_res(assign.ident.id) {
-                    Def::Local(local) => local,
-                    _ => return,
-                };
+    fn visit_assign_stmt(&mut self, assign_stmt: &'_ AssignStmt) {
+        let stmt_span = self.stmt_span.unwrap();
 
-                let info = self.sess.local(local);
+        let local = match self.rcx.get_name_res(assign_stmt.ident.id) {
+            Def::Local(local) => local,
+            _ => return assign_stmt.walk(self),
+        };
 
-                if !info.mutable {
-                    self.dcx.emit(
-                    Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
-                        .with_message(format!(
-                            "cannot assign to immutable variable `{}`",
-                            info.name
-                        ))
-                        .with_label(Label::help(
-                            info.defined_where,
-                            "this variable is immutable",
-                        ))
-                        .with_label(Label::primary(
-                            stmt.span,
-                            "cannot assign to immutable variable",
-                        ))
-                        .with_help(format!(
-                            "consider making the variable `{name}` mutable: `let mut {name} = ...`",
-                            name = info.name
-                        )),
-                );
-                }
-            }
-            StmtKind::Loop(r#loop) => {
-                for stmt in &r#loop.block.children {
-                    self.mc_walk_stmt(stmt);
-                }
-            }
-            StmtKind::While(r#while) => {
-                for stmt in &r#while.block.children {
-                    self.mc_walk_stmt(stmt);
-                }
-            }
-            StmtKind::If(if_stmt) => self.mc_walk_if_stmt(if_stmt),
-            StmtKind::Expr(_) | StmtKind::Let(_) | StmtKind::Return(_) | StmtKind::Break => {}
-        }
-    }
+        let info = self.sess.local(local);
 
-    fn mc_walk_if_stmt(&mut self, if_stmt: &IfStmt) {
-        for stmt in &if_stmt.block.children {
-            self.mc_walk_stmt(stmt);
+        if !info.mutable {
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, stmt_span, Recovery::Fatal)
+                    .with_message(format!(
+                        "cannot assign to immutable variable `{}`",
+                        info.name
+                    ))
+                    .with_label(Label::help(
+                        info.defined_where,
+                        "this variable is immutable",
+                    ))
+                    .with_label(Label::primary(
+                        stmt_span,
+                        "cannot assign to immutable variable",
+                    ))
+                    .with_help(format!(
+                        "consider making the variable `{name}` mutable: `let mut {name} = ...`",
+                        name = info.name
+                    )),
+            );
         }
 
-        match &if_stmt.alternate {
-            Some(AlternateBranch::Final(block)) => {
-                for stmt in &block.children {
-                    self.mc_walk_stmt(stmt);
-                }
-            }
-            Some(AlternateBranch::Another(if_stmt)) => self.mc_walk_if_stmt(if_stmt),
-            None => {}
-        }
+        assign_stmt.walk(self)
     }
 }

@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 ayuc_ast = { path = "../ayuc_ast" }
+ayuc_ast_visit = { path = "../ayuc_ast_visit" }
 ayuc_resolve = { path = "../ayuc_resolve" }
 ayuc_span = { path = "../ayuc_span" }
 ayuc_session = { path = "../ayuc_session" }

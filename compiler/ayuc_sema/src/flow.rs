@@ -1,66 +1,64 @@
-use ayuc_ast::{AlternateBranch, Ast, IfStmt, Item, ItemKind, Stmt, StmtKind};
-use ayuc_diagnostic::{Diagnostic, Label, Recovery};
+use ayuc_ast::{LoopStmt, Stmt, WhileStmt};
+use ayuc_ast_visit::{visitor::Visitor, walkable::Walkable};
+use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label, Recovery};
+use ayuc_span::Span;
 
-use crate::SemanticAnalyzer;
+pub struct FlowAnalysisPhase<'a> {
+    dcx: &'a mut DiagnosticContext,
+    file_id: usize,
 
-impl SemanticAnalyzer<'_> {
-    pub fn flowcheck(&mut self, ast: &Ast) {
-        for item in &ast.items {
-            self.fc_walk_item(item);
+    flow_depth: usize,
+    current_stmt_span: Option<Span>,
+}
+
+impl<'a> FlowAnalysisPhase<'a> {
+    pub fn new(dcx: &'a mut DiagnosticContext, file_id: usize) -> Self {
+        Self {
+            dcx,
+            file_id,
+            flow_depth: 0,
+            current_stmt_span: None,
         }
     }
+}
 
-    fn fc_walk_item(&mut self, item: &Item) {
-        if let ItemKind::Fn(fun) = &item.kind {
-            for stmt in &fun.block.children {
-                self.fc_walk_stmt(stmt, false);
-            }
-        }
+impl Visitor<'_> for FlowAnalysisPhase<'_> {
+    fn visit_stmt(&mut self, stmt: &'_ Stmt) {
+        let old_span = self.current_stmt_span.replace(stmt.span);
+
+        stmt.walk(self);
+
+        self.current_stmt_span = old_span;
     }
 
-    fn fc_walk_stmt(&mut self, stmt: &Stmt, within_loop: bool) {
-        match &stmt.kind {
-            StmtKind::Loop(r#loop) => {
-                for stmt in &r#loop.block.children {
-                    self.fc_walk_stmt(stmt, true);
-                }
-            }
-            StmtKind::While(r#while) => {
-                for stmt in &r#while.block.children {
-                    self.fc_walk_stmt(stmt, true);
-                }
-            }
-            StmtKind::If(if_stmt) => self.fc_walk_if_stmt(if_stmt, within_loop),
-            StmtKind::Break => {
-                if !within_loop {
-                    self.dcx.emit(
-                        Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
-                            .with_message("`break` outside of a loop")
-                            .with_label(Label::primary(stmt.span, "outside of a loop"))
-                            .with_help("maybe you confused `break` with `return`"),
-                    );
-                }
-            }
-            StmtKind::Expr(_)
-            | StmtKind::Let(_)
-            | StmtKind::Return(_)
-            | StmtKind::Assignment(_) => {}
-        }
+    fn visit_loop_stmt(&mut self, loop_stmt: &'_ LoopStmt) {
+        self.flow_depth += 1;
+
+        loop_stmt.walk(self);
+
+        self.flow_depth -= 1;
     }
 
-    fn fc_walk_if_stmt(&mut self, if_stmt: &IfStmt, within_loop: bool) {
-        for stmt in &if_stmt.block.children {
-            self.fc_walk_stmt(stmt, within_loop);
-        }
+    fn visit_while_stmt(&mut self, while_stmt: &'_ WhileStmt) {
+        self.flow_depth += 1;
 
-        match &if_stmt.alternate {
-            Some(AlternateBranch::Final(block)) => {
-                for stmt in &block.children {
-                    self.fc_walk_stmt(stmt, within_loop);
-                }
-            }
-            Some(AlternateBranch::Another(if_stmt)) => self.fc_walk_if_stmt(if_stmt, within_loop),
-            None => {}
+        while_stmt.walk(self);
+
+        self.flow_depth -= 1;
+    }
+
+    fn visit_break_stmt(&mut self) {
+        let Some(span) = self.current_stmt_span else {
+            return;
+        };
+
+        if self.flow_depth == 0 {
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, span, Recovery::Fatal)
+                    .with_message("`break` statement outside of loop")
+                    .with_label(Label::primary(span, "cannot `break` outside of a loop"))
+                    .with_help("you might have confused `break` with `return`"),
+            );
         }
     }
 }

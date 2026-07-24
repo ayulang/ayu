@@ -1,49 +1,40 @@
-pub(crate) mod basic;
-pub(crate) mod callcheck;
 pub(crate) mod flow;
+pub(crate) mod general;
 pub(crate) mod mutability;
 pub(crate) mod typecheck;
 
 use ayuc_ast::Ast;
+use ayuc_ast_visit::visitor::Visitor;
 use ayuc_diagnostic::DiagnosticContext;
 use ayuc_resolve::resolver::ResolutionContext;
 use ayuc_session::Session;
 
-pub struct SemanticAnalyzer<'a> {
-    file_id: usize,
-    rcx: &'a ResolutionContext,
-    dcx: &'a mut DiagnosticContext,
-    sess: &'a Session,
+use crate::{
+    flow::FlowAnalysisPhase, general::GeneralPhase, mutability::MutabilityAnalysisPhase,
+    typecheck::TypeCheckingPhase,
+};
+
+macro_rules! run_phase {
+    ($ast:ident, $phase:expr) => {{
+        let mut phase = $phase;
+
+        phase.visit_ast($ast);
+    }};
 }
 
-impl<'a> SemanticAnalyzer<'a> {
-    pub fn new(
-        file_id: usize,
-        rcx: &'a ResolutionContext,
-        dcx: &'a mut DiagnosticContext,
-        sess: &'a Session,
-    ) -> Self {
-        Self {
-            file_id,
-            rcx,
-            dcx,
-            sess,
-        }
-    }
+pub struct SemanticAnalyzer;
 
+impl SemanticAnalyzer {
     pub fn analyze(
         ast: &Ast,
         file_id: usize,
-        rcx: &'a ResolutionContext,
-        dcx: &'a mut DiagnosticContext,
-        sess: &'a Session,
+        rcx: &ResolutionContext,
+        dcx: &mut DiagnosticContext,
+        sess: &Session,
     ) {
-        let mut this = Self::new(file_id, rcx, dcx, sess);
-
-        this.basiccheck(ast);
-        this.callcheck(ast);
-        this.typecheck(ast);
-        this.mutabilitycheck(ast);
-        this.flowcheck(ast);
+        run_phase!(ast, GeneralPhase::new(dcx, file_id));
+        run_phase!(ast, TypeCheckingPhase::new(dcx, rcx, sess, file_id));
+        run_phase!(ast, MutabilityAnalysisPhase::new(dcx, rcx, sess, file_id));
+        run_phase!(ast, FlowAnalysisPhase::new(dcx, file_id))
     }
 }
