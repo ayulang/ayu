@@ -1,6 +1,8 @@
-use crate::{def::Def, resolver::Resolver};
-
-use ayuc_ast::{self as ast, PatKind};
+use ayuc_ast::{
+    Ast, Block, ExternFnItem, ExternModItem, FnItem, Ident, IntlSegment, Item, ItemKind, Literal,
+    ModItem, Parameter, Pat, PatKind, Path, PathSegment, Visibility,
+};
+use ayuc_ast_visit::{visitor::Visitor, walkable::Walkable};
 use ayuc_diagnostic::{Diagnostic, Label, Recovery};
 use ayuc_id::{
     ast::NodeId,
@@ -9,16 +11,30 @@ use ayuc_id::{
 use ayuc_session::{self as session, local::LocalInfo};
 use ayuc_span::{Span, symbol::Symbol};
 
-// General implementations
+use crate::{def::Def, resolver::Resolver};
+
+fn ident_of_item(item: &Item) -> &Ident {
+    match &item.kind {
+        ItemKind::InlineMod(decl) => &decl.ident,
+        ItemKind::ExternMod(decl) => &decl.ident,
+        ItemKind::Fn(decl) => &decl.ident,
+        ItemKind::ExternFn(decl) => &decl.name,
+    }
+}
+
 impl Resolver<'_, '_> {
-    pub(crate) fn resolve_names(&mut self, ast: &ast::Ast) {
-        self.first_pass(ast);
+    pub(crate) fn run_name_resolution(&mut self, ast: &Ast) {
+        FirstPass { res: self }.visit_ast(ast);
 
         if self.dcx.requires_abort() {
             return;
         }
 
-        self.second_pass(ast);
+        SecondPass {
+            res: self,
+            current_item: None,
+        }
+        .visit_ast(ast);
     }
 
     fn register_def(&mut self, sym: Symbol, def_id: DefId, node_id: NodeId) {
@@ -32,30 +48,28 @@ impl Resolver<'_, '_> {
     }
 }
 
-// First pass for assigning `DefId`s to Item's `NodeId`s
-// n1 = name resolution 1st pass (for avoiding conflicts with the type resolver's or 2nd pass's impl)
-impl Resolver<'_, '_> {
-    fn first_pass(&mut self, ast: &ast::Ast) {
+struct FirstPass<'a, 'dcx, 'sess> {
+    res: &'a mut Resolver<'dcx, 'sess>,
+}
+
+// Visitor trait is not needed for this because it is simple and custom logic.
+impl FirstPass<'_, '_, '_> {
+    pub fn visit_ast(&mut self, ast: &Ast) {
         for item in &ast.items {
-            self.n1_walk_item(item);
+            self.visit_item(item);
         }
     }
 
-    fn n1_walk_item(&mut self, item: &ast::Item) -> Option<DefId> {
-        let ident = match &item.kind {
-            ast::ItemKind::InlineMod(decl) => &decl.ident,
-            ast::ItemKind::ExternMod(decl) => &decl.ident,
-            ast::ItemKind::Fn(decl) => &decl.ident,
-            ast::ItemKind::ExternFn(decl) => &decl.name,
-        };
+    fn visit_item(&mut self, item: &Item) -> Option<DefId> {
+        let ident = ident_of_item(item);
         let sym = ident.sym;
 
-        if let Some(def) = self.stack.current().lookup(sym) {
-            let mut diag = Diagnostic::error(self.file_id, ident.span, Recovery::Fatal)
+        if let Some(def) = self.res.stack.current().lookup(sym) {
+            let mut diag = Diagnostic::error(self.res.file_id, ident.span, Recovery::Fatal)
                 .with_message(format!("the name `{}` is defined multiple times", sym));
 
             if let Def::Def(id) = def {
-                let item = self.sess.item(id);
+                let item = self.res.sess.item(id);
 
                 diag = diag.with_label(Label::help(
                     match &item.kind {
@@ -70,48 +84,44 @@ impl Resolver<'_, '_> {
 
             diag = diag.with_label(Label::primary(ident.span, "name is already defined"));
 
-            self.dcx.emit(diag);
+            self.res.dcx.emit(diag);
 
             return None;
         }
 
         let signature_span = match &item.kind {
-            ast::ItemKind::InlineMod(decl) => Span::from((item.span.start, decl.ident.span.end)),
-            ast::ItemKind::ExternMod(decl) => Span::from((item.span.start, decl.ident.span.end)),
-            ast::ItemKind::Fn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
-            ast::ItemKind::ExternFn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
+            ItemKind::InlineMod(decl) => Span::from((item.span.start, decl.ident.span.end)),
+            ItemKind::ExternMod(decl) => Span::from((item.span.start, decl.ident.span.end)),
+            ItemKind::Fn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
+            ItemKind::ExternFn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
         };
 
         let kind = match &item.kind {
-            ast::ItemKind::Fn(decl) => session::ItemKind::Fn {
-                signature_span,
-                n_args: decl.parameters.parameters.len(),
-            },
-            ast::ItemKind::ExternFn(decl) => session::ItemKind::ExternFn {
+            ItemKind::Fn(_decl) => session::ItemKind::Fn { signature_span },
+            ItemKind::ExternFn(decl) => session::ItemKind::ExternFn {
                 ffi_name: decl.ffi_name.as_ref().map(|i| i.sym),
                 signature_span,
-                n_args: decl.parameters.parameters.len(),
             },
-            ast::ItemKind::ExternMod(decl) => {
-                self.stack.enter(None);
+            ItemKind::ExternMod(decl) => {
+                self.res.stack.enter(None);
 
                 let items = decl
                     .items
                     .iter()
                     .flat_map(|item| {
                         let sym = match &item.kind {
-                            ast::ItemKind::ExternMod(decl) => &decl.ident,
-                            ast::ItemKind::InlineMod(decl) => &decl.ident,
-                            ast::ItemKind::Fn(decl) => &decl.ident,
-                            ast::ItemKind::ExternFn(decl) => &decl.name,
+                            ItemKind::ExternMod(decl) => &decl.ident,
+                            ItemKind::InlineMod(decl) => &decl.ident,
+                            ItemKind::Fn(decl) => &decl.ident,
+                            ItemKind::ExternFn(decl) => &decl.name,
                         }
                         .sym;
 
-                        self.n1_walk_item(item).map(|id| (sym, id))
+                        self.visit_item(item).map(|id| (sym, id))
                     })
                     .collect();
 
-                self.stack.leave();
+                self.res.stack.leave();
 
                 session::ItemKind::ExternMod {
                     items,
@@ -119,26 +129,26 @@ impl Resolver<'_, '_> {
                     signature_span,
                 }
             }
-            ast::ItemKind::InlineMod(decl) => {
-                self.stack.enter(None);
+            ItemKind::InlineMod(decl) => {
+                self.res.stack.enter(None);
 
                 let items = decl
                     .items
                     .iter()
                     .flat_map(|item| {
                         let sym = match &item.kind {
-                            ast::ItemKind::ExternMod(decl) => &decl.ident,
-                            ast::ItemKind::InlineMod(decl) => &decl.ident,
-                            ast::ItemKind::Fn(decl) => &decl.ident,
-                            ast::ItemKind::ExternFn(decl) => &decl.name,
+                            ItemKind::ExternMod(decl) => &decl.ident,
+                            ItemKind::InlineMod(decl) => &decl.ident,
+                            ItemKind::Fn(decl) => &decl.ident,
+                            ItemKind::ExternFn(decl) => &decl.name,
                         }
                         .sym;
 
-                        self.n1_walk_item(item).map(|id| (sym, id))
+                        self.visit_item(item).map(|id| (sym, id))
                     })
                     .collect();
 
-                self.stack.leave();
+                self.res.stack.leave();
 
                 session::ItemKind::InlineMod {
                     items,
@@ -147,285 +157,31 @@ impl Resolver<'_, '_> {
             }
         };
 
-        let def_id = self.sess.register_item(session::ItemInfo {
+        let def_id = self.res.sess.register_item(session::ItemInfo {
             name: sym,
             kind,
             id: item.id,
             vis: match item.vis {
-                ast::Visibility::Private => session::Visibility::Private,
-                ast::Visibility::Public => session::Visibility::Public,
+                Visibility::Private => session::Visibility::Private,
+                Visibility::Public => session::Visibility::Public,
             },
         });
 
-        self.register_def(sym, def_id, item.id);
+        self.res.register_def(sym, def_id, item.id);
 
         Some(def_id)
     }
 }
 
-// Second pass for resolving identifiers
-// n2 = name resolution 2nd pass (for avoiding conflicts with the type resolver's or 1st pass's impl)
-impl Resolver<'_, '_> {
-    fn second_pass(&mut self, ast: &ast::Ast) {
-        for item in &ast.items {
-            self.n2_walk_item(item);
-        }
-    }
+struct SecondPass<'a, 'dcx, 'sess, 'ast> {
+    res: &'a mut Resolver<'dcx, 'sess>,
 
-    fn n2_walk_item(&mut self, item: &ast::Item) {
-        let def_id = Some(self.rcx.defs_by_node[&item.id]);
+    current_item: Option<&'ast Item>,
+}
 
-        match &item.kind {
-            ast::ItemKind::Fn(decl) => {
-                self.stack.enter(def_id);
-
-                for param in &decl.parameters.parameters {
-                    let local_id = self.sess.register_local(LocalInfo {
-                        name: param.ident.sym,
-                        defined_where: param.span,
-                        id: param.id,
-                        mutable: false, // for now
-                    });
-
-                    self.register_local(param.ident.sym, local_id, param.id);
-                }
-
-                for stmt in &decl.block.children {
-                    self.n2_walk_stmt(stmt);
-                }
-
-                self.stack.leave();
-            }
-            ast::ItemKind::InlineMod(decl) => {
-                self.stack.enter(def_id);
-
-                for item in &decl.items {
-                    let sym = match &item.kind {
-                        ast::ItemKind::ExternMod(decl) => &decl.ident,
-                        ast::ItemKind::InlineMod(decl) => &decl.ident,
-                        ast::ItemKind::Fn(decl) => &decl.ident,
-                        ast::ItemKind::ExternFn(decl) => &decl.name,
-                    }
-                    .sym;
-
-                    self.stack
-                        .register_def(sym, self.rcx.defs_by_node[&item.id]);
-                }
-
-                for item in &decl.items {
-                    self.n2_walk_item(item);
-                }
-
-                self.stack.leave();
-            }
-            ast::ItemKind::ExternMod(_) | ast::ItemKind::ExternFn(_) => {}
-        }
-    }
-
-    fn n2_walk_stmt(&mut self, stmt: &ast::Stmt) {
-        match &stmt.kind {
-            ast::StmtKind::While(r#while) => {
-                self.n2_walk_expr(&r#while.expr);
-
-                self.stack.enter(None);
-
-                for stmt in &r#while.block.children {
-                    self.n2_walk_stmt(stmt);
-                }
-
-                self.stack.leave();
-            }
-            ast::StmtKind::Loop(r#loop) => {
-                self.stack.enter(None);
-
-                for stmt in &r#loop.block.children {
-                    self.n2_walk_stmt(stmt);
-                }
-
-                self.stack.leave();
-            }
-            ast::StmtKind::Assignment(assign) => {
-                self.n2_resolve_ident(&assign.ident);
-                self.n2_walk_expr(&assign.value);
-            }
-            ast::StmtKind::Let(decl) => {
-                // Walk the expression first, so stuff like `let x = x` won't reference itself.
-                self.n2_walk_expr(&decl.init);
-
-                self.n2_walk_pat(&decl.pat);
-            }
-
-            ast::StmtKind::If(if_stmt) => self.n2_walk_if_stmt(if_stmt),
-            ast::StmtKind::Expr(expr) => self.n2_walk_expr(expr),
-            ast::StmtKind::Return(ast::ReturnStmt { expr }) => self.n2_walk_expr(expr),
-
-            ast::StmtKind::Break => {}
-        }
-    }
-
-    fn n2_walk_pat(&mut self, pat: &ast::Pat) {
-        match &pat.kind {
-            PatKind::Binding(binding) => {
-                let local_id = self.sess.register_local(LocalInfo {
-                    name: binding.sym,
-                    defined_where: pat.span,
-                    id: pat.id,
-                    mutable: binding.mutable,
-                });
-
-                self.register_local(binding.sym, local_id, pat.id);
-            }
-            PatKind::Tuple(pats) => {
-                for pat in pats {
-                    self.n2_walk_pat(pat);
-                }
-            }
-        }
-    }
-
-    fn n2_walk_if_stmt(&mut self, if_stmt: &ast::IfStmt) {
-        self.n2_walk_expr(&if_stmt.expr);
-
-        self.stack.enter(None);
-
-        for stmt in &if_stmt.block.children {
-            self.n2_walk_stmt(stmt);
-        }
-
-        self.stack.leave();
-
-        match &if_stmt.alternate {
-            Some(ast::AlternateBranch::Another(if_stmt)) => self.n2_walk_if_stmt(if_stmt),
-            Some(ast::AlternateBranch::Final(block)) => {
-                for stmt in &block.children {
-                    self.n2_walk_stmt(stmt);
-                }
-            }
-            None => {}
-        }
-    }
-
-    fn n2_walk_expr(&mut self, expr: &ast::Expr) {
-        match &expr.kind {
-            ast::ExprKind::Tuple(inner) => {
-                for child in inner {
-                    self.n2_walk_expr(child);
-                }
-            }
-
-            ast::ExprKind::Parenthesized(paren) => self.n2_walk_expr(paren),
-            ast::ExprKind::Call(call) => {
-                self.n2_walk_expr(&call.callee);
-
-                for args in &call.args {
-                    self.n2_walk_expr(args);
-                }
-            }
-
-            ast::ExprKind::Binary(bin) => {
-                self.n2_walk_expr(&bin.left);
-                self.n2_walk_expr(&bin.right);
-            }
-
-            ast::ExprKind::Path(path) => self.n2_resolve_path(path),
-            ast::ExprKind::Lit(lit) => self.n2_walk_lit(lit),
-        }
-    }
-
-    fn n2_walk_lit(&mut self, lit: &ast::Literal) {
-        if let ast::Literal::InterpolatedStr { segments, .. } = lit {
-            for segment in segments {
-                if let ast::IntlSegment::Var(ident) = segment {
-                    self.n2_resolve_ident(ident);
-                }
-            }
-        }
-    }
-
-    fn n2_resolve_ident(&mut self, ident: &ast::Ident) {
-        if let Some(def) = self.stack.lookup(ident.sym) {
-            self.rcx.name_resolutions.insert(ident.id, def);
-        } else {
-            self.dcx.emit(
-                Diagnostic::error(self.file_id, ident.span, Recovery::Fatal)
-                    .with_message(format!(
-                        "unresolved symbol in current scope: `{}`",
-                        ident.sym.as_str()
-                    ))
-                    .with_label(Label::primary(ident.span, "not found in current scope")),
-            );
-
-            self.rcx.name_resolutions.insert(ident.id, Def::Error);
-        }
-    }
-
-    /// Resolves all segments of a path + the target of the whole path.
-    fn n2_resolve_path(&mut self, path: &ast::Path) {
-        let first = match path.segments.first() {
-            Some(seg) => seg,
-            _ => unreachable!(),
-        };
-
-        let ident = &first.ident;
-        let (def, mut qualified_path) = match self.stack.lookup_path(ident.sym) {
-            Some(result @ (Def::Def(_) | Def::Local(_), _)) => result,
-            Some((Def::Error, _)) => return,
-            None => {
-                self.dcx.emit(
-                    Diagnostic::error(self.file_id, ident.span, Recovery::Fatal)
-                        .with_message(format!(
-                            "unresolved symbol in current scope: `{}`",
-                            ident.sym.as_str()
-                        ))
-                        .with_label(Label::primary(ident.span, "not found in current scope")),
-                );
-
-                return;
-            }
-        };
-
-        let def = match def {
-            mut def @ Def::Def(_) => {
-                let mut remaining = &path.segments[1..];
-
-                self.rcx.name_resolutions.insert(first.id, def);
-
-                while let Some(current) = remaining.first() {
-                    def = match def {
-                        d @ Def::Local(_) => d,
-                        Def::Def(id) => self.n2_resolve_segment_in_def(current, id),
-                        Def::Error => {
-                            break;
-                        }
-                    };
-
-                    remaining = &remaining[1..];
-
-                    self.rcx.name_resolutions.insert(current.id, def);
-                    qualified_path.push(def);
-                }
-
-                def
-            }
-            def @ Def::Local(_) => {
-                self.rcx.name_resolutions.insert(first.id, def);
-
-                def
-            }
-            Def::Error => unreachable!(),
-        };
-
-        // Only necessary for actual items.
-        // We make everything absolute, because we first declare all items and then define them after. This allows us to have forward-references even in Lua!
-        if let Def::Def(_) = def {
-            self.rcx.qualified_paths.insert(path.id, qualified_path);
-        }
-
-        self.rcx.name_resolutions.insert(path.id, def);
-    }
-
-    fn n2_resolve_segment_in_def(&mut self, seg: &ast::PathSegment, def_id: DefId) -> Def {
-        let item = self.sess.item(def_id);
+impl SecondPass<'_, '_, '_, '_> {
+    pub fn resolve_segment_in_def(&mut self, seg: &PathSegment, def_id: DefId) -> Def {
+        let item = self.res.sess.item(def_id);
 
         let items = match &item.kind {
             session::ItemKind::InlineMod { items, .. }
@@ -440,8 +196,8 @@ impl Resolver<'_, '_> {
 
         match result {
             Def::Error => {
-                self.dcx.emit(
-                    Diagnostic::error(self.file_id, seg.ident.span, Recovery::Fatal)
+                self.res.dcx.emit(
+                    Diagnostic::error(self.res.file_id, seg.ident.span, Recovery::Fatal)
                         .with_message(format!(
                             "member `{}` does not exist in module `{}`",
                             seg.ident.sym, item.name
@@ -453,9 +209,9 @@ impl Resolver<'_, '_> {
                 );
             }
             def @ Def::Def(id) => {
-                let member = self.sess.item(id);
+                let member = self.res.sess.item(id);
 
-                if member.vis == session::Visibility::Private && !self.stack.is_in_scope(&def) {
+                if member.vis == session::Visibility::Private && !self.res.stack.is_in_scope(&def) {
                     let message = format!(
                         "member `{}` of `{}` is private and therefore inaccessible in current scope",
                         member.name, item.name
@@ -463,8 +219,8 @@ impl Resolver<'_, '_> {
 
                     let help = format!("consider making `{}` public", member.name);
 
-                    self.dcx.emit(
-                        Diagnostic::error(self.file_id, seg.ident.span, Recovery::Fatal)
+                    self.res.dcx.emit(
+                        Diagnostic::error(self.res.file_id, seg.ident.span, Recovery::Fatal)
                             .with_message(message)
                             .with_label(Label::help(
                                 member.signature_span(),
@@ -481,5 +237,214 @@ impl Resolver<'_, '_> {
         }
 
         result
+    }
+}
+
+impl<'ast> Visitor<'ast> for SecondPass<'_, '_, '_, 'ast> {
+    fn visit_item(&mut self, item: &'ast Item) {
+        let old_item = self.current_item.replace(item);
+
+        item.walk(self);
+
+        self.current_item = old_item;
+    }
+
+    // We override this visit function so extern modules don't get walked. They
+    //   are already registered via `visit_mod_item` or the first pass.
+    fn visit_extern_mod_item(&mut self, _extern_module: &'ast ExternModItem) {}
+
+    // We override this visit function so extern functions don't get walked. They
+    //   are already registered via `visit_mod_item` or the first pass and would
+    //   otherwise register redundant locals for parameters.
+    fn visit_extern_fn_item(&mut self, _extern_fun: &'ast ExternFnItem) {}
+
+    fn visit_fn_item(&mut self, fun: &'ast FnItem) {
+        let item = self
+            .current_item
+            .expect("visit_fn_item called outside of item context");
+
+        self.res
+            .stack
+            .enter(Some(self.res.rcx.defs_by_node[&item.id]));
+
+        fun.walk(self);
+
+        self.res.stack.leave();
+    }
+
+    fn visit_mod_item(&mut self, module: &'ast ModItem) {
+        let item = self
+            .current_item
+            .expect("visit_fn_item called outside of item context");
+
+        self.res
+            .stack
+            .enter(Some(self.res.rcx.defs_by_node[&item.id]));
+
+        for item in &module.items {
+            let sym = ident_of_item(item).sym;
+
+            self.res
+                .stack
+                .register_def(sym, self.res.rcx.defs_by_node[&item.id]);
+        }
+
+        module.walk(self);
+
+        self.res.stack.leave();
+    }
+
+    fn visit_parameter(&mut self, parameter: &'ast Parameter) {
+        let local_id = self.res.sess.register_local(LocalInfo {
+            name: parameter.ident.sym,
+            defined_where: parameter.span,
+            id: parameter.id,
+            mutable: false, // for now
+        });
+
+        self.res
+            .register_local(parameter.ident.sym, local_id, parameter.id);
+
+        parameter.walk(self)
+    }
+
+    // We override the visit function so paramter identifiers don't get resolved in the
+    //   current scope later in `visit_identifier`.
+    fn visit_parameter_identifier(&mut self, _ident: &'ast Ident) {}
+
+    // We override the visit function so paramter identifiers don't get resolved in the
+    //   current scope later in `visit_identifier`.
+    fn visit_item_identifier(&mut self, _ident: &'ast Ident) {}
+
+    fn visit_block_expr(&mut self, block: &'ast Block) {
+        self.res.stack.enter(None);
+
+        block.walk(self);
+
+        self.res.stack.leave();
+    }
+
+    fn visit_let_stmt(&mut self, let_stmt: &'ast ayuc_ast::LetStmt) {
+        // This is so `let x = x` doesn't reference it's own binding.
+        self.visit_expr(&let_stmt.init);
+
+        self.visit_pat(&let_stmt.pat);
+
+        if let Some(ty) = &let_stmt.ty {
+            self.visit_ty(ty);
+        }
+    }
+
+    fn visit_identifier(&mut self, ident: &'ast Ident) {
+        if let Some(def) = self.res.stack.lookup(ident.sym) {
+            self.res.rcx.name_resolutions.insert(ident.id, def);
+        } else {
+            self.res.dcx.emit(
+                Diagnostic::error(self.res.file_id, ident.span, Recovery::Fatal)
+                    .with_message(format!(
+                        "unresolved symbol in current scope: `{}`",
+                        ident.sym.as_str()
+                    ))
+                    .with_label(Label::primary(ident.span, "not found in current scope")),
+            );
+
+            self.res.rcx.name_resolutions.insert(ident.id, Def::Error);
+        }
+    }
+
+    fn visit_pat(&mut self, pat: &'ast Pat) {
+        match &pat.kind {
+            PatKind::Binding(binding) => {
+                let local_id = self.res.sess.register_local(LocalInfo {
+                    name: binding.sym,
+                    defined_where: pat.span,
+                    id: pat.id,
+                    mutable: binding.mutable,
+                });
+
+                self.res.register_local(binding.sym, local_id, pat.id);
+            }
+            PatKind::Tuple(elements) => elements.walk(self),
+        }
+    }
+
+    fn visit_literal(&mut self, literal: &'ast Literal) {
+        if let Literal::InterpolatedStr { segments, .. } = literal {
+            for segment in segments {
+                if let IntlSegment::Var(ident) = segment {
+                    self.visit_identifier(ident);
+                }
+            }
+        }
+    }
+
+    // We override this so path types don't bleed into `visit_path`. Normally,
+    //   we would let them bleed into it, because they have to be resolved too,
+    //   but Ayu does not yet have custom types.
+    fn visit_path_ty(&mut self, _path: &'ast Path) {}
+
+    fn visit_path(&mut self, path: &'ast Path) {
+        let first = match path.segments.first() {
+            Some(seg) => seg,
+            _ => unreachable!(),
+        };
+
+        let ident = &first.ident;
+        let (def, mut qualified_path) = match self.res.stack.lookup_path(ident.sym) {
+            Some(result @ (Def::Def(_) | Def::Local(_), _)) => result,
+            Some((Def::Error, _)) => return,
+            None => {
+                self.res.dcx.emit(
+                    Diagnostic::error(self.res.file_id, ident.span, Recovery::Fatal)
+                        .with_message(format!(
+                            "unresolved symbol in current scope: `{}`",
+                            ident.sym.as_str()
+                        ))
+                        .with_label(Label::primary(ident.span, "not found in current scope")),
+                );
+
+                return;
+            }
+        };
+
+        let def = match def {
+            mut def @ Def::Def(_) => {
+                let mut remaining = &path.segments[1..];
+
+                self.res.rcx.name_resolutions.insert(first.id, def);
+
+                while let Some(current) = remaining.first() {
+                    def = match def {
+                        d @ Def::Local(_) => d,
+                        Def::Def(id) => self.resolve_segment_in_def(current, id),
+                        Def::Error => {
+                            break;
+                        }
+                    };
+
+                    remaining = &remaining[1..];
+
+                    self.res.rcx.name_resolutions.insert(current.id, def);
+                    qualified_path.push(def);
+                }
+
+                def
+            }
+            def @ Def::Local(_) => {
+                self.res.rcx.name_resolutions.insert(first.id, def);
+
+                def
+            }
+            Def::Error => unreachable!(),
+        };
+
+        // Only necessary for actual items.
+        // We make everything absolute, because we first declare all items and then define them after.
+        // This allows us to have forward-references even in Lua!
+        if let Def::Def(_) = def {
+            self.res.rcx.qualified_paths.insert(path.id, qualified_path);
+        }
+
+        self.res.rcx.name_resolutions.insert(path.id, def);
     }
 }

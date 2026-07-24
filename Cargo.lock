@@ -158,6 +158,7 @@ name = "ayuc_resolve"
 version = "0.1.0"
 dependencies = [
  "ayuc_ast",
+ "ayuc_ast_visit",
  "ayuc_diagnostic",
  "ayuc_id",
  "ayuc_session",
