@@ -1,6 +1,6 @@
 use ayuc_ast::{
-    ExternFnItem, ExternModItem, Item, ItemKind, ModItem, ParameterList, Ty, TyKind, Visibility,
-    item::FnItem,
+    ExternFnItem, ExternModItem, FileModItem, Item, ItemKind, ModItem, ParameterList, Ty, TyKind,
+    Visibility, item::FnItem,
 };
 use ayuc_diagnostic::{Diagnostic, Label, Recovery, colored::Colorize};
 use ayuc_lexer::{
@@ -169,7 +169,17 @@ impl Parser<'_, '_, '_> {
         })
     }
 
-    pub fn parse_inline_mod(&mut self) -> PResult<ModItem> {
+    pub fn parse_file_module(&mut self) -> PResult<FileModItem> {
+        if !self.maybe(TokenKind::Keyword(Keyword::Mod)) {
+            unreachable!()
+        }
+
+        let ident = self.parse_ident()?;
+
+        Ok(FileModItem { name: ident })
+    }
+
+    pub fn parse_module(&mut self) -> PResult<ModItem> {
         if !self.maybe(TokenKind::Keyword(Keyword::Mod)) {
             unreachable!()
         }
@@ -224,7 +234,12 @@ impl Parser<'_, '_, '_> {
                 ..
             }) => (
                 self.node_id_allocator.allocate(),
-                ItemKind::InlineMod(self.parse_inline_mod()?),
+                match self.stream.third() {
+                    Some(StructuredToken::Delimited(_, _, _)) => {
+                        ItemKind::InlineMod(self.parse_module()?)
+                    }
+                    _ => ItemKind::FileMod(self.parse_file_module()?),
+                },
             ),
             StructuredToken::Token(Token {
                 kind: TokenKind::Keyword(Keyword::Extern),
