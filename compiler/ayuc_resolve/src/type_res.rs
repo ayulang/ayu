@@ -168,16 +168,26 @@ impl Resolver<'_, '_> {
     fn tr_walk_expr(&mut self, expr: &ast::Expr) {
         let _ = self.tr_type_of_expr(expr);
 
-        if let ExprKind::Tuple(elements) = &expr.kind {
-            let mut queue = Vec::from_iter(elements);
+        match &expr.kind {
+            ExprKind::Tuple(elements) => {
+                let mut queue = Vec::from_iter(elements);
 
-            while let Some(expr) = queue.pop() {
-                let _ = self.tr_type_of_expr(expr); // We do this so tuples get their types inserted to the rcx.tys_of_node.
+                while let Some(expr) = queue.pop() {
+                    let _ = self.tr_type_of_expr(expr); // We do this so tuples get their types inserted to the rcx.tys_of_node.
 
-                if let ExprKind::Tuple(elements) = &expr.kind {
-                    queue.extend(elements);
+                    if let ExprKind::Tuple(elements) = &expr.kind {
+                        queue.extend(elements);
+                    }
                 }
             }
+            ExprKind::Call(call_expr) => {
+                self.tr_walk_expr(&call_expr.callee);
+
+                for arg in &call_expr.args {
+                    self.tr_walk_expr(arg);
+                }
+            }
+            _ => {}
         }
     }
 
