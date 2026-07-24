@@ -1,132 +1,230 @@
 use std::collections::VecDeque;
 
 use ayuc_ast::{
-    self as ast, AlternateBranch, FnItem, IfStmt, Item, ItemKind, LoopStmt, PatKind, StmtKind,
+    AssignStmt, CallExpr, ExprKind, FnItem, IfStmt, Item, LetStmt, PatKind, ReturnStmt, Stmt,
     WhileStmt,
 };
-use ayuc_diagnostic::{Diagnostic, Label, Recovery};
-use ayuc_id::ast::NodeId;
-use ayuc_resolve::{PrimTy, Ty, TyKind, def::Def};
+use ayuc_ast_visit::{visitor::Visitor, walkable::Walkable};
+use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label, Recovery};
+use ayuc_resolve::{PrimTy, Ty, TyKind, def::Def, resolver::ResolutionContext};
+use ayuc_session::Session;
 use ayuc_span::Span;
 
-use crate::SemanticAnalyzer;
+#[derive(Default)]
+struct State<'rcx, 'ast> {
+    current_item: Option<&'ast Item>,
+    current_stmt: Option<&'ast Stmt>,
 
-impl SemanticAnalyzer<'_> {
-    pub fn typecheck(&mut self, ast: &ast::Ast) {
-        for item in &ast.items {
-            self.tc_walk_item(item);
+    return_ty: Option<&'rcx Ty>,
+}
+
+pub struct TypeCheckingPhase<'a, 'rcx, 'ast> {
+    dcx: &'a mut DiagnosticContext,
+    rcx: &'rcx ResolutionContext,
+    sess: &'a Session,
+    file_id: usize,
+
+    state: State<'rcx, 'ast>,
+}
+
+impl<'a, 'rcx> TypeCheckingPhase<'a, 'rcx, '_> {
+    pub fn new(
+        dcx: &'a mut DiagnosticContext,
+        rcx: &'rcx ResolutionContext,
+        sess: &'a Session,
+        file_id: usize,
+    ) -> Self {
+        Self {
+            dcx,
+            rcx,
+            sess,
+            file_id,
+            state: State::default(),
         }
     }
+}
 
-    fn tc_walk_item(&mut self, item: &Item) {
-        match &item.kind {
-            ItemKind::Fn(decl) => self.tc_walk_fn_item(item.id, decl),
-            ItemKind::InlineMod(decl) => {
-                for member in &decl.items {
-                    self.tc_walk_item(member);
-                }
-            }
-            ItemKind::ExternMod(decl) => {
-                for member in &decl.items {
-                    self.tc_walk_item(member);
-                }
-            }
-            ItemKind::ExternFn(_) => {}
-        }
+impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
+    fn visit_item(&mut self, item: &'ast Item) {
+        let old_item = self.state.current_item.replace(item);
+
+        item.walk(self);
+
+        self.state.current_item = old_item;
     }
 
-    fn tc_walk_fn_item(&mut self, item_id: NodeId, item: &FnItem) {
-        let TyKind::Fn(_, return_ty) = &self.rcx.ty_of(item_id).kind else {
+    fn visit_fn_item(&mut self, fun: &'ast FnItem) {
+        let Some(item) = self.state.current_item else {
+            return fun.walk(self);
+        };
+
+        let TyKind::Fn(_, return_ty) = &self.rcx.ty_of(item.id).kind else {
             unreachable!()
         };
 
-        for stmt in &item.block.children {
-            self.tc_walk_stmt(stmt);
-            self.tc_check_for_return(stmt, return_ty);
-        }
+        let old_ty = self.state.return_ty.replace(return_ty);
+
+        fun.walk(self);
+
+        self.state.return_ty = old_ty;
     }
 
-    fn tc_check_for_return(&mut self, stmt: &ast::Stmt, return_ty: &Ty) {
-        match &stmt.kind {
-            StmtKind::Return(ret) => {
-                let ty = self.rcx.ty_of(ret.expr.id);
+    fn visit_return_stmt(&mut self, ret: &'ast ReturnStmt) {
+        let Some(return_ty) = self.state.return_ty else {
+            return ret.walk(self);
+        };
 
-                if ty != return_ty {
-                    self.dcx.emit(
-                        Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
-                            .with_message("incorrect return type")
-                            .with_label(Label::primary(
-                                if self.sess.is_synthetic(ret.expr.id) {
-                                    stmt.span
-                                } else {
-                                    ret.expr.span
-                                },
-                                format!("expected type {}, got {}", return_ty, ty,),
-                            )),
-                    );
-                }
-            }
-            StmtKind::If(if_stmt) => self.tc_check_if_for_return(if_stmt, return_ty),
-            StmtKind::Loop(LoopStmt { block }) | StmtKind::While(WhileStmt { block, .. }) => {
-                for stmt in &block.children {
-                    self.tc_check_for_return(stmt, return_ty);
-                }
-            }
-            StmtKind::Assignment(_) | StmtKind::Let(_) | StmtKind::Expr(_) | StmtKind::Break => {}
+        let Some(stmt) = self.state.current_stmt else {
+            return ret.walk(self);
+        };
+
+        let ty = self.rcx.ty_of(ret.expr.id);
+
+        if ty != return_ty {
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
+                    .with_message("incorrect return type")
+                    .with_label(Label::primary(
+                        if self.sess.is_synthetic(ret.expr.id) {
+                            stmt.span
+                        } else {
+                            ret.expr.span
+                        },
+                        format!("expected type {}, got {}", return_ty, ty,),
+                    )),
+            );
         }
+
+        ret.walk(self)
     }
 
-    fn tc_check_if_for_return(&mut self, if_stmt: &IfStmt, return_ty: &Ty) {
-        for stmt in &if_stmt.block.children {
-            self.tc_check_for_return(stmt, return_ty);
-        }
+    fn visit_stmt(&mut self, stmt: &'ast Stmt) {
+        let old_stmt = self.state.current_stmt.replace(stmt);
 
-        match &if_stmt.alternate {
-            Some(AlternateBranch::Final(block)) => {
-                for stmt in &block.children {
-                    self.tc_check_for_return(stmt, return_ty);
-                }
-            }
-            Some(AlternateBranch::Another(if_stmt)) => {
-                self.tc_check_if_for_return(if_stmt, return_ty)
-            }
-            None => {}
-        }
+        stmt.walk(self);
+
+        self.state.current_stmt = old_stmt;
     }
 
-    fn tc_walk_stmt(&mut self, stmt: &ast::Stmt) {
-        match &stmt.kind {
-            ast::StmtKind::Loop(r#loop) => {
-                for stmt in &r#loop.block.children {
-                    self.tc_walk_stmt(stmt);
-                }
-            }
-            ast::StmtKind::While(r#while) => {
-                let condition_ty = self.rcx.ty_of(r#while.expr.id);
+    fn visit_call_expression(&mut self, call: &'ast CallExpr) {
+        let Some(stmt) = self.state.current_stmt else {
+            return call.walk(self);
+        };
 
-                if !matches!(condition_ty.kind, TyKind::Prim(PrimTy::Boolean)) {
-                    self.dcx.emit(
-                        Diagnostic::error(self.file_id, r#while.expr.span, Recovery::Fatal)
-                            .with_message("condition of while statement must be of type bool")
-                            .with_label(Label::primary(
-                                r#while.expr.span,
-                                format!("expected bool, got {condition_ty}"),
-                            )),
-                    );
-                }
+        let TyKind::Fn(parameters, _) = &self.rcx.ty_of(call.callee.id).kind else {
+            return call.walk(self);
+        };
 
-                for stmt in &r#while.block.children {
-                    self.tc_walk_stmt(stmt);
+        let mut missing_args = Vec::new();
+        let mut unexpected_args = Vec::new();
+        let mut incorrect_args = Vec::new();
+
+        for (i, provided) in call.args.iter().enumerate() {
+            let provided_ty = self.rcx.ty_of(provided.id);
+
+            if let Some(param_ty) = parameters.get(i) {
+                if param_ty != provided_ty {
+                    incorrect_args.push((provided.span, param_ty, provided_ty));
                 }
+            } else {
+                unexpected_args.push((i, provided_ty, provided.span));
             }
-            ast::StmtKind::Assignment(assign) => self.tc_check_assign_stmt(stmt, assign),
-            ast::StmtKind::Let(decl) => self.tc_check_let_stmt(stmt, decl),
-            ast::StmtKind::If(r#if) => self.tc_walk_if_stmt(r#if),
-            ast::StmtKind::Expr(_) | ast::StmtKind::Return(_) | ast::StmtKind::Break => {}
         }
+
+        if unexpected_args.is_empty() {
+            for (i, param_ty) in parameters.iter().enumerate() {
+                if call.args.get(i).is_none() {
+                    missing_args.push((i, param_ty));
+                }
+            }
+        }
+
+        if !missing_args.is_empty() || !incorrect_args.is_empty() || !unexpected_args.is_empty() {
+            let message = if !missing_args.is_empty() || !unexpected_args.is_empty() {
+                &format!(
+                    "function takes {} arguments, but {} arguments were supplied",
+                    parameters.len(),
+                    call.args.len()
+                )
+            } else {
+                "arguments to this function are incorrect"
+            };
+
+            let mut diagnostic =
+                Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal).with_message(message);
+
+            if !missing_args.is_empty() {
+                if missing_args.len() == 1 {
+                    let (position, ty) = missing_args.remove(0);
+
+                    diagnostic = diagnostic.with_label(Label::primary(
+                        Span::from((call.callee.span.end, stmt.span.end)),
+                        format!("argument #{} of type {ty} is missing", position + 1),
+                    ))
+                } else {
+                    let types = {
+                        let first_part = &missing_args[0..missing_args.len() - 1];
+                        let (_, last) = missing_args.last().unwrap(); // garuanteed to be there
+
+                        format!(
+                            "{} and `{last}`",
+                            first_part
+                                .iter()
+                                .map(|(_, ty)| format!("`{ty}`"))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
+                    };
+
+                    diagnostic = diagnostic.with_label(Label::primary(
+                        Span::from((call.callee.span.end, stmt.span.end)),
+                        format!(
+                            "{} arguments of type {} are missing",
+                            missing_args.len(),
+                            types
+                        ),
+                    ))
+                }
+            }
+
+            for (position, ty, span) in unexpected_args {
+                diagnostic = diagnostic.with_label(Label::primary(
+                    span,
+                    format!("unexpected argument #{} of type `{ty}`", position + 1),
+                ))
+            }
+
+            for (span, expected_ty, provided_ty) in incorrect_args {
+                diagnostic = diagnostic.with_label(Label::primary(
+                    span,
+                    format!("expected `{expected_ty}`, found `{provided_ty}`"),
+                ))
+            }
+
+            self.dcx.emit(diagnostic);
+        }
+
+        call.walk(self)
     }
 
-    fn tc_walk_if_stmt(&mut self, if_stmt: &IfStmt) {
+    fn visit_while_stmt(&mut self, while_stmt: &'ast WhileStmt) {
+        let condition_ty = self.rcx.ty_of(while_stmt.expr.id);
+
+        if !matches!(condition_ty.kind, TyKind::Prim(PrimTy::Boolean)) {
+            self.dcx.emit(
+                Diagnostic::error(self.file_id, while_stmt.expr.span, Recovery::Fatal)
+                    .with_message("condition of while statement must be of type bool")
+                    .with_label(Label::primary(
+                        while_stmt.expr.span,
+                        format!("expected bool, got {condition_ty}"),
+                    )),
+            );
+        }
+
+        while_stmt.walk(self);
+    }
+
+    fn visit_if_stmt(&mut self, if_stmt: &'ast IfStmt) {
         let condition_ty = self.rcx.ty_of(if_stmt.expr.id);
 
         if !matches!(condition_ty.kind, TyKind::Prim(PrimTy::Boolean)) {
@@ -140,34 +238,25 @@ impl SemanticAnalyzer<'_> {
             );
         }
 
-        for stmt in &if_stmt.block.children {
-            self.tc_walk_stmt(stmt);
-        }
-
-        match &if_stmt.alternate {
-            Some(AlternateBranch::Another(stmt)) => self.tc_walk_if_stmt(stmt),
-            Some(AlternateBranch::Final(block)) => {
-                for stmt in &block.children {
-                    self.tc_walk_stmt(stmt);
-                }
-            }
-            None => {}
-        }
+        if_stmt.walk(self);
     }
 
-    fn tc_check_assign_stmt(&mut self, stmt: &ast::Stmt, assign: &ast::AssignStmt) {
-        let local = match self.rcx.get_name_res(assign.ident.id) {
-            Def::Local(local) => local,
-            _ => return,
+    fn visit_assign_stmt(&mut self, assign_stmt: &'ast AssignStmt) {
+        let Def::Local(local) = self.rcx.get_name_res(assign_stmt.ident.id) else {
+            return assign_stmt.walk(self);
+        };
+
+        let Some(stmt) = self.state.current_stmt else {
+            return assign_stmt.walk(self);
         };
 
         let info = self.sess.local(local);
 
         let ty = self.rcx.ty_of(info.id);
-        let expr_ty = self.rcx.ty_of(assign.value.id);
+        let expr_ty = self.rcx.ty_of(assign_stmt.value.id);
 
         if ty.is_error() || expr_ty.is_error() {
-            return;
+            return assign_stmt.walk(self);
         }
 
         if ty != expr_ty {
@@ -179,19 +268,25 @@ impl SemanticAnalyzer<'_> {
                         format!("this is of type {}", ty),
                     ))
                     .with_label(Label::primary(
-                        assign.value.span,
+                        assign_stmt.value.span,
                         format!("this is of type {}", expr_ty),
                     )),
             );
         }
+
+        assign_stmt.walk(self)
     }
 
-    fn tc_check_let_stmt(&mut self, stmt: &ast::Stmt, decl: &ast::LetStmt) {
+    fn visit_let_stmt(&mut self, let_stmt: &'ast LetStmt) {
+        let Some(stmt) = self.state.current_stmt else {
+            return let_stmt.walk(self);
+        };
+
         let decl_ty = self.rcx.ty_of(stmt.id);
-        let expr_ty = self.rcx.ty_of(decl.init.id);
+        let expr_ty = self.rcx.ty_of(let_stmt.init.id);
 
         if decl_ty.is_error() || expr_ty.is_error() {
-            return;
+            return let_stmt.walk(self);
         }
 
         if expr_ty != decl_ty {
@@ -201,32 +296,78 @@ impl SemanticAnalyzer<'_> {
                     .with_label(Label::help(
                         Span::from((
                             stmt.span.start,
-                            match &decl.ty {
+                            match &let_stmt.ty {
                                 Some(ty) => ty.span.end,
-                                None => decl.pat.span.end,
+                                None => let_stmt.pat.span.end,
                             },
                         )),
                         format!("this is of type {}", decl_ty),
                     ))
                     .with_label(Label::primary(
-                        decl.init.span,
+                        let_stmt.init.span,
                         format!("this is of type {}", expr_ty),
                     )),
             );
 
-            return;
+            return let_stmt.walk(self);
         }
 
         // Pattern exhaustiveness check
 
-        if let TyKind::Tuple(expr) = &expr_ty.kind
-            && let PatKind::Tuple(pat) = &decl.pat.kind
+        if let ExprKind::Tuple(expr_elements) = &let_stmt.init.kind
+            && let PatKind::Tuple(pat_elements) = &let_stmt.pat.kind
         {
-            let mut queue =
-                VecDeque::from_iter(expr.iter().enumerate().map(|(i, ty)| (ty, pat.get(i))));
+            fn exhaustiveness_check(
+                this: &mut TypeCheckingPhase,
+                matched: usize,
+                existing: usize,
+                pat_span: Span,
+                tuple_span: Span,
+                expr_ty: &Ty,
+            ) {
+                if matched != existing {
+                    let mut diagnostic = Diagnostic::error(this.file_id, pat_span, Recovery::Fatal)
+                        .with_message("mismatched types")
+                        .with_label(Label::primary(
+                            pat_span,
+                            format!(
+                                "expected a tuple with {} elements, found one with {} elements",
+                                existing, matched
+                            ),
+                        ))
+                        .with_label(Label::help(
+                            tuple_span,
+                            format!("this is of type `{expr_ty}`"),
+                        ));
 
-            while let Some((ty, maybe_pat)) = queue.pop_front() {
-                if let TyKind::Tuple(nested_tys) = &ty.kind
+                    if existing > matched {
+                        diagnostic = diagnostic.with_help(
+                            "consider discarding the missing elements with a `_` variable",
+                        );
+                    }
+
+                    this.dcx.emit(diagnostic);
+                }
+            }
+
+            exhaustiveness_check(
+                self,
+                pat_elements.len(),
+                expr_elements.len(),
+                let_stmt.pat.span,
+                let_stmt.init.span,
+                expr_ty,
+            );
+
+            let mut queue = VecDeque::from_iter(
+                expr_elements
+                    .iter()
+                    .enumerate()
+                    .map(|(i, expr)| (expr, pat_elements.get(i))),
+            );
+
+            while let Some((expr, maybe_pat)) = queue.pop_front() {
+                if let ExprKind::Tuple(nested_tys) = &expr.kind
                     && let Some(pat) = maybe_pat
                     && let PatKind::Tuple(nested_pats) = &pat.kind
                 {
@@ -237,36 +378,18 @@ impl SemanticAnalyzer<'_> {
                             .map(|(i, ty)| (ty, nested_pats.get(i))),
                     );
 
-                    if nested_tys.len() != nested_pats.len() {
-                        let mut diagnostic = Diagnostic::error(
-                            self.file_id,
-                            pat.span,
-                            Recovery::Fatal,
-                        )
-                        .with_message("mismatched types")
-                        .with_label(Label::primary(
-                            pat.span,
-                            format!(
-                                "expected a tuple with {} elements, found one with {} elements",
-                                nested_tys.len(),
-                                nested_pats.len()
-                            ),
-                        ))
-                        .with_label(Label::help(
-                            decl.init.span,
-                            format!("this expression has type `{expr_ty}`"),
-                        ));
-
-                        if nested_tys.len() > nested_pats.len() {
-                            diagnostic = diagnostic.with_help(
-                                "consider discarding the missing elements with a `_` variable",
-                            );
-                        }
-
-                        self.dcx.emit(diagnostic);
-                    }
+                    exhaustiveness_check(
+                        self,
+                        nested_tys.len(),
+                        nested_pats.len(),
+                        pat.span,
+                        expr.span,
+                        self.rcx.ty_of(expr.id),
+                    );
                 }
             }
         }
+
+        let_stmt.walk(self)
     }
 }
