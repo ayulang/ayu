@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ayuc_id::{ast::NodeId, hir::DefId};
+use ayuc_id::{ModuleId, ast::NodeId, hir::DefId};
 use ayuc_span::{Span, symbol::Symbol};
 
 #[derive(PartialEq, Eq)]
@@ -22,7 +22,7 @@ impl ItemInfo {
             ItemKind::ExternFn { signature_span, .. }
             | ItemKind::Fn { signature_span, .. }
             | ItemKind::InlineMod { signature_span, .. }
-            | ItemKind::FileMod { signature_span }
+            | ItemKind::FileMod { signature_span, .. }
             | ItemKind::ExternMod { signature_span, .. } => *signature_span,
         }
     }
@@ -47,5 +47,6 @@ pub enum ItemKind {
     },
     FileMod {
         signature_span: Span,
+        module: ModuleId,
     },
 }
