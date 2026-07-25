@@ -1,11 +1,10 @@
 //! This module provides a registry for storing relevant information tied to a ModuleId.
 //! It's used to retrieve module information from a [ModuleId] and/or absolute file path.
 
-use std::collections::HashMap;
-
 use ayuc_ast::Ast;
 use ayuc_hir::Module;
 use ayuc_id::{ModuleId, ast::NodeId};
+use bimap::BiHashMap;
 use slotmap::{SecondaryMap, SlotMap};
 
 /// A registry containing relevant information for modules such as their [Ast], [Module] and module dependencies.
@@ -21,7 +20,7 @@ pub struct ModuleRegistry {
     pub dependencies: SecondaryMap<ModuleId, Vec<(NodeId, ModuleId)>>,
 
     /// A [HashMap] that ties all existing [`ModuleId`]s to their absolute file path.
-    pub id_by_path: HashMap<String, ModuleId>,
+    pub id_by_path: BiHashMap<String, ModuleId>,
 }
 
 impl ModuleRegistry {

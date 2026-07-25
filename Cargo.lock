@@ -157,6 +157,7 @@ dependencies = [
  "ayuc_ast",
  "ayuc_hir",
  "ayuc_id",
+ "bimap",
  "slotmap",
 ]
 
