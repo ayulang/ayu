@@ -1,6 +1,7 @@
 pub(crate) mod context;
 
 use std::{
+    collections::{HashMap, VecDeque},
     env,
     fs::{self},
     path::{Path, PathBuf},
@@ -26,6 +27,55 @@ fn print_diagnostics(dcx: &DiagnosticContext, source_cache: &SourceCache) {
 
     for error in dcx.errors() {
         let _ = error.to_ariadne().eprint(source_cache);
+    }
+}
+
+/// Topological sort for all modules to determine the order for compilation.
+fn get_compilation_order(ctx: &mut CompilerContext) -> Option<Vec<ModuleId>> {
+    let module_count = ctx.module_registry.trees.len();
+
+    let mut in_degrees: HashMap<ModuleId, usize> = HashMap::with_capacity(module_count);
+    let mut dependents: HashMap<ModuleId, Vec<ModuleId>> = HashMap::with_capacity(module_count);
+
+    for module_id in ctx.module_registry.trees.keys() {
+        in_degrees.insert(module_id, 0);
+    }
+
+    for (module_id, dependencies) in &ctx.module_registry.dependencies {
+        in_degrees.insert(module_id, dependencies.len());
+
+        for (_, dep_id) in dependencies {
+            dependents.entry(*dep_id).or_default().push(module_id);
+        }
+    }
+
+    let mut no_edges: VecDeque<ModuleId> = in_degrees
+        .iter()
+        .filter_map(|(&id, &degree)| if degree == 0 { Some(id) } else { None })
+        .collect();
+
+    let mut compilation_order = Vec::with_capacity(module_count);
+
+    while let Some(ready_module) = no_edges.pop_front() {
+        compilation_order.push(ready_module);
+
+        if let Some(waiting_modules) = dependents.get(&ready_module) {
+            for waiting_mod in waiting_modules {
+                if let Some(degree) = in_degrees.get_mut(waiting_mod) {
+                    *degree -= 1;
+
+                    if *degree == 0 {
+                        no_edges.push_back(*waiting_mod);
+                    }
+                }
+            }
+        }
+    }
+
+    if compilation_order.len() == module_count {
+        Some(compilation_order)
+    } else {
+        None
     }
 }
 
@@ -120,6 +170,12 @@ pub fn drive() -> ExitCode {
                 .or_insert(vec![(node_id, module_id)]);
         }
     }
+
+    let Some(compilation_order) = get_compilation_order(&mut ctx) else {
+        println!("circular dependency somewhere");
+
+        return ExitCode::FAILURE;
+    };
 
     /*let output = args
         .get(1)
