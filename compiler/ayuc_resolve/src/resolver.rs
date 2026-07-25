@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use ayuc_ast as ast;
 use ayuc_diagnostic::DiagnosticContext;
 use ayuc_id::{
-    TyId,
+    ModuleId, TyId,
     ast::NodeId,
     hir::{DefId, LocalId},
 };
@@ -67,6 +67,8 @@ pub struct Resolver<'dcx, 'sess, 'reg> {
     /// For diagnostics.
     pub(crate) dcx: &'dcx mut DiagnosticContext,
     pub(crate) file_id: usize,
+
+    pub(crate) current_module: ModuleId,
 }
 
 impl<'dcx, 'sess, 'reg> Resolver<'dcx, 'sess, 'reg> {
@@ -75,6 +77,7 @@ impl<'dcx, 'sess, 'reg> Resolver<'dcx, 'sess, 'reg> {
         sess: &'sess mut Session,
         dcx: &'dcx mut DiagnosticContext,
         file_id: usize,
+        current_module: ModuleId,
     ) -> Self {
         Self {
             reg,
@@ -83,6 +86,7 @@ impl<'dcx, 'sess, 'reg> Resolver<'dcx, 'sess, 'reg> {
             stack: ScopeStack::default(),
             dcx,
             file_id,
+            current_module,
         }
     }
 
@@ -94,8 +98,9 @@ impl<'dcx, 'sess, 'reg> Resolver<'dcx, 'sess, 'reg> {
         dcx: &'dcx mut DiagnosticContext,
         file_id: usize,
         ast: &ast::Ast,
+        current_module: ModuleId,
     ) -> ResolutionContext {
-        let mut this = Self::new(reg, sess, dcx, file_id);
+        let mut this = Self::new(reg, sess, dcx, file_id, current_module);
 
         this.run_name_resolution(ast);
 

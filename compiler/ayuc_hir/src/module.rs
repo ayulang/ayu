@@ -5,6 +5,7 @@ use ayuc_id::{
     ast::NodeId,
     hir::{DefId, HirId},
 };
+use ayuc_span::symbol::Symbol;
 use slotmap::SecondaryMap;
 
 use crate::Item;
@@ -16,6 +17,7 @@ pub struct Module {
     pub items: SecondaryMap<DefId, Item>,
 
     pub top_level_items: Vec<DefId>,
+    pub items_by_symbol: HashMap<Symbol, DefId>,
     pub id_mappings: HashMap<HirId, NodeId>,
 }
 
@@ -24,6 +26,7 @@ impl Module {
         Self {
             id,
             items: SecondaryMap::default(),
+            items_by_symbol: HashMap::default(),
             top_level_items: Vec::default(),
             id_mappings: HashMap::default(),
         }

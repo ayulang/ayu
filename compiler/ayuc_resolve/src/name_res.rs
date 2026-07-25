@@ -137,7 +137,13 @@ impl FirstPass<'_, '_, '_, '_> {
                     signature_span,
                 }
             }
-            ItemKind::FileMod(_) => session::ItemKind::FileMod { signature_span },
+            ItemKind::FileMod(_) => session::ItemKind::FileMod {
+                signature_span,
+                module: self.res.reg.dependencies[self.res.current_module]
+                    .iter()
+                    .find_map(|(id, module)| if *id == item.id { Some(*module) } else { None })
+                    .unwrap(),
+            },
         };
 
         let def_id = self.res.sess.register_item(session::ItemInfo {
@@ -169,6 +175,9 @@ impl SecondPass<'_, '_, '_, '_, '_> {
         let items = match &item.kind {
             session::ItemKind::InlineMod { items, .. }
             | session::ItemKind::ExternMod { items, .. } => items,
+            session::ItemKind::FileMod { module, .. } => {
+                &self.res.reg.modules[*module].items_by_symbol
+            }
             _ => {
                 self.res.dcx.emit(
                     Diagnostic::error(self.res.file_id, item.signature_span(), Recovery::Fatal)

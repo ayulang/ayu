@@ -14,6 +14,16 @@ use ayuc_resolve::{
     ty::{PrimTy as RPrimTy, Ty as RTy, TyKind as RTyKind},
 };
 
+fn ident_of_item(item: &ast::Item) -> &ast::Ident {
+    match &item.kind {
+        ast::ItemKind::InlineMod(decl) => &decl.ident,
+        ast::ItemKind::ExternMod(decl) => &decl.ident,
+        ast::ItemKind::Fn(decl) => &decl.ident,
+        ast::ItemKind::ExternFn(decl) => &decl.name,
+        ast::ItemKind::FileMod(decl) => &decl.name,
+    }
+}
+
 pub struct AstLowering<'a> {
     module: Module,
     rcx: &'a ResolutionContext,
@@ -39,6 +49,9 @@ impl<'a> AstLowering<'a> {
             let lowered = self.lower_item(item);
 
             self.module.items.insert(def_id, lowered);
+            self.module
+                .items_by_symbol
+                .insert(ident_of_item(item).sym, def_id);
             self.module.top_level_items.push(def_id);
         }
 
