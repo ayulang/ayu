@@ -132,7 +132,7 @@ fn compile(ctx: &mut CompilerContext, module: ModuleId) -> Option<Module> {
     let sess = &mut ctx.sess;
     let source_cache = &ctx.source_cache;
 
-    let rcx = Resolver::resolve(sess, dcx, file_id, ast);
+    let rcx = Resolver::resolve(&ctx.module_registry, sess, dcx, file_id, ast);
 
     if dcx.requires_abort() {
         let errors = dcx.errors().len();
@@ -261,40 +261,6 @@ pub fn drive() -> ExitCode {
     }
 
     /*
-    let rcx = Resolver::resolve(&mut sess, &mut dcx, file_id, &ast);
-
-    if dcx.requires_abort() {
-        let errors = dcx.errors().len();
-
-        print_diagnostics(dcx, &source_cache);
-
-        eprintln!(
-            "> Unable to compile due to {} error{}",
-            errors,
-            if errors == 1 { "" } else { "s" }
-        );
-
-        return ExitCode::FAILURE;
-    }
-
-    SemanticAnalyzer::analyze(&ast, file_id, &rcx, &mut dcx, &sess);
-
-    if !dcx.errors().is_empty() {
-        let errors = dcx.errors().len();
-
-        print_diagnostics(dcx, &source_cache);
-
-        eprintln!(
-            "> Unable to compile due to {} error{}",
-            errors,
-            if errors == 1 { "" } else { "s" }
-        );
-
-        return ExitCode::FAILURE;
-    }
-
-    let lowering = AstLowering::new(&rcx);
-    let lcx = lowering.lower(&ast);
     let code = LuauCodegen::emit(&rcx, &lcx, &sess);
 
     if let Some(output) = output

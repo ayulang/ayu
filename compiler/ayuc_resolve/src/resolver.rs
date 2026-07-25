@@ -7,6 +7,7 @@ use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
 };
+use ayuc_registry::ModuleRegistry;
 use ayuc_session::Session;
 use slotmap::SlotMap;
 
@@ -54,7 +55,8 @@ impl ResolutionContext {
     }
 }
 
-pub struct Resolver<'dcx, 'sess> {
+pub struct Resolver<'dcx, 'sess, 'reg> {
+    pub(crate) reg: &'reg ModuleRegistry,
     pub(crate) sess: &'sess mut Session,
 
     pub rcx: ResolutionContext,
@@ -67,9 +69,15 @@ pub struct Resolver<'dcx, 'sess> {
     pub(crate) file_id: usize,
 }
 
-impl<'dcx, 'sess> Resolver<'dcx, 'sess> {
-    pub fn new(sess: &'sess mut Session, dcx: &'dcx mut DiagnosticContext, file_id: usize) -> Self {
+impl<'dcx, 'sess, 'reg> Resolver<'dcx, 'sess, 'reg> {
+    pub fn new(
+        reg: &'reg ModuleRegistry,
+        sess: &'sess mut Session,
+        dcx: &'dcx mut DiagnosticContext,
+        file_id: usize,
+    ) -> Self {
         Self {
+            reg,
             sess,
             rcx: ResolutionContext::default(),
             stack: ScopeStack::default(),
@@ -81,12 +89,13 @@ impl<'dcx, 'sess> Resolver<'dcx, 'sess> {
     /// Constructs a new [Resolver], performs name and type resolution and returns the [ResolutionContext].
     #[inline]
     pub fn resolve(
+        reg: &'reg ModuleRegistry,
         sess: &'sess mut Session,
         dcx: &'dcx mut DiagnosticContext,
         file_id: usize,
         ast: &ast::Ast,
     ) -> ResolutionContext {
-        let mut this = Self::new(sess, dcx, file_id);
+        let mut this = Self::new(reg, sess, dcx, file_id);
 
         this.run_name_resolution(ast);
 

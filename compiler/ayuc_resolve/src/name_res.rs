@@ -23,7 +23,7 @@ fn ident_of_item(item: &Item) -> &Ident {
     }
 }
 
-impl Resolver<'_, '_> {
+impl Resolver<'_, '_, '_> {
     pub(crate) fn run_name_resolution(&mut self, ast: &Ast) {
         FirstPass { res: self }.visit_ast(ast);
 
@@ -49,12 +49,12 @@ impl Resolver<'_, '_> {
     }
 }
 
-struct FirstPass<'a, 'dcx, 'sess> {
-    res: &'a mut Resolver<'dcx, 'sess>,
+struct FirstPass<'a, 'dcx, 'sess, 'reg> {
+    res: &'a mut Resolver<'dcx, 'sess, 'reg>,
 }
 
 // Visitor trait is not needed for this because it is simple and custom logic.
-impl FirstPass<'_, '_, '_> {
+impl FirstPass<'_, '_, '_, '_> {
     pub fn visit_ast(&mut self, ast: &Ast) {
         for item in &ast.items {
             self.visit_item(item);
@@ -156,20 +156,31 @@ impl FirstPass<'_, '_, '_> {
     }
 }
 
-struct SecondPass<'a, 'dcx, 'sess, 'ast> {
-    res: &'a mut Resolver<'dcx, 'sess>,
+struct SecondPass<'a, 'dcx, 'sess, 'ast, 'reg> {
+    res: &'a mut Resolver<'dcx, 'sess, 'reg>,
 
     current_item: Option<&'ast Item>,
 }
 
-impl SecondPass<'_, '_, '_, '_> {
+impl SecondPass<'_, '_, '_, '_, '_> {
     pub fn resolve_segment_in_def(&mut self, seg: &PathSegment, def_id: DefId) -> Def {
         let item = self.res.sess.item(def_id);
 
         let items = match &item.kind {
             session::ItemKind::InlineMod { items, .. }
             | session::ItemKind::ExternMod { items, .. } => items,
-            _ => return Def::Error,
+            _ => {
+                self.res.dcx.emit(
+                    Diagnostic::error(self.res.file_id, item.signature_span(), Recovery::Fatal)
+                        .with_message(format!("item `{}` doesn't have any members", item.name))
+                        .with_label(Label::primary(
+                            item.signature_span(),
+                            "this item doesn't have any members",
+                        )),
+                );
+
+                return Def::Error;
+            }
         };
 
         let result = items
@@ -223,7 +234,7 @@ impl SecondPass<'_, '_, '_, '_> {
     }
 }
 
-impl<'ast> Visitor<'ast> for SecondPass<'_, '_, '_, 'ast> {
+impl<'ast> Visitor<'ast> for SecondPass<'_, '_, '_, 'ast, '_> {
     fn visit_item(&mut self, item: &'ast Item) {
         let old_item = self.current_item.replace(item);
 

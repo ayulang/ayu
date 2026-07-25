@@ -11,7 +11,7 @@ use ayuc_span::Span;
 
 use crate::{Def, PrimTy, Resolver, Ty, TyKind};
 
-impl<'dcx, 'sess> Resolver<'dcx, 'sess> {
+impl<'dcx, 'sess> Resolver<'dcx, 'sess, '_> {
     pub(crate) fn run_type_resolution(&mut self, ast: &Ast) {
         TypeResolutionPhase {
             res: self,
@@ -23,15 +23,15 @@ impl<'dcx, 'sess> Resolver<'dcx, 'sess> {
     }
 }
 
-pub struct TypeResolutionPhase<'a, 'dcx, 'sess, 'ast> {
-    res: &'a mut Resolver<'dcx, 'sess>,
+pub struct TypeResolutionPhase<'a, 'dcx, 'sess, 'ast, 'reg> {
+    res: &'a mut Resolver<'dcx, 'sess, 'reg>,
 
     current_item: Option<&'ast Item>,
     current_stmt: Option<&'ast Stmt>,
     current_ty: Option<&'ast ayuc_ast::Ty>,
 }
 
-impl TypeResolutionPhase<'_, '_, '_, '_> {
+impl TypeResolutionPhase<'_, '_, '_, '_, '_> {
     fn evaluate_type_of_expr(&mut self, expr: &Expr) -> TyId {
         let kind = match &expr.kind {
             ExprKind::Tuple(inner) => TyKind::Tuple(
@@ -146,7 +146,7 @@ impl TypeResolutionPhase<'_, '_, '_, '_> {
     }
 }
 
-impl<'ast> Visitor<'ast> for TypeResolutionPhase<'_, '_, '_, 'ast> {
+impl<'ast> Visitor<'ast> for TypeResolutionPhase<'_, '_, '_, 'ast, '_> {
     fn visit_item(&mut self, item: &'ast Item) {
         let old_item = self.current_item.replace(item);
 

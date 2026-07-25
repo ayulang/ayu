@@ -171,6 +171,7 @@ dependencies = [
  "ayuc_ast_visit",
  "ayuc_diagnostic",
  "ayuc_id",
+ "ayuc_registry",
  "ayuc_session",
  "ayuc_span",
  "slotmap",
