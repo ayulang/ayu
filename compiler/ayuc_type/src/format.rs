@@ -66,6 +66,7 @@ pub trait FormatExt {
 }
 
 impl FormatExt for TyId {
+    #[inline]
     fn format<'a>(&'a self, interner: &'a TypeInterner) -> FormatTy<'a> {
         FormatTy::new(interner.get(*self), interner)
     }
