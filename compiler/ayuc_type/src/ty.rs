@@ -41,3 +41,14 @@ impl Display for PrimTy {
         }
     }
 }
+
+pub trait IsUnitExt {
+    fn is_unit(&self, interner: &TypeInterner) -> bool;
+}
+
+impl IsUnitExt for TyId {
+    #[inline]
+    fn is_unit(&self, interner: &TypeInterner) -> bool {
+        interner.get(*self).is_unit()
+    }
+}
