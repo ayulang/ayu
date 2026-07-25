@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use ayuc_ast::Ast;
 use ayuc_hir::Module;
-use ayuc_id::ModuleId;
+use ayuc_id::{ModuleId, ast::NodeId};
 use slotmap::{SecondaryMap, SlotMap};
 
 /// A registry containing relevant information for modules such as their [Ast], [Module] and module dependencies.
@@ -16,8 +16,9 @@ pub struct ModuleRegistry {
     pub trees: SlotMap<ModuleId, Option<Ast>>,
     /// A [SecondaryMap] storing the HIR module for a [`ModuleId`].
     pub modules: SecondaryMap<ModuleId, Module>,
-    /// A [SecondaryMap] that has lists of all [`ModuleId`]s that a module is dependant of.
-    pub dependencies: SecondaryMap<ModuleId, Vec<ModuleId>>,
+    /// A [SecondaryMap] that has a per-module list of all [`ModuleId`]s that a they are dependant of paired with the
+    ///   [NodeId] of the statement that declared the dependency.
+    pub dependencies: SecondaryMap<ModuleId, Vec<(NodeId, ModuleId)>>,
 
     /// A [HashMap] that ties all existing [`ModuleId`]s to their absolute file path.
     pub id_by_path: HashMap<String, ModuleId>,
