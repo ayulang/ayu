@@ -21,4 +21,5 @@ members = [
     "compiler/ayuc_session",
     "compiler/ayuc_source",
     "compiler/ayuc_span",
+    "compiler/ayuc_type",
 ]

@@ -222,6 +222,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ayuc_type"
+version = "0.1.0"
+
+[[package]]
 name = "bimap"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
