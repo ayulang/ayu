@@ -1,74 +1,60 @@
+use std::collections::HashSet;
+
 use ayuc_ast::{self as ast};
-use ayuc_hir::{self as hir};
+use ayuc_hir::{self as hir, Module};
 
 use ayuc_id::{
+    ModuleId,
     ast::NodeId,
-    hir::{DefId, HirId, HirIdAllocator},
+    hir::{HirId, HirIdAllocator},
 };
 use ayuc_resolve::{
     def::Def as RDef,
     resolver::ResolutionContext,
     ty::{PrimTy as RPrimTy, Ty as RTy, TyKind as RTyKind},
 };
-use bimap::BiHashMap;
-use slotmap::SecondaryMap;
-
-#[derive(Default)]
-pub struct LoweringContext {
-    pub items: SecondaryMap<DefId, hir::Item>,
-
-    pub top_level_items: Vec<DefId>,
-    pub id_mappings: BiHashMap<NodeId, HirId>,
-}
 
 pub struct AstLowering<'a> {
-    ctx: LoweringContext,
+    module: Module,
     rcx: &'a ResolutionContext,
 
     hir_id_allocator: HirIdAllocator,
-}
-
-impl LoweringContext {
-    #[inline]
-    pub fn top_items(&self) -> Vec<(DefId, &hir::Item)> {
-        self.top_level_items
-            .iter()
-            .map(|id| (*id, &self.items[*id]))
-            .collect()
-    }
+    already_lowered: HashSet<NodeId>,
 }
 
 impl<'a> AstLowering<'a> {
-    pub fn new(rcx: &'a ResolutionContext) -> Self {
+    pub fn new(id: ModuleId, rcx: &'a ResolutionContext) -> Self {
         Self {
-            ctx: LoweringContext::default(),
+            module: Module::new(id),
             rcx,
             hir_id_allocator: HirIdAllocator::new(),
+            already_lowered: HashSet::default(),
         }
     }
 
     #[must_use]
-    pub fn lower(mut self, ast: &ayuc_ast::Ast) -> LoweringContext {
+    pub fn lower(mut self, ast: &ayuc_ast::Ast) -> Module {
         for item in &ast.items {
             let def_id = self.rcx.defs_by_node[&item.id];
             let lowered = self.lower_item(item);
 
-            self.ctx.items.insert(def_id, lowered);
-            self.ctx.top_level_items.push(def_id);
+            self.module.items.insert(def_id, lowered);
+            self.module.top_level_items.push(def_id);
         }
 
-        self.ctx
+        self.module
     }
 
     #[must_use]
     fn lower_id(&mut self, id: NodeId) -> HirId {
-        if self.ctx.id_mappings.get_by_left(&id).is_some() {
+        if self.already_lowered.contains(&id) {
             panic!("tried to lower NodeId ({id:?}) into HirId: it has already been lowered");
         }
 
         let hir_id = self.hir_id_allocator.allocate();
 
-        self.ctx.id_mappings.insert(id, hir_id);
+        self.module.id_mappings.insert(hir_id, id);
+        self.already_lowered.insert(id);
 
         hir_id
     }
@@ -126,7 +112,7 @@ impl<'a> AstLowering<'a> {
                         let def_id = self.rcx.defs_by_node[&item.id];
                         let lowered = self.lower_item(item);
 
-                        self.ctx.items.insert(def_id, lowered);
+                        self.module.items.insert(def_id, lowered);
 
                         Some(def_id)
                     })
@@ -141,7 +127,7 @@ impl<'a> AstLowering<'a> {
                         let def_id = self.rcx.defs_by_node[&item.id];
                         let lowered = self.lower_item(item);
 
-                        self.ctx.items.insert(def_id, lowered);
+                        self.module.items.insert(def_id, lowered);
 
                         def_id
                     })

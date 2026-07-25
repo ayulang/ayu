@@ -13,6 +13,8 @@ use slotmap::{SecondaryMap, SlotMap};
 pub struct ModuleRegistry {
     /// A [SlotMap] containing an AST for a module. May be [`None`] if the file couldn't be parsed.
     pub trees: SlotMap<ModuleId, Option<Ast>>,
+    /// A [SecondaryMap] storing the file id for a [`ModuleId`].
+    pub file_ids: SecondaryMap<ModuleId, usize>,
     /// A [SecondaryMap] storing the HIR module for a [`ModuleId`].
     pub modules: SecondaryMap<ModuleId, Module>,
     /// A [SecondaryMap] that has a per-module list of all [`ModuleId`]s that a they are dependant of paired with the

@@ -9,9 +9,13 @@ use std::{
 };
 
 use ayuc_diagnostic::DiagnosticContext;
+use ayuc_hir::Module;
 use ayuc_id::ModuleId;
 use ayuc_lexer::{LexedFile, stream::TokenStream};
+use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
+use ayuc_resolve::Resolver;
+use ayuc_sema::SemanticAnalyzer;
 use ayuc_source::SourceCache;
 
 use crate::context::CompilerContext;
@@ -85,9 +89,10 @@ pub fn parse_file(ctx: &mut CompilerContext, path: PathBuf) -> ModuleId {
 
     assert!(!path.is_dir());
 
+    let file_content = fs::read_to_string(file_path).expect("unable to read file");
+    let file_id = ctx.source_cache.add(file_path, file_content);
+
     let ast = {
-        let file_content = fs::read_to_string(file_path).expect("unable to read file");
-        let file_id = ctx.source_cache.add(file_path, file_content);
         let source = ctx
             .source_cache
             .source_of(file_id)
@@ -104,17 +109,65 @@ pub fn parse_file(ctx: &mut CompilerContext, path: PathBuf) -> ModuleId {
 
             parser.parse_full()
         } else {
-            print_diagnostics(&ctx.dcx, &ctx.source_cache);
-
             None
         }
     };
 
-    if let Some(ast) = ast {
+    let module_id = if let Some(ast) = ast {
         ctx.module_registry.add_ast(file_path.to_string(), ast)
     } else {
         ctx.module_registry.add_failed_ast(file_path.to_string())
+    };
+
+    ctx.module_registry.file_ids.insert(module_id, file_id);
+
+    module_id
+}
+
+fn compile(ctx: &mut CompilerContext, module: ModuleId) -> Option<Module> {
+    let ast = ctx.module_registry.trees[module].as_ref().unwrap();
+    let file_id = ctx.module_registry.file_ids[module];
+
+    let dcx = &mut ctx.dcx;
+    let sess = &mut ctx.sess;
+    let source_cache = &ctx.source_cache;
+
+    let rcx = Resolver::resolve(sess, dcx, file_id, ast);
+
+    if dcx.requires_abort() {
+        let errors = dcx.errors().len();
+
+        print_diagnostics(dcx, &source_cache);
+
+        eprintln!(
+            "> Unable to compile due to {} error{}",
+            errors,
+            if errors == 1 { "" } else { "s" }
+        );
+
+        return None;
     }
+
+    SemanticAnalyzer::analyze(&ast, file_id, &rcx, dcx, sess);
+
+    if !dcx.errors().is_empty() {
+        let errors = dcx.errors().len();
+
+        print_diagnostics(dcx, &source_cache);
+
+        eprintln!(
+            "> Unable to compile due to {} error{}",
+            errors,
+            if errors == 1 { "" } else { "s" }
+        );
+
+        return None;
+    }
+
+    let lowering = AstLowering::new(module, &rcx);
+    let module = lowering.lower(&ast);
+
+    Some(module)
 }
 
 pub fn drive() -> ExitCode {
@@ -177,14 +230,34 @@ pub fn drive() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    for module in compilation_order {
+    if ctx.dcx.requires_abort() {
+        let errors = ctx.dcx.errors().len();
+
+        print_diagnostics(&ctx.dcx, &ctx.source_cache);
+
+        eprintln!(
+            "> Unable to compile due to {} error{}",
+            errors,
+            if errors == 1 { "" } else { "s" }
+        );
+
+        return ExitCode::FAILURE;
+    }
+
+    for module_id in compilation_order {
         let path = ctx
             .module_registry
             .id_by_path
-            .get_by_right(&module)
+            .get_by_right(&module_id)
             .unwrap();
 
         eprintln!("[compiling] {path}");
+
+        if let Some(module) = compile(&mut ctx, module_id) {
+            ctx.module_registry.modules.insert(module_id, module);
+        } else {
+            return ExitCode::FAILURE;
+        }
     }
 
     /*
