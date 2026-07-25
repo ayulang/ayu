@@ -224,6 +224,10 @@ dependencies = [
 [[package]]
 name = "ayuc_type"
 version = "0.1.0"
+dependencies = [
+ "ayuc_id",
+ "slotmap",
+]
 
 [[package]]
 name = "bimap"
