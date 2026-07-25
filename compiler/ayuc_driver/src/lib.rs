@@ -1,22 +1,21 @@
+pub(crate) mod context;
+
 use std::{
     env,
-    fs::{self, File},
-    io::Write,
-    path::Path,
+    fs::{self},
+    path::{Path, PathBuf},
     process::ExitCode,
 };
 
-use ayuc_codegen::LuauCodegen;
 use ayuc_diagnostic::DiagnosticContext;
+use ayuc_id::ModuleId;
 use ayuc_lexer::{LexedFile, stream::TokenStream};
-use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
-use ayuc_resolve::resolver::Resolver;
-use ayuc_sema::SemanticAnalyzer;
-use ayuc_session::Session;
 use ayuc_source::SourceCache;
 
-fn print_diagnostics(dcx: DiagnosticContext, source_cache: &SourceCache) {
+use crate::context::CompilerContext;
+
+fn print_diagnostics(dcx: &DiagnosticContext, source_cache: &SourceCache) {
     for advice in dcx.advice() {
         let _ = advice.to_ariadne().eprint(source_cache);
     }
@@ -30,29 +29,99 @@ fn print_diagnostics(dcx: DiagnosticContext, source_cache: &SourceCache) {
     }
 }
 
+pub fn parse_file(ctx: &mut CompilerContext, path: PathBuf) -> ModuleId {
+    let path = path.canonicalize().expect("unable to canonicalize");
+    let file_path = path.to_str().expect("invalid path");
+
+    assert!(!path.is_dir());
+
+    let ast = {
+        let file_content = fs::read_to_string(file_path).expect("unable to read file");
+        let file_id = ctx.source_cache.add(file_path, file_content);
+        let source = ctx
+            .source_cache
+            .source_of(file_id)
+            .expect("file_id from .add is inaccessible");
+
+        if let Some(LexedFile { tokens }) = ayuc_lexer::lex(&mut ctx.dcx, file_id, source.text()) {
+            let parser = Parser::new(
+                &mut ctx.dcx,
+                file_id,
+                source.text(),
+                TokenStream::new(&tokens),
+                &mut ctx.sess,
+            );
+
+            parser.parse_full()
+        } else {
+            print_diagnostics(&ctx.dcx, &ctx.source_cache);
+
+            None
+        }
+    };
+
+    if let Some(ast) = ast {
+        ctx.module_registry.add_ast(file_path.to_string(), ast)
+    } else {
+        ctx.module_registry.add_failed_ast(file_path.to_string())
+    }
+}
+
 pub fn drive() -> ExitCode {
-    let mut sess = Session::default();
-    let mut source_cache = SourceCache::default();
+    let mut ctx = CompilerContext::default();
 
     let args = env::args().skip(1).collect::<Vec<_>>();
-
-    let file_id = match args.first() {
-        Some(input_file) => {
-            let path = Path::new(&input_file);
-            let content = fs::read_to_string(path).expect("unable to read file");
-
-            source_cache.add(
-                path.canonicalize()
-                    .expect("unable to canonicalize")
-                    .to_str()
-                    .expect("unable to canonicalize"),
-                content,
-            )
-        }
+    let input_file = match args.first() {
+        Some(input_file) => Path::new(input_file).to_path_buf(),
         _ => panic!("no file provided"),
     };
 
-    let output = args
+    let mut to_parse = vec![(None, input_file)];
+
+    while let Some((dependency_of, file_path)) = to_parse.pop() {
+        let working_directory = file_path
+            .parent()
+            .expect("no parent directory")
+            .to_path_buf();
+
+        let absolute = file_path.to_str().expect("invalid path");
+        let module_id = if let Some(id) = ctx.module_registry.id_by_path.get(absolute) {
+            *id
+        } else {
+            parse_file(&mut ctx, file_path)
+        };
+
+        if let Some(ast) = &ctx.module_registry.trees[module_id] {
+            let file_modules = ast
+                .items
+                .iter()
+                .flat_map(|i| match &i.kind {
+                    ayuc_ast::ItemKind::FileMod(file_module) => {
+                        Some((i.id, file_module.name.sym.as_str()))
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+
+            for (node_id, required_module) in file_modules {
+                to_parse.push((
+                    Some((node_id, module_id)),
+                    working_directory.join(format!("{}.ayu", required_module)),
+                ));
+            }
+        }
+
+        if let Some((node_id, origin_id)) = dependency_of {
+            ctx.module_registry
+                .dependencies
+                .entry(origin_id)
+                .unwrap()
+                .and_modify(|list| list.push((node_id, module_id)))
+                .or_insert(vec![(node_id, module_id)]);
+        }
+    }
+
+    /*let output = args
         .get(1)
         .and_then(|name| Path::new(name).file_name())
         .and_then(|o| o.to_str());
@@ -99,6 +168,19 @@ pub fn drive() -> ExitCode {
     }
 
     let ast = ast.unwrap();
+    let required_file_modules = ast
+        .items
+        .iter()
+        .flat_map(|i| {
+            if let ayuc_ast::ItemKind::FileMod(file_module) = &i.kind {
+                Some(format!("{}.ayu", file_module.name.sym))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    println!("File requires following files: {:?}", required_file_modules);
 
     let rcx = Resolver::resolve(&mut sess, &mut dcx, file_id, &ast);
 
@@ -143,7 +225,7 @@ pub fn drive() -> ExitCode {
             .expect("unable to write to file");
     } else {
         println!("{code}");
-    }
+    }*/
 
     ExitCode::SUCCESS
 }
