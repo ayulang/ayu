@@ -4,12 +4,15 @@ use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
 };
+use ayuc_type::interner::TypeInterner;
 use slotmap::SlotMap;
 
 use crate::{ItemInfo, local::LocalInfo};
 
 #[derive(Default)]
 pub struct Session {
+    pub interner: TypeInterner,
+
     items: SlotMap<DefId, ItemInfo>,
 
     locals: SlotMap<LocalId, LocalInfo>,

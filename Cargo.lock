@@ -204,6 +204,7 @@ version = "0.1.0"
 dependencies = [
  "ayuc_id",
  "ayuc_span",
+ "ayuc_type",
  "slotmap",
 ]
 
