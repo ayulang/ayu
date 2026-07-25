@@ -135,7 +135,7 @@ pub fn drive() -> ExitCode {
             .to_path_buf();
 
         let absolute = file_path.to_str().expect("invalid path");
-        let module_id = if let Some(id) = ctx.module_registry.id_by_path.get(absolute) {
+        let module_id = if let Some(id) = ctx.module_registry.id_by_path.get_by_left(absolute) {
             *id
         } else {
             parse_file(&mut ctx, file_path)
@@ -177,67 +177,17 @@ pub fn drive() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    /*let output = args
-        .get(1)
-        .and_then(|name| Path::new(name).file_name())
-        .and_then(|o| o.to_str());
+    for module in compilation_order {
+        let path = ctx
+            .module_registry
+            .id_by_path
+            .get_by_right(&module)
+            .unwrap();
 
-    let source = source_cache
-        .source_of(file_id)
-        .expect("inaccessible source")
-        .text();
-
-    eprintln!(
-        "> Compiling {}",
-        source_cache.name_of(file_id).expect("inaccessible source")
-    );
-
-    let mut dcx = DiagnosticContext::new();
-
-    let Some(LexedFile { tokens }) = ayuc_lexer::lex(&mut dcx, file_id, source) else {
-        print_diagnostics(dcx, &source_cache);
-
-        return ExitCode::FAILURE;
-    };
-
-    let parser = Parser::new(
-        &mut dcx,
-        file_id,
-        source,
-        TokenStream::new(&tokens),
-        &mut sess,
-    );
-    let ast = parser.parse_full();
-
-    if ast.is_none() || dcx.requires_abort() {
-        let errors = dcx.errors().len();
-
-        print_diagnostics(dcx, &source_cache);
-
-        eprintln!(
-            "> Unable to compile due to {} error{}",
-            errors,
-            if errors == 1 { "" } else { "s" }
-        );
-
-        return ExitCode::FAILURE;
+        eprintln!("[compiling] {path}");
     }
 
-    let ast = ast.unwrap();
-    let required_file_modules = ast
-        .items
-        .iter()
-        .flat_map(|i| {
-            if let ayuc_ast::ItemKind::FileMod(file_module) = &i.kind {
-                Some(format!("{}.ayu", file_module.name.sym))
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-
-    println!("File requires following files: {:?}", required_file_modules);
-
+    /*
     let rcx = Resolver::resolve(&mut sess, &mut dcx, file_id, &ast);
 
     if dcx.requires_abort() {
