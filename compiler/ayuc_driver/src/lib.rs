@@ -137,7 +137,7 @@ fn compile(ctx: &mut CompilerContext, module: ModuleId) -> Option<Module> {
     if dcx.requires_abort() {
         let errors = dcx.errors().len();
 
-        print_diagnostics(dcx, &source_cache);
+        print_diagnostics(dcx, source_cache);
 
         eprintln!(
             "> Unable to compile due to {} error{}",
@@ -148,12 +148,12 @@ fn compile(ctx: &mut CompilerContext, module: ModuleId) -> Option<Module> {
         return None;
     }
 
-    SemanticAnalyzer::analyze(&ast, file_id, &rcx, dcx, sess);
+    SemanticAnalyzer::analyze(ast, file_id, &rcx, dcx, sess);
 
     if !dcx.errors().is_empty() {
         let errors = dcx.errors().len();
 
-        print_diagnostics(dcx, &source_cache);
+        print_diagnostics(dcx, source_cache);
 
         eprintln!(
             "> Unable to compile due to {} error{}",
@@ -165,7 +165,7 @@ fn compile(ctx: &mut CompilerContext, module: ModuleId) -> Option<Module> {
     }
 
     let lowering = AstLowering::new(module, &rcx);
-    let module = lowering.lower(&ast);
+    let module = lowering.lower(ast);
 
     Some(module)
 }
