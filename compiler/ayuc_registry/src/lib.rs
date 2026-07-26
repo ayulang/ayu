@@ -21,7 +21,7 @@ pub struct ModuleRegistry {
     ///   [NodeId] of the statement that declared the dependency.
     pub dependencies: SecondaryMap<ModuleId, Vec<(NodeId, ModuleId)>>,
 
-    /// A [HashMap] that ties all existing [`ModuleId`]s to their absolute file path.
+    /// A [BiHashMap] that ties all existing [`ModuleId`]s to their absolute file path.
     pub id_by_path: BiHashMap<String, ModuleId>,
 }
 
