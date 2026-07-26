@@ -51,14 +51,10 @@ impl TypeResolutionPhase<'_, '_, '_, '_, '_> {
 
                 match target {
                     Def::Def(id) => {
-                        let item = self.res.sess.item(id);
-
-                        match &item.kind {
-                            ayuc_session::ItemKind::Fn { .. }
-                            | ayuc_session::ItemKind::ExternFn { .. } => {
-                                return self.res.rcx.tys_by_node[&item.id];
-                            }
-                            _ => TyKind::Error,
+                        if let Some(id) = self.res.sess.maybe_item_ty(id) {
+                            return id;
+                        } else {
+                            TyKind::Error
                         }
                     }
                     Def::Local(id) => {
@@ -179,6 +175,9 @@ impl<'ast> Visitor<'ast> for TypeResolutionPhase<'_, '_, '_, 'ast, '_> {
         let id = self.res.sess.interner.intern(kind);
 
         self.res.rcx.tys_by_node.insert(item.id, id);
+        self.res
+            .sess
+            .register_item_ty(self.res.rcx.defs_by_node[&item.id], id);
     }
 
     fn visit_extern_fn_item(&mut self, extern_fun: &'ast ExternFnItem) {
@@ -199,6 +198,9 @@ impl<'ast> Visitor<'ast> for TypeResolutionPhase<'_, '_, '_, 'ast, '_> {
         let id = self.res.sess.interner.intern(kind);
 
         self.res.rcx.tys_by_node.insert(item.id, id);
+        self.res
+            .sess
+            .register_item_ty(self.res.rcx.defs_by_node[&item.id], id);
     }
 
     fn visit_path_ty(&mut self, path: &'ast ayuc_ast::Path) {
