@@ -297,7 +297,7 @@ pub fn drive() -> ExitCode {
             .to_str()
             .expect("invalid str");
         let code = LuauCodegen::emit(&rcxs[id], &module, &ctx.sess);
-        let mut file = File::create(output_dir.join(file_name).with_extension(".luau"))
+        let mut file = File::create(output_dir.join(file_name).with_extension("luau"))
             .expect("unable to create file");
 
         file.write_all(code.as_bytes()).expect("unable to write");
