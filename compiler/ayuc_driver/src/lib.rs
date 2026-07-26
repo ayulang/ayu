@@ -3,7 +3,8 @@ pub(crate) mod context;
 use std::{
     collections::{HashMap, VecDeque},
     env,
-    fs::{self},
+    fs::{self, File},
+    io::Write,
     path::{Path, PathBuf},
     process::ExitCode,
 };
@@ -181,6 +182,30 @@ pub fn drive() -> ExitCode {
         _ => panic!("no file provided"),
     };
 
+    let output_dir = match args.get(1) {
+        Some(dir) => Path::new(dir).to_path_buf(),
+        _ => Path::new("./dist/").to_path_buf(),
+    };
+
+    println!("{:?}", output_dir);
+
+    if !output_dir.exists() {
+        fs::create_dir(&output_dir).expect("unable to create directory");
+    }
+
+    if !output_dir.is_dir() {
+        panic!("not a directory");
+    }
+
+    let is_empty = fs::read_dir(&output_dir)
+        .expect("unable to read directory")
+        .count()
+        == 0;
+
+    if !is_empty {
+        panic!("directory is not empty");
+    }
+
     let mut to_parse = vec![(None, input_file)];
 
     while let Some((dependency_of, file_path)) = to_parse.pop() {
@@ -266,14 +291,16 @@ pub fn drive() -> ExitCode {
     }
 
     for (id, module) in ctx.module_registry.modules {
+        let file_name = Path::new(ctx.module_registry.id_by_path.get_by_right(&id).unwrap())
+            .file_name()
+            .expect("no file name")
+            .to_str()
+            .expect("invalid str");
         let code = LuauCodegen::emit(&rcxs[id], &module, &ctx.sess);
+        let mut file = File::create(output_dir.join(file_name).with_extension(".luau"))
+            .expect("unable to create file");
 
-        println!(
-            "[ Compilation for \"{}\" ]",
-            ctx.module_registry.id_by_path.get_by_right(&id).unwrap()
-        );
-        println!();
-        println!("{code}");
+        file.write_all(code.as_bytes()).expect("unable to write");
     }
 
     ExitCode::SUCCESS
