@@ -20,6 +20,7 @@ impl<'a> FormatTy<'a> {
 impl Display for FormatTy<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.ty {
+            TyKind::Error => write!(f, "<error>")?,
             TyKind::Prim(prim) => write!(f, "{prim}")?,
             TyKind::Fn(params, ret) => {
                 write!(f, "(")?;

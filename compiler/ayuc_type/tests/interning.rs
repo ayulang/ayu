@@ -7,12 +7,16 @@ use ayuc_type::{
 fn test_primitives() {
     let mut interner = TypeInterner::default();
 
+    let error_id1 = interner.intern(TyKind::Error);
+    let error_id2 = interner.intern(TyKind::Error);
     let int_id1 = interner.intern(TyKind::Prim(PrimTy::Int));
     let int_id2 = interner.intern(TyKind::Prim(PrimTy::Int));
     let bool_id = interner.intern(TyKind::Prim(PrimTy::Bool));
 
+    assert_eq!(error_id1, error_id2);
     assert_eq!(int_id1, int_id2);
     assert_ne!(int_id1, bool_id);
+    assert_ne!(int_id1, error_id1);
 
     assert_eq!(interner.get(int_id1), &TyKind::Prim(PrimTy::Int));
     assert_eq!(interner.get(bool_id), &TyKind::Prim(PrimTy::Bool));

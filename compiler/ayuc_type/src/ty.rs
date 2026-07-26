@@ -10,6 +10,7 @@ pub enum TyKind {
     Prim(PrimTy),
     Tuple(Vec<TyId>),
     Fn(Vec<TyId>, TyId),
+    Error,
 }
 
 impl TyKind {
