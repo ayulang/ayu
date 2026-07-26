@@ -1,6 +1,6 @@
-use ayuc_id::hir::HirId;
+use ayuc_id::{TyId, hir::HirId};
 
-use crate::{Block, Def, Expr, Pat, Ty};
+use crate::{Block, Def, Expr, Pat};
 
 #[derive(Debug)]
 pub struct Stmt {
@@ -51,7 +51,7 @@ pub struct AssignStmt {
 #[derive(Debug)]
 pub struct LetStmt {
     pub pat: Pat,
-    pub ty: Ty,
+    pub ty: TyId,
     pub init: Expr,
 }
 

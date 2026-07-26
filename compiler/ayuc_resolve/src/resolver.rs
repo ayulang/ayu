@@ -9,16 +9,15 @@ use ayuc_id::{
 };
 use ayuc_registry::ModuleRegistry;
 use ayuc_session::Session;
+use ayuc_type::{interner::TypeInterner, ty::TyKind};
 use slotmap::SlotMap;
 
-use crate::{Ty, def::Def, scope::ScopeStack};
+use crate::{def::Def, scope::ScopeStack};
 
-#[derive(Default)]
 pub struct ResolutionContext {
-    error_ty: Ty,
+    error_id: TyId,
 
     /// Stores the resolved `Ty`s
-    pub ty_resolutions: SlotMap<TyId, Ty>,
     pub tys_by_node: HashMap<NodeId, TyId>,
 
     /// Stores the resolved `Def`s (local or item definitions) of identifiers.
@@ -35,16 +34,24 @@ pub struct ResolutionContext {
 }
 
 impl ResolutionContext {
-    pub fn ty(&self, id: TyId) -> &Ty {
-        self.ty_resolutions.get(id).unwrap_or(&self.error_ty)
+    pub fn new(error_id: TyId) -> Self {
+        Self {
+            error_id,
+            tys_by_node: HashMap::default(),
+            name_resolutions: HashMap::default(),
+            def_ids: SlotMap::default(),
+            defs_by_node: HashMap::default(),
+            locals_by_node: HashMap::default(),
+            qualified_paths: HashMap::default(),
+        }
     }
 
-    pub fn ty_of(&self, id: NodeId) -> &Ty {
-        self.tys_by_node
-            .get(&id)
-            .copied()
-            .map(|ty_id| &self.ty_resolutions[ty_id])
-            .unwrap_or(&self.error_ty)
+    pub fn ty_id_of(&self, id: NodeId) -> TyId {
+        self.tys_by_node.get(&id).copied().unwrap_or(self.error_id)
+    }
+
+    pub fn ty_of<'a>(&self, id: NodeId, interner: &'a TypeInterner) -> &'a TyKind {
+        interner.get(self.ty_id_of(id))
     }
 
     pub fn get_name_res(&self, id: NodeId) -> Def {
@@ -52,6 +59,11 @@ impl ResolutionContext {
             .get(&id)
             .copied()
             .unwrap_or(Def::Error)
+    }
+
+    #[inline]
+    pub fn is_error(&self, id: TyId) -> bool {
+        id == self.error_id
     }
 }
 
@@ -79,10 +91,12 @@ impl<'dcx, 'sess, 'reg> Resolver<'dcx, 'sess, 'reg> {
         file_id: usize,
         current_module: ModuleId,
     ) -> Self {
+        let error_id = sess.interner.intern(TyKind::Error);
+
         Self {
             reg,
             sess,
-            rcx: ResolutionContext::default(),
+            rcx: ResolutionContext::new(error_id),
             stack: ScopeStack::default(),
             dcx,
             file_id,
@@ -111,5 +125,13 @@ impl<'dcx, 'sess, 'reg> Resolver<'dcx, 'sess, 'reg> {
         this.run_type_resolution(ast);
 
         this.rcx
+    }
+
+    pub fn ty(&self, id: TyId) -> &TyKind {
+        self.sess.interner.get(id)
+    }
+
+    pub fn ty_of(&self, id: NodeId) -> &TyKind {
+        self.ty(self.rcx.ty_id_of(id))
     }
 }

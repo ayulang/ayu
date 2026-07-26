@@ -12,6 +12,7 @@ use ayuc_pretty::{doc::Doc, renderer::Renderer};
 use ayuc_resolve::resolver::ResolutionContext;
 use ayuc_session::Session;
 use ayuc_span::symbol::Symbol;
+use ayuc_type::ty::TyKind;
 
 use crate::export::Export;
 
@@ -395,8 +396,8 @@ impl<'a> LuauCodegen<'a> {
             .get(&assign_stmt.value.id)
             .copied()
             .unwrap();
-        let ty_res = self.rcx.ty_of(node_id);
-        let wrap_expr = if let ayuc_resolve::TyKind::Tuple(inner) = &ty_res.kind
+        let ty_id = self.rcx.ty_id_of(node_id);
+        let wrap_expr = if let TyKind::Tuple(inner) = self.sess.interner.get(ty_id)
             && inner.len() > 1
         {
             matches!(
@@ -439,8 +440,8 @@ impl<'a> LuauCodegen<'a> {
                     .get(&let_stmt.init.id)
                     .copied()
                     .unwrap();
-                let ty_res = self.rcx.ty_of(node_id);
-                let wrap_expr = if let ayuc_resolve::TyKind::Tuple(inner) = &ty_res.kind
+                let ty_id = self.rcx.ty_id_of(node_id);
+                let wrap_expr = if let TyKind::Tuple(inner) = self.sess.interner.get(ty_id)
                     && inner.len() > 1
                 {
                     matches!(let_stmt.init.kind, ExprKind::Call(_) | ExprKind::Tuple(_))

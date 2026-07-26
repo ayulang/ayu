@@ -164,7 +164,7 @@ fn compile(ctx: &mut CompilerContext, module: ModuleId) -> Option<Module> {
         return None;
     }
 
-    let lowering = AstLowering::new(module, &rcx);
+    let lowering = AstLowering::new(module, &rcx, sess);
     let module = lowering.lower(ast);
 
     Some(module)

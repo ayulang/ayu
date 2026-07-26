@@ -5,7 +5,6 @@ pub mod local;
 pub mod module;
 pub mod pat;
 pub mod stmt;
-pub mod ty;
 
 pub use def::*;
 pub use expr::*;
@@ -14,4 +13,3 @@ pub use local::*;
 pub use module::*;
 pub use pat::*;
 pub use stmt::*;
-pub use ty::*;

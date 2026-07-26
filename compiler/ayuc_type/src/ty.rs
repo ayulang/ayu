@@ -15,6 +15,11 @@ pub enum TyKind {
 
 impl TyKind {
     #[inline]
+    pub fn is_error(&self) -> bool {
+        matches!(self, TyKind::Error)
+    }
+
+    #[inline]
     pub fn is_unit(&self) -> bool {
         matches!(self, TyKind::Tuple(vec) if vec.is_empty())
     }
@@ -31,6 +36,17 @@ pub enum PrimTy {
     Bool,
     Int,
     Str,
+}
+
+impl PrimTy {
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "bool" => Some(Self::Bool),
+            "int" => Some(Self::Int),
+            "str" => Some(Self::Str),
+            _ => None,
+        }
+    }
 }
 
 impl Display for PrimTy {
