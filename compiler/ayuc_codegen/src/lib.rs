@@ -3,9 +3,9 @@ mod export;
 use std::collections::VecDeque;
 
 use ayuc_hir::{
-    AlternateBranch, AssignOp, AssignStmt, BinaryOp, Block, Def, Expr, ExprKind, ExternFnItem,
-    ExternModItem, FileModItem, FnItem, IfStmt, InlineModItem, IntlSegment, Item, ItemKind,
-    LetStmt, Literal, Module, Parameter, PatKind, Path, Stmt, StmtKind, Visibility,
+    AlternateBranch, AssignOp, AssignStmt, BinaryOp, Block, Def, Expr, ExprKind, FnItem, IfStmt,
+    IntlSegment, Item, ItemKind, LetStmt, Literal, Module, Parameter, PatKind, Path, Stmt,
+    StmtKind, Visibility,
 };
 use ayuc_id::hir::DefId;
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
@@ -143,34 +143,6 @@ impl<'a> LuauCodegen<'a> {
                     Doc::text("}"),
                 ])
             }
-        }
-    }
-
-    fn sym_of_item(item: &Item) -> Symbol {
-        match &item.kind {
-            ItemKind::Fn(FnItem { name: sym, .. })
-            | ItemKind::FileMod(FileModItem { name: sym })
-            | ItemKind::ExternFn(ExternFnItem {
-                name: sym,
-                ffi_name: None,
-                ..
-            })
-            | ItemKind::ExternFn(ExternFnItem {
-                name: _,
-                ffi_name: Some(sym),
-                ..
-            })
-            | ItemKind::InlineMod(InlineModItem { name: sym, .. })
-            | ItemKind::ExternMod(ExternModItem {
-                name: sym,
-                ffi_name: None,
-                ..
-            })
-            | ItemKind::ExternMod(ExternModItem {
-                name: _,
-                ffi_name: Some(sym),
-                ..
-            }) => *sym,
         }
     }
 
