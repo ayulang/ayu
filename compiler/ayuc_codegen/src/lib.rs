@@ -250,7 +250,12 @@ impl<'a> LuauCodegen<'a> {
             ItemKind::Fn(decl) => {
                 (!within_module).then_some(Doc::text(format!("local {}", decl.name)))
             }
-            ItemKind::FileMod(_decl) => todo!(),
+            ItemKind::FileMod(decl) => Some(Doc::concat([
+                Doc::text("local "),
+                Doc::text(decl.name.as_str()),
+                Doc::text(" = "),
+                Doc::text(format!("require(\"./{}\")", decl.name)),
+            ])),
             ItemKind::ExternMod(_) | ItemKind::ExternFn(_) => None,
         }
     }
@@ -307,8 +312,7 @@ impl<'a> LuauCodegen<'a> {
                     Doc::text("end"),
                 ])))
             }
-            ItemKind::FileMod(_) => todo!(),
-            ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
+            ItemKind::FileMod(_) | ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
         }
     }
 
@@ -800,9 +804,12 @@ impl<'a> LuauCodegen<'a> {
 
     fn def_is_extern(&self, def: &Def) -> bool {
         if let Def::Def(id) = def {
-            match &self.module.items[*id].kind {
-                ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => true,
-                ItemKind::Fn(_) | ItemKind::InlineMod(_) | ItemKind::FileMod(_) => false,
+            match &self.sess.item(*id).kind {
+                ayuc_session::ItemKind::ExternFn { .. }
+                | ayuc_session::ItemKind::ExternMod { .. } => true,
+                ayuc_session::ItemKind::Fn { .. }
+                | ayuc_session::ItemKind::InlineMod { .. }
+                | ayuc_session::ItemKind::FileMod { .. } => false,
             }
         } else {
             false
@@ -811,7 +818,7 @@ impl<'a> LuauCodegen<'a> {
 
     fn def_to_sym(&self, def: &Def) -> Symbol {
         match def {
-            Def::Def(def) => Self::sym_of_item(&self.module.items[*def]),
+            Def::Def(def) => self.sess.item(*def).name,
             Def::Local(local) => self.sess.local(*local).name,
         }
     }

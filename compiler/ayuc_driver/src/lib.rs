@@ -8,15 +8,17 @@ use std::{
     process::ExitCode,
 };
 
+use ayuc_codegen::LuauCodegen;
 use ayuc_diagnostic::DiagnosticContext;
 use ayuc_hir::Module;
 use ayuc_id::ModuleId;
 use ayuc_lexer::{LexedFile, stream::TokenStream};
 use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
-use ayuc_resolve::Resolver;
+use ayuc_resolve::{ResolutionContext, Resolver};
 use ayuc_sema::SemanticAnalyzer;
 use ayuc_source::SourceCache;
+use slotmap::SecondaryMap;
 
 use crate::context::CompilerContext;
 
@@ -124,7 +126,7 @@ pub fn parse_file(ctx: &mut CompilerContext, path: PathBuf) -> ModuleId {
     module_id
 }
 
-fn compile(ctx: &mut CompilerContext, module: ModuleId) -> Option<Module> {
+fn compile(ctx: &mut CompilerContext, module: ModuleId) -> Option<(ResolutionContext, Module)> {
     let ast = ctx.module_registry.trees[module].as_ref().unwrap();
     let file_id = ctx.module_registry.file_ids[module];
 
@@ -167,7 +169,7 @@ fn compile(ctx: &mut CompilerContext, module: ModuleId) -> Option<Module> {
     let lowering = AstLowering::new(module, &rcx, sess);
     let module = lowering.lower(ast);
 
-    Some(module)
+    Some((rcx, module))
 }
 
 pub fn drive() -> ExitCode {
@@ -244,6 +246,8 @@ pub fn drive() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
+    let mut rcxs = SecondaryMap::new();
+
     for module_id in compilation_order {
         let path = ctx
             .module_registry
@@ -253,24 +257,24 @@ pub fn drive() -> ExitCode {
 
         eprintln!("[compiling] {path}");
 
-        if let Some(module) = compile(&mut ctx, module_id) {
+        if let Some((rcx, module)) = compile(&mut ctx, module_id) {
             ctx.module_registry.modules.insert(module_id, module);
+            rcxs.insert(module_id, rcx);
         } else {
             return ExitCode::FAILURE;
         }
     }
 
-    /*
-    let code = LuauCodegen::emit(&rcx, &lcx, &sess);
+    for (id, module) in ctx.module_registry.modules {
+        let code = LuauCodegen::emit(&rcxs[id], &module, &ctx.sess);
 
-    if let Some(output) = output
-        && let Ok(mut file) = File::create(output)
-    {
-        file.write_all(code.as_bytes())
-            .expect("unable to write to file");
-    } else {
+        println!(
+            "[ Compilation for \"{}\" ]",
+            ctx.module_registry.id_by_path.get_by_right(&id).unwrap()
+        );
+        println!();
         println!("{code}");
-    }*/
+    }
 
     ExitCode::SUCCESS
 }

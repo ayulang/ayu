@@ -93,6 +93,7 @@ dependencies = [
  "ayuc_sema",
  "ayuc_session",
  "ayuc_source",
+ "slotmap",
 ]
 
 [[package]]
