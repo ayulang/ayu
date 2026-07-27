@@ -148,9 +148,11 @@ impl Parser<'_, '_, '_> {
         let (block_span, tokens) = match self.require_token()? {
             StructuredToken::Delimited(span, Delimiter::Braces, tokens) => (span, tokens),
             StructuredToken::Token(Token { span, .. }) | StructuredToken::Delimited(span, _, _) => {
-                return Err(Diagnostic::error(self.file_id, *span, Recovery::Fatal)
-                    .with_message("expected a block of items")
-                    .with_label(Label::primary(*span, "expected a block of items")));
+                return Err(Box::new(
+                    Diagnostic::error(self.file_id, *span, Recovery::Fatal)
+                        .with_message("expected a block of items")
+                        .with_label(Label::primary(*span, "expected a block of items")),
+                ));
             }
         };
 

@@ -15,7 +15,7 @@ use ayuc_lexer::{
 use ayuc_session::Session;
 use ayuc_span::Span;
 
-pub type PResult<T> = Result<T, Diagnostic>;
+pub type PResult<T> = Result<T, Box<Diagnostic>>;
 
 /// Used for parsing an input file into an abstract syntax tree.
 pub struct Parser<'src, 'ctx, 'sess> {
@@ -80,11 +80,11 @@ impl<'src, 'ctx, 'sess> Parser<'src, 'ctx, 'sess> {
                 .past_span(1)
                 .unwrap_or(Span::from(self.source.len()));
 
-            diag_fn(
+            Box::new(diag_fn(
                 Diagnostic::error(self.file_id, span, Recovery::Fatal)
                     .with_message("unexpected end of input"),
                 Span::from(span.end),
-            )
+            ))
         })
     }
 
@@ -111,9 +111,11 @@ impl<'src, 'ctx, 'sess> Parser<'src, 'ctx, 'sess> {
             _ => {
                 let span = token.span();
 
-                Err(Diagnostic::error(self.file_id, span, Recovery::Fatal)
-                    .with_message("expected identifier")
-                    .with_label(Label::primary(span, "expected identifier, got this")))
+                Err(Box::new(
+                    Diagnostic::error(self.file_id, span, Recovery::Fatal)
+                        .with_message("expected identifier")
+                        .with_label(Label::primary(span, "expected identifier, got this")),
+                ))
             }
         }
     }
@@ -142,14 +144,14 @@ impl<'src, 'ctx, 'sess> Parser<'src, 'ctx, 'sess> {
         let tokens = match token {
             StructuredToken::Delimited(_, Delimiter::Parenthesis, tokens) => tokens,
             _ => {
-                return Err(
+                return Err(Box::new(
                     Diagnostic::error(self.file_id, token.span(), Recovery::Fatal)
                         .with_message("expected parenthesized list of parameters")
                         .with_label(Label::primary(
                             token.span(),
                             "expected a list in the shape of `(name: type)`",
                         )),
-                );
+                ));
             }
         };
 
@@ -198,7 +200,7 @@ impl<'src, 'ctx, 'sess> Parser<'src, 'ctx, 'sess> {
             match self.parse_item() {
                 Ok(node) => items.push(node),
                 Err(diag) => {
-                    self.dcx.emit(diag);
+                    self.dcx.emit(*diag);
 
                     return None;
                 }
