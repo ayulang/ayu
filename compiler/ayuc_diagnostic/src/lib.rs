@@ -59,6 +59,7 @@ pub struct Diagnostic {
     pub message: Option<String>,
     pub labels: Vec<Label>,
     pub helps: Vec<String>,
+    pub notes: Vec<String>,
 }
 
 pub struct DiagnosticContext {
@@ -104,6 +105,7 @@ impl Diagnostic {
             message: None,
             labels: Vec::new(),
             helps: Vec::new(),
+            notes: Vec::new(),
         }
     }
 
@@ -143,6 +145,13 @@ impl Diagnostic {
         self
     }
 
+    #[inline]
+    pub fn with_note<H: AsRef<str>>(mut self, note: H) -> Self {
+        self.notes.push(note.as_ref().to_string());
+
+        self
+    }
+
     pub fn to_ariadne<'a>(&self) -> ariadne::Report<'a, (FileId, Range<usize>)> {
         let mut builder =
             ariadne::Report::build(self.severity.into(), (self.file_id, self.span.range()))
@@ -169,6 +178,10 @@ impl Diagnostic {
 
         for help in &self.helps {
             builder.add_help(help);
+        }
+
+        for note in &self.notes {
+            builder.add_note(note);
         }
 
         builder.finish()
