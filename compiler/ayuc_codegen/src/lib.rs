@@ -103,7 +103,15 @@ impl<'a> LuauCodegen<'a> {
                         &[absolute_path, &[modu.name.as_str()]].concat(),
                     ),
                 )),
-                ItemKind::FileMod(_) => todo!(),
+                ItemKind::FileMod(decl) => Some(Export::Mapped {
+                    name: decl.name.as_str(),
+                    absolute: format!(
+                        "{}{}{}",
+                        absolute_path.join("."),
+                        if absolute_path.is_empty() { "" } else { "." },
+                        decl.name
+                    ),
+                }),
             })
             .collect()
     }
