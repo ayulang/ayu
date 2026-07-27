@@ -187,8 +187,6 @@ pub fn drive() -> ExitCode {
         _ => Path::new("./dist/").to_path_buf(),
     };
 
-    println!("{:?}", output_dir);
-
     if !output_dir.exists() {
         fs::create_dir(&output_dir).expect("unable to create directory");
     }
