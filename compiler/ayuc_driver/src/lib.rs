@@ -10,7 +10,7 @@ use std::{
 };
 
 use ayuc_codegen::LuauCodegen;
-use ayuc_diagnostic::DiagnosticContext;
+use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label, Recovery};
 use ayuc_hir::Module;
 use ayuc_id::ModuleId;
 use ayuc_lexer::{LexedFile, stream::TokenStream};
@@ -204,14 +204,14 @@ pub fn drive() -> ExitCode {
         panic!("directory is not empty");
     }
 
-    let mut to_parse = vec![(None, input_file)];
+    let mod_dir = input_file
+        .parent()
+        .expect("no parent directory")
+        .to_path_buf();
 
-    while let Some((dependency_of, file_path)) = to_parse.pop() {
-        let working_directory = file_path
-            .parent()
-            .expect("no parent directory")
-            .to_path_buf();
+    let mut to_parse = vec![(None, input_file, mod_dir)];
 
+    while let Some((dependency_of, file_path, mod_dir)) = to_parse.pop() {
         let absolute = file_path.to_str().expect("invalid path");
         let module_id = if let Some(id) = ctx.module_registry.id_by_path.get_by_left(absolute) {
             *id
@@ -225,16 +225,63 @@ pub fn drive() -> ExitCode {
                 .iter()
                 .flat_map(|i| match &i.kind {
                     ayuc_ast::ItemKind::FileMod(file_module) => {
-                        Some((i.id, file_module.name.sym.as_str()))
+                        Some((i.id, file_module.name.sym.as_str(), i.span))
                     }
                     _ => None,
                 })
                 .collect::<Vec<_>>();
 
-            for (node_id, required_module) in file_modules {
+            for (node_id, required_module, defined_where) in file_modules {
+                let file_path = {
+                    let in_current = mod_dir.join(format!("{required_module}.ayu"));
+                    let own_folder = mod_dir.join(format!("{required_module}/mod.ayu"));
+
+                    match (in_current.exists(), own_folder.exists()) {
+                        (true, false) => in_current,
+                        (false, true) => own_folder,
+                        (false, false) => {
+                            ctx.dcx.emit(
+                                Diagnostic::error(
+                                    ctx.module_registry.file_ids[module_id],
+                                    defined_where,
+                                    Recovery::Fatal,
+                                )
+                                .with_message(format!(
+                                    "unable to find module named {required_module}"
+                                ))
+                                .with_label(Label::primary(
+                                    defined_where,
+                                    "module is defined here, but it's file doesn't exist",
+                                )),
+                            );
+
+                            return ExitCode::FAILURE;
+                        }
+                        (true, true) => {
+                            ctx.dcx.emit(
+                                Diagnostic::error(
+                                    ctx.module_registry.file_ids[module_id],
+                                    defined_where,
+                                    Recovery::Fatal,
+                                )
+                                .with_message(format!("ambigious module named {required_module}"))
+                                .with_label(Label::primary(
+                                    defined_where,
+                                    "module is required here, but can't be found",
+                                ))
+                                .with_note(format!("the module lives in `{required_module}.ayu` and `{required_module}/mod.ayu`"))
+                                .with_help("remove one of the definitions"),
+                            );
+
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                };
+
                 to_parse.push((
                     Some((node_id, module_id)),
-                    working_directory.join(format!("{}.ayu", required_module)),
+                    file_path,
+                    mod_dir.join(format!("{required_module}/")),
                 ));
             }
         }
