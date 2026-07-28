@@ -184,7 +184,7 @@ pub fn drive() -> ExitCode {
 
     let output_dir = match args.get(1) {
         Some(dir) => Path::new(dir).to_path_buf(),
-        _ => Path::new("./dist/").to_path_buf(),
+        _ => Path::new("./build/").to_path_buf(),
     };
 
     if !output_dir.exists() {
