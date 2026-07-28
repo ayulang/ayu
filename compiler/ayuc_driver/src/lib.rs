@@ -252,9 +252,7 @@ pub fn drive() -> ExitCode {
                         .to_str()
                         .expect("invalid file name");
 
-                    maybe_output = maybe_output
-                        .with_file_name(file_name)
-                        .join(format!("init.luau"));
+                    maybe_output = maybe_output.with_file_name(file_name).join("init.luau");
                 }
             };
 
