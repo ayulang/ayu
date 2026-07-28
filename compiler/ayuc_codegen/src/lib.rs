@@ -234,7 +234,7 @@ impl<'a> LuauCodegen<'a> {
                 Doc::text("local "),
                 Doc::text(decl.name.as_str()),
                 Doc::text(" = "),
-                Doc::text(format!("require(\"./{}\")", decl.name)),
+                Doc::text(format!("require(\"@self/{}\")", decl.name)),
             ])),
             ItemKind::ExternMod(_) | ItemKind::ExternFn(_) => None,
         }
