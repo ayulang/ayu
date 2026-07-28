@@ -184,10 +184,6 @@ pub fn drive() -> ExitCode {
 
     let output_dir = Path::new("./build/").to_path_buf();
 
-    if !output_dir.exists() {
-        fs::create_dir(&output_dir).expect("unable to create directory");
-    }
-
     if !output_dir.is_dir() {
         panic!("not a directory");
     }
@@ -201,7 +197,7 @@ pub fn drive() -> ExitCode {
             .expect("invalid file prefix")
     ));
 
-    fs::create_dir_all(&output_dir).expect("unable to create output directory");
+    fs::create_dir_all(&output_dir).expect("unable to create directory");
 
     let is_empty = fs::read_dir(&output_dir)
         .expect("unable to read directory")
@@ -209,7 +205,8 @@ pub fn drive() -> ExitCode {
         == 0;
 
     if !is_empty {
-        panic!("directory is not empty");
+        fs::remove_dir_all(&output_dir).expect("unable to delete directory and contents");
+        fs::create_dir_all(&output_dir).expect("unable to create directory");
     }
 
     let base_directory = input_file
