@@ -5,7 +5,7 @@ use std::{
     env,
     fs::{self, File},
     io::Write,
-    path::{Path, PathBuf},
+    path::Path,
     process::ExitCode,
 };
 
@@ -86,7 +86,7 @@ fn get_compilation_order(ctx: &mut CompilerContext) -> Option<Vec<ModuleId>> {
     }
 }
 
-pub fn parse_file(ctx: &mut CompilerContext, path: PathBuf) -> ModuleId {
+pub fn parse_file(ctx: &mut CompilerContext, path: &Path) -> ModuleId {
     let path = path.canonicalize().expect("unable to canonicalize");
     let file_path = path.to_str().expect("invalid path");
 
@@ -204,20 +204,26 @@ pub fn drive() -> ExitCode {
         panic!("directory is not empty");
     }
 
-    let mod_dir = input_file
+    let base_directory = input_file
         .parent()
         .expect("no parent directory")
         .to_path_buf();
 
-    let mut to_parse = vec![(None, input_file, mod_dir)];
+    let mut to_parse = vec![(None, input_file, base_directory.clone())];
+    let mut output_files = SecondaryMap::new();
 
     while let Some((dependency_of, file_path, mod_dir)) = to_parse.pop() {
         let absolute = file_path.to_str().expect("invalid path");
         let module_id = if let Some(id) = ctx.module_registry.id_by_path.get_by_left(absolute) {
             *id
         } else {
-            parse_file(&mut ctx, file_path)
+            parse_file(&mut ctx, &file_path)
         };
+
+        let mut maybe_output = file_path
+            .strip_prefix(&base_directory)
+            .expect("unable to strip prefix")
+            .to_path_buf();
 
         if let Some(ast) = &ctx.module_registry.trees[module_id] {
             let file_modules = ast
@@ -230,6 +236,22 @@ pub fn drive() -> ExitCode {
                     _ => None,
                 })
                 .collect::<Vec<_>>();
+
+            if !file_modules.is_empty() && dependency_of.is_some() {
+                if absolute.ends_with("mod.ayu") {
+                    maybe_output = maybe_output.with_file_name("init");
+                } else {
+                    let file_name = maybe_output
+                        .file_prefix()
+                        .expect("no file name")
+                        .to_str()
+                        .expect("invalid file name");
+
+                    maybe_output = maybe_output
+                        .with_file_name(file_name)
+                        .join(format!("init.luau"));
+                }
+            };
 
             for (node_id, required_module, defined_where) in file_modules {
                 let file_path = {
@@ -306,6 +328,13 @@ pub fn drive() -> ExitCode {
             }
         }
 
+        // This is only true for the root file.
+        if dependency_of.is_none() {
+            maybe_output = maybe_output.with_file_name("init");
+        }
+
+        output_files.insert(module_id, maybe_output.with_extension("luau"));
+
         if let Some((node_id, origin_id)) = dependency_of {
             ctx.module_registry
                 .dependencies
@@ -356,14 +385,13 @@ pub fn drive() -> ExitCode {
     }
 
     for (id, module) in ctx.module_registry.modules {
-        let file_name = Path::new(ctx.module_registry.id_by_path.get_by_right(&id).unwrap())
-            .file_name()
-            .expect("no file name")
-            .to_str()
-            .expect("invalid str");
         let code = LuauCodegen::emit(&rcxs[id], &module, &ctx.sess);
-        let mut file = File::create(output_dir.join(file_name).with_extension("luau"))
-            .expect("unable to create file");
+        let path = output_dir.join(&output_files[id]);
+        let prefix = path.parent().expect("no parent directory of file");
+
+        fs::create_dir_all(prefix).expect("unable to create directories");
+
+        let mut file = File::create(path).expect("unable to create file");
 
         file.write_all(code.as_bytes()).expect("unable to write");
     }
