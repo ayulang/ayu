@@ -247,12 +247,22 @@ pub fn drive() -> ExitCode {
                                     Recovery::Fatal,
                                 )
                                 .with_message(format!(
-                                    "unable to find module named {required_module}"
+                                    "unable to find module named `{required_module}`"
                                 ))
                                 .with_label(Label::primary(
                                     defined_where,
-                                    "module is defined here, but it's file doesn't exist",
+                                    "module is defined here, but it doesn't have a file",
                                 )),
+                            );
+
+                            let errors = ctx.dcx.errors().len();
+
+                            print_diagnostics(&ctx.dcx, &ctx.source_cache);
+
+                            eprintln!(
+                                "> Unable to compile due to {} error{}",
+                                errors,
+                                if errors == 1 { "" } else { "s" }
                             );
 
                             return ExitCode::FAILURE;
@@ -264,13 +274,23 @@ pub fn drive() -> ExitCode {
                                     defined_where,
                                     Recovery::Fatal,
                                 )
-                                .with_message(format!("ambigious module named {required_module}"))
+                                .with_message(format!("ambigious module named `{required_module}`"))
                                 .with_label(Label::primary(
                                     defined_where,
-                                    "module is required here, but can't be found",
+                                    "module is required here, but lives in multiple places",
                                 ))
                                 .with_note(format!("the module lives in `{required_module}.ayu` and `{required_module}/mod.ayu`"))
                                 .with_help("remove one of the definitions"),
+                            );
+
+                            let errors = ctx.dcx.errors().len();
+
+                            print_diagnostics(&ctx.dcx, &ctx.source_cache);
+
+                            eprintln!(
+                                "> Unable to compile due to {} error{}",
+                                errors,
+                                if errors == 1 { "" } else { "s" }
                             );
 
                             return ExitCode::FAILURE;
