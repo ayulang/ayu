@@ -19,7 +19,7 @@ pub fn walk_ast<'ast, V: Visitor<'ast>>(visitor: &mut V, ast: &'ast Ast) {
 
 /// Contains the logic for traversing items.
 mod item {
-    use ayuc_ast::{ExternFnItem, ExternModItem, FnItem, Item, ItemKind, ModItem};
+    use ayuc_ast::{ExternFnItem, ExternModItem, FileModItem, FnItem, Item, ItemKind, ModItem};
 
     use crate::{visitor::Visitor, walkable::Walkable};
 
@@ -29,6 +29,7 @@ mod item {
             ItemKind::ExternMod(extern_module) => visitor.visit_extern_mod_item(extern_module),
             ItemKind::Fn(fun) => visitor.visit_fn_item(fun),
             ItemKind::InlineMod(module) => visitor.visit_mod_item(module),
+            ItemKind::FileMod(file_module) => visitor.visit_file_mod_item(file_module),
         }
     }
 
@@ -75,6 +76,15 @@ mod item {
 
         visitor.visit_item_identifier(ident);
         visitor.visit_item_list(items);
+    }
+
+    pub fn walk_file_mod_item<'ast, V: Visitor<'ast>>(
+        visitor: &mut V,
+        file_module: &'ast FileModItem,
+    ) {
+        let FileModItem { name } = file_module;
+
+        visitor.visit_item_identifier(name);
     }
 
     pub fn walk_extern_mod_item<'ast, V: Visitor<'ast>>(

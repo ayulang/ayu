@@ -1,6 +1,7 @@
 use ayuc_ast::{
-    AssignStmt, Ast, BinExpr, Block, CallExpr, Expr, ExternFnItem, ExternModItem, FnItem, IfStmt,
-    Item, LetStmt, LoopStmt, ModItem, Parameter, Pat, ReturnStmt, Stmt, Ty, WhileStmt,
+    AssignStmt, Ast, BinExpr, Block, CallExpr, Expr, ExternFnItem, ExternModItem, FileModItem,
+    FnItem, IfStmt, Item, LetStmt, LoopStmt, ModItem, Parameter, Pat, ReturnStmt, Stmt, Ty,
+    WhileStmt,
 };
 
 use crate::{visitor::Visitor, walk};
@@ -43,6 +44,7 @@ make_walkable!(ModItem => walk::walk_mod_item);
 make_walkable!(ExternModItem => walk::walk_extern_mod_item);
 make_walkable!(FnItem => walk::walk_fn_item);
 make_walkable!(ExternFnItem => walk::walk_extern_fn_item);
+make_walkable!(FileModItem => walk::walk_file_mod_item);
 
 make_walkable!(Stmt => walk::walk_stmt);
 make_walkable!([Stmt] => visit_stmt);

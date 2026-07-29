@@ -6,4 +6,5 @@ edition = "2024"
 [dependencies]
 ayuc_id = { path = "../ayuc_id" }
 ayuc_span = { path = "../ayuc_span" }
+ayuc_type = { path = "../ayuc_type" }
 slotmap = "1.1.1"

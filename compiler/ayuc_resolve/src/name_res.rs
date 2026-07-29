@@ -19,10 +19,11 @@ fn ident_of_item(item: &Item) -> &Ident {
         ItemKind::ExternMod(decl) => &decl.ident,
         ItemKind::Fn(decl) => &decl.ident,
         ItemKind::ExternFn(decl) => &decl.name,
+        ItemKind::FileMod(decl) => &decl.name,
     }
 }
 
-impl Resolver<'_, '_> {
+impl Resolver<'_, '_, '_> {
     pub(crate) fn run_name_resolution(&mut self, ast: &Ast) {
         FirstPass { res: self }.visit_ast(ast);
 
@@ -48,12 +49,12 @@ impl Resolver<'_, '_> {
     }
 }
 
-struct FirstPass<'a, 'dcx, 'sess> {
-    res: &'a mut Resolver<'dcx, 'sess>,
+struct FirstPass<'a, 'dcx, 'sess, 'reg> {
+    res: &'a mut Resolver<'dcx, 'sess, 'reg>,
 }
 
 // Visitor trait is not needed for this because it is simple and custom logic.
-impl FirstPass<'_, '_, '_> {
+impl FirstPass<'_, '_, '_, '_> {
     pub fn visit_ast(&mut self, ast: &Ast) {
         for item in &ast.items {
             self.visit_item(item);
@@ -71,15 +72,7 @@ impl FirstPass<'_, '_, '_> {
             if let Def::Def(id) = def {
                 let item = self.res.sess.item(id);
 
-                diag = diag.with_label(Label::help(
-                    match &item.kind {
-                        session::ItemKind::ExternFn { signature_span, .. }
-                        | session::ItemKind::Fn { signature_span, .. }
-                        | session::ItemKind::InlineMod { signature_span, .. }
-                        | session::ItemKind::ExternMod { signature_span, .. } => *signature_span,
-                    },
-                    "first definition here",
-                ))
+                diag = diag.with_label(Label::help(item.signature_span(), "first definition here"))
             }
 
             diag = diag.with_label(Label::primary(ident.span, "name is already defined"));
@@ -94,6 +87,7 @@ impl FirstPass<'_, '_, '_> {
             ItemKind::ExternMod(decl) => Span::from((item.span.start, decl.ident.span.end)),
             ItemKind::Fn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
             ItemKind::ExternFn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
+            ItemKind::FileMod(_) => item.span,
         };
 
         let kind = match &item.kind {
@@ -109,13 +103,7 @@ impl FirstPass<'_, '_, '_> {
                     .items
                     .iter()
                     .flat_map(|item| {
-                        let sym = match &item.kind {
-                            ItemKind::ExternMod(decl) => &decl.ident,
-                            ItemKind::InlineMod(decl) => &decl.ident,
-                            ItemKind::Fn(decl) => &decl.ident,
-                            ItemKind::ExternFn(decl) => &decl.name,
-                        }
-                        .sym;
+                        let sym = ident_of_item(item).sym;
 
                         self.visit_item(item).map(|id| (sym, id))
                     })
@@ -136,13 +124,7 @@ impl FirstPass<'_, '_, '_> {
                     .items
                     .iter()
                     .flat_map(|item| {
-                        let sym = match &item.kind {
-                            ItemKind::ExternMod(decl) => &decl.ident,
-                            ItemKind::InlineMod(decl) => &decl.ident,
-                            ItemKind::Fn(decl) => &decl.ident,
-                            ItemKind::ExternFn(decl) => &decl.name,
-                        }
-                        .sym;
+                        let sym = ident_of_item(item).sym;
 
                         self.visit_item(item).map(|id| (sym, id))
                     })
@@ -155,6 +137,13 @@ impl FirstPass<'_, '_, '_> {
                     signature_span,
                 }
             }
+            ItemKind::FileMod(_) => session::ItemKind::FileMod {
+                signature_span,
+                module: self.res.reg.dependencies[self.res.current_module]
+                    .iter()
+                    .find_map(|(id, module)| if *id == item.id { Some(*module) } else { None })
+                    .unwrap(),
+            },
         };
 
         let def_id = self.res.sess.register_item(session::ItemInfo {
@@ -173,20 +162,34 @@ impl FirstPass<'_, '_, '_> {
     }
 }
 
-struct SecondPass<'a, 'dcx, 'sess, 'ast> {
-    res: &'a mut Resolver<'dcx, 'sess>,
+struct SecondPass<'a, 'dcx, 'sess, 'ast, 'reg> {
+    res: &'a mut Resolver<'dcx, 'sess, 'reg>,
 
     current_item: Option<&'ast Item>,
 }
 
-impl SecondPass<'_, '_, '_, '_> {
+impl SecondPass<'_, '_, '_, '_, '_> {
     pub fn resolve_segment_in_def(&mut self, seg: &PathSegment, def_id: DefId) -> Def {
         let item = self.res.sess.item(def_id);
 
         let items = match &item.kind {
             session::ItemKind::InlineMod { items, .. }
             | session::ItemKind::ExternMod { items, .. } => items,
-            _ => return Def::Error,
+            session::ItemKind::FileMod { module, .. } => {
+                &self.res.reg.modules[*module].items_by_symbol
+            }
+            _ => {
+                self.res.dcx.emit(
+                    Diagnostic::error(self.res.file_id, item.signature_span(), Recovery::Fatal)
+                        .with_message(format!("item `{}` doesn't have any members", item.name))
+                        .with_label(Label::primary(
+                            item.signature_span(),
+                            "this item doesn't have any members",
+                        )),
+                );
+
+                return Def::Error;
+            }
         };
 
         let result = items
@@ -240,7 +243,7 @@ impl SecondPass<'_, '_, '_, '_> {
     }
 }
 
-impl<'ast> Visitor<'ast> for SecondPass<'_, '_, '_, 'ast> {
+impl<'ast> Visitor<'ast> for SecondPass<'_, '_, '_, 'ast, '_> {
     fn visit_item(&mut self, item: &'ast Item) {
         let old_item = self.current_item.replace(item);
 

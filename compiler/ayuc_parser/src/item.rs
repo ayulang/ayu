@@ -1,6 +1,6 @@
 use ayuc_ast::{
-    ExternFnItem, ExternModItem, Item, ItemKind, ModItem, ParameterList, Ty, TyKind, Visibility,
-    item::FnItem,
+    ExternFnItem, ExternModItem, FileModItem, Item, ItemKind, ModItem, ParameterList, Ty, TyKind,
+    Visibility, item::FnItem,
 };
 use ayuc_diagnostic::{Diagnostic, Label, Recovery, colored::Colorize};
 use ayuc_lexer::{
@@ -10,6 +10,11 @@ use ayuc_lexer::{
 use ayuc_span::Span;
 
 use crate::{PResult, Parser};
+
+pub enum Either<A, B> {
+    A(A),
+    B(B),
+}
 
 impl Parser<'_, '_, '_> {
     pub fn parse_extern_fn_item(&mut self) -> PResult<ExternFnItem> {
@@ -143,9 +148,11 @@ impl Parser<'_, '_, '_> {
         let (block_span, tokens) = match self.require_token()? {
             StructuredToken::Delimited(span, Delimiter::Braces, tokens) => (span, tokens),
             StructuredToken::Token(Token { span, .. }) | StructuredToken::Delimited(span, _, _) => {
-                return Err(Diagnostic::error(self.file_id, *span, Recovery::Fatal)
-                    .with_message("expected a block of items")
-                    .with_label(Label::primary(*span, "expected a block of items")));
+                return Err(Box::new(
+                    Diagnostic::error(self.file_id, *span, Recovery::Fatal)
+                        .with_message("expected a block of items")
+                        .with_label(Label::primary(*span, "expected a block of items")),
+                ));
             }
         };
 
@@ -169,20 +176,19 @@ impl Parser<'_, '_, '_> {
         })
     }
 
-    pub fn parse_inline_mod(&mut self) -> PResult<ModItem> {
+    pub fn parse_module(&mut self) -> PResult<Either<ModItem, FileModItem>> {
         if !self.maybe(TokenKind::Keyword(Keyword::Mod)) {
             unreachable!()
         }
 
         let ident = self.parse_ident()?;
-        let tokens = match self.require_token()? {
-            StructuredToken::Delimited(_, Delimiter::Braces, tokens) => tokens,
-            StructuredToken::Token(Token { span, .. }) | StructuredToken::Delimited(span, _, _) => {
-                return Err(Diagnostic::error(self.file_id, *span, Recovery::Fatal)
-                    .with_message("expected a block of items")
-                    .with_label(Label::primary(*span, "expected a block of items")));
-            }
+
+        let tokens = match self.stream.first() {
+            Some(StructuredToken::Delimited(_, Delimiter::Braces, tokens)) => tokens,
+            _ => return Ok(Either::B(FileModItem { name: ident })),
         };
+
+        self.stream.consume();
 
         let mut inner = self.branch(TokenStream::new(tokens));
         let mut items = Vec::new();
@@ -196,7 +202,7 @@ impl Parser<'_, '_, '_> {
             }
         }
 
-        Ok(ModItem { ident, items })
+        Ok(Either::A(ModItem { ident, items }))
     }
 
     pub fn parse_item(&mut self) -> PResult<Item> {
@@ -224,7 +230,10 @@ impl Parser<'_, '_, '_> {
                 ..
             }) => (
                 self.node_id_allocator.allocate(),
-                ItemKind::InlineMod(self.parse_inline_mod()?),
+                match self.parse_module()? {
+                    Either::A(module) => ItemKind::InlineMod(module),
+                    Either::B(file_module) => ItemKind::FileMod(file_module),
+                },
             ),
             StructuredToken::Token(Token {
                 kind: TokenKind::Keyword(Keyword::Extern),

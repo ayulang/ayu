@@ -6,16 +6,21 @@ use ayuc_ast::{
 };
 use ayuc_ast_visit::{visitor::Visitor, walkable::Walkable};
 use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label, Recovery};
-use ayuc_resolve::{PrimTy, Ty, TyKind, def::Def, resolver::ResolutionContext};
+use ayuc_id::TyId;
+use ayuc_resolve::{def::Def, resolver::ResolutionContext};
 use ayuc_session::Session;
 use ayuc_span::Span;
+use ayuc_type::{
+    format::FormatExt,
+    ty::{PrimTy, TyKind},
+};
 
 #[derive(Default)]
-struct State<'rcx, 'ast> {
+struct State<'ast> {
     current_item: Option<&'ast Item>,
     current_stmt: Option<&'ast Stmt>,
 
-    return_ty: Option<&'rcx Ty>,
+    return_ty: Option<TyId>,
 }
 
 pub struct TypeCheckingPhase<'a, 'rcx, 'ast> {
@@ -24,7 +29,7 @@ pub struct TypeCheckingPhase<'a, 'rcx, 'ast> {
     sess: &'a Session,
     file_id: usize,
 
-    state: State<'rcx, 'ast>,
+    state: State<'ast>,
 }
 
 impl<'a, 'rcx> TypeCheckingPhase<'a, 'rcx, '_> {
@@ -58,11 +63,11 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
             return fun.walk(self);
         };
 
-        let TyKind::Fn(_, return_ty) = &self.rcx.ty_of(item.id).kind else {
+        let TyKind::Fn(_, return_ty) = self.rcx.ty_of(item.id, &self.sess.interner) else {
             unreachable!()
         };
 
-        let old_ty = self.state.return_ty.replace(return_ty);
+        let old_ty = self.state.return_ty.replace(*return_ty);
 
         fun.walk(self);
 
@@ -78,7 +83,7 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
             return ret.walk(self);
         };
 
-        let ty = self.rcx.ty_of(ret.expr.id);
+        let ty = self.rcx.ty_id_of(ret.expr.id);
 
         if ty != return_ty {
             self.dcx.emit(
@@ -90,7 +95,11 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
                         } else {
                             ret.expr.span
                         },
-                        format!("expected type {}, got {}", return_ty, ty,),
+                        format!(
+                            "expected type {}, got {}",
+                            return_ty.format(&self.sess.interner),
+                            ty.format(&self.sess.interner),
+                        ),
                     )),
             );
         }
@@ -111,7 +120,7 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
             return call.walk(self);
         };
 
-        let TyKind::Fn(parameters, _) = &self.rcx.ty_of(call.callee.id).kind else {
+        let TyKind::Fn(parameters, _) = &self.rcx.ty_of(call.callee.id, &self.sess.interner) else {
             return call.walk(self);
         };
 
@@ -120,10 +129,10 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
         let mut incorrect_args = Vec::new();
 
         for (i, provided) in call.args.iter().enumerate() {
-            let provided_ty = self.rcx.ty_of(provided.id);
+            let provided_ty = self.rcx.ty_id_of(provided.id);
 
             if let Some(param_ty) = parameters.get(i) {
-                if param_ty != provided_ty {
+                if *param_ty != provided_ty {
                     incorrect_args.push((provided.span, param_ty, provided_ty));
                 }
             } else {
@@ -159,7 +168,11 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
 
                     diagnostic = diagnostic.with_label(Label::primary(
                         Span::from((call.callee.span.end, stmt.span.end)),
-                        format!("argument #{} of type {ty} is missing", position + 1),
+                        format!(
+                            "argument #{} of type {} is missing",
+                            position + 1,
+                            ty.format(&self.sess.interner)
+                        ),
                     ))
                 } else {
                     let types = {
@@ -167,12 +180,13 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
                         let (_, last) = missing_args.last().unwrap(); // garuanteed to be there
 
                         format!(
-                            "{} and `{last}`",
+                            "{} and `{}`",
                             first_part
                                 .iter()
-                                .map(|(_, ty)| format!("`{ty}`"))
+                                .map(|(_, ty)| format!("`{}`", ty.format(&self.sess.interner)))
                                 .collect::<Vec<_>>()
-                                .join(", ")
+                                .join(", "),
+                            last.format(&self.sess.interner)
                         )
                     };
 
@@ -190,14 +204,22 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
             for (position, ty, span) in unexpected_args {
                 diagnostic = diagnostic.with_label(Label::primary(
                     span,
-                    format!("unexpected argument #{} of type `{ty}`", position + 1),
+                    format!(
+                        "unexpected argument #{} of type `{}`",
+                        position + 1,
+                        ty.format(&self.sess.interner)
+                    ),
                 ))
             }
 
             for (span, expected_ty, provided_ty) in incorrect_args {
                 diagnostic = diagnostic.with_label(Label::primary(
                     span,
-                    format!("expected `{expected_ty}`, found `{provided_ty}`"),
+                    format!(
+                        "expected `{}`, found `{}`",
+                        expected_ty.format(&self.sess.interner),
+                        provided_ty.format(&self.sess.interner)
+                    ),
                 ))
             }
 
@@ -208,15 +230,18 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
     }
 
     fn visit_while_stmt(&mut self, while_stmt: &'ast WhileStmt) {
-        let condition_ty = self.rcx.ty_of(while_stmt.expr.id);
+        let condition_ty = self.rcx.ty_of(while_stmt.expr.id, &self.sess.interner);
 
-        if !matches!(condition_ty.kind, TyKind::Prim(PrimTy::Boolean)) {
+        if !matches!(condition_ty, TyKind::Prim(PrimTy::Bool)) {
             self.dcx.emit(
                 Diagnostic::error(self.file_id, while_stmt.expr.span, Recovery::Fatal)
                     .with_message("condition of while statement must be of type bool")
                     .with_label(Label::primary(
                         while_stmt.expr.span,
-                        format!("expected bool, got {condition_ty}"),
+                        format!(
+                            "expected bool, got {}",
+                            condition_ty.format(&self.sess.interner)
+                        ),
                     )),
             );
         }
@@ -225,15 +250,18 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
     }
 
     fn visit_if_stmt(&mut self, if_stmt: &'ast IfStmt) {
-        let condition_ty = self.rcx.ty_of(if_stmt.expr.id);
+        let condition_ty = self.rcx.ty_of(if_stmt.expr.id, &self.sess.interner);
 
-        if !matches!(condition_ty.kind, TyKind::Prim(PrimTy::Boolean)) {
+        if !matches!(condition_ty, TyKind::Prim(PrimTy::Bool)) {
             self.dcx.emit(
                 Diagnostic::error(self.file_id, if_stmt.expr.span, Recovery::Fatal)
                     .with_message("condition of if statements must be of type bool")
                     .with_label(Label::primary(
                         if_stmt.expr.span,
-                        format!("expected bool, got {condition_ty}"),
+                        format!(
+                            "expected bool, got {}",
+                            condition_ty.format(&self.sess.interner)
+                        ),
                     )),
             );
         }
@@ -252,24 +280,31 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
 
         let info = self.sess.local(local);
 
-        let ty = self.rcx.ty_of(info.id);
-        let expr_ty = self.rcx.ty_of(assign_stmt.value.id);
+        let ty_id = self.rcx.ty_id_of(info.id);
+        let expr_ty_id = self.rcx.ty_id_of(assign_stmt.value.id);
 
-        if ty.is_error() || expr_ty.is_error() {
+        if self.rcx.is_error(ty_id) || self.rcx.is_error(expr_ty_id) {
             return assign_stmt.walk(self);
         }
 
-        if ty != expr_ty {
+        if ty_id != expr_ty_id {
+            let ty = self.sess.interner.get(ty_id);
+            let expr_ty = self.sess.interner.get(expr_ty_id);
+
             self.dcx.emit(
                 Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
-                    .with_message(format!("expected type {}, got type {}", ty, expr_ty))
+                    .with_message(format!(
+                        "expected type {}, got type {}",
+                        ty.format(&self.sess.interner),
+                        expr_ty.format(&self.sess.interner)
+                    ))
                     .with_label(Label::help(
                         info.defined_where,
-                        format!("this is of type {}", ty),
+                        format!("this is of type {}", ty.format(&self.sess.interner)),
                     ))
                     .with_label(Label::primary(
                         assign_stmt.value.span,
-                        format!("this is of type {}", expr_ty),
+                        format!("this is of type {}", expr_ty.format(&self.sess.interner)),
                     )),
             );
         }
@@ -282,17 +317,24 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
             return let_stmt.walk(self);
         };
 
-        let decl_ty = self.rcx.ty_of(stmt.id);
-        let expr_ty = self.rcx.ty_of(let_stmt.init.id);
+        let decl_ty_id = self.rcx.ty_id_of(stmt.id);
+        let expr_ty_id = self.rcx.ty_id_of(let_stmt.init.id);
 
-        if decl_ty.is_error() || expr_ty.is_error() {
+        if self.rcx.is_error(decl_ty_id) || self.rcx.is_error(expr_ty_id) {
             return let_stmt.walk(self);
         }
 
-        if expr_ty != decl_ty {
+        if expr_ty_id != decl_ty_id {
+            let decl_ty = self.sess.interner.get(decl_ty_id);
+            let expr_ty = self.sess.interner.get(expr_ty_id);
+
             self.dcx.emit(
                 Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
-                    .with_message(format!("expected type {}, got type {}", decl_ty, expr_ty))
+                    .with_message(format!(
+                        "expected type {}, got type {}",
+                        decl_ty.format(&self.sess.interner),
+                        expr_ty.format(&self.sess.interner)
+                    ))
                     .with_label(Label::help(
                         Span::from((
                             stmt.span.start,
@@ -301,11 +343,11 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
                                 None => let_stmt.pat.span.end,
                             },
                         )),
-                        format!("this is of type {}", decl_ty),
+                        format!("this is of type `{}`", decl_ty.format(&self.sess.interner)),
                     ))
                     .with_label(Label::primary(
                         let_stmt.init.span,
-                        format!("this is of type {}", expr_ty),
+                        format!("this is of type `{}`", expr_ty.format(&self.sess.interner)),
                     )),
             );
 
@@ -323,7 +365,7 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
                 existing: usize,
                 pat_span: Span,
                 tuple_span: Span,
-                expr_ty: &Ty,
+                expr_ty: TyId,
             ) {
                 if matched != existing {
                     let mut diagnostic = Diagnostic::error(this.file_id, pat_span, Recovery::Fatal)
@@ -337,7 +379,10 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
                         ))
                         .with_label(Label::help(
                             tuple_span,
-                            format!("this is of type `{expr_ty}`"),
+                            format!(
+                                "this is of type `{}`",
+                                this.sess.interner.get(expr_ty).format(&this.sess.interner)
+                            ),
                         ));
 
                     if existing > matched {
@@ -356,7 +401,7 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
                 expr_elements.len(),
                 let_stmt.pat.span,
                 let_stmt.init.span,
-                expr_ty,
+                expr_ty_id,
             );
 
             let mut queue = VecDeque::from_iter(
@@ -384,7 +429,7 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
                         nested_pats.len(),
                         pat.span,
                         expr.span,
-                        self.rcx.ty_of(expr.id),
+                        self.rcx.ty_id_of(expr.id),
                     );
                 }
             }

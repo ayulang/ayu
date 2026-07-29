@@ -20,9 +20,11 @@ impl Parser<'_, '_, '_> {
             token => {
                 let span = token.span();
 
-                return Err(Diagnostic::error(self.file_id, span, Recovery::Fatal)
-                    .with_message(format!("expected identifier, got {}", &self.source[span]))
-                    .with_label(Label::primary(span, "expected identifier")));
+                return Err(Box::new(
+                    Diagnostic::error(self.file_id, span, Recovery::Fatal)
+                        .with_message(format!("expected identifier, got {}", &self.source[span]))
+                        .with_label(Label::primary(span, "expected identifier")),
+                ));
             }
         };
 
@@ -88,16 +90,20 @@ impl Parser<'_, '_, '_> {
             Some(token) => {
                 let span = token.span();
 
-                Err(Diagnostic::error(self.file_id, span, Recovery::Fatal)
-                    .with_message(format!("expected pattern, got {}", &self.source[span]))
-                    .with_label(Label::primary(span, "expected pattern")))
+                Err(Box::new(
+                    Diagnostic::error(self.file_id, span, Recovery::Fatal)
+                        .with_message(format!("expected pattern, got {}", &self.source[span]))
+                        .with_label(Label::primary(span, "expected pattern")),
+                ))
             }
             None => {
                 let span = Span::from(self.source.len());
 
-                Err(Diagnostic::error(self.file_id, span, Recovery::Fatal)
-                    .with_message("expected pattern, got unexpected end of file")
-                    .with_label(Label::primary(span, "expected pattern")))
+                Err(Box::new(
+                    Diagnostic::error(self.file_id, span, Recovery::Fatal)
+                        .with_message("expected pattern, got unexpected end of file")
+                        .with_label(Label::primary(span, "expected pattern")),
+                ))
             }
         }
     }

@@ -1,80 +1,80 @@
+use std::collections::HashSet;
+
 use ayuc_ast::{self as ast};
-use ayuc_hir::{self as hir};
+use ayuc_hir::{self as hir, Module};
 
 use ayuc_id::{
+    ModuleId,
     ast::NodeId,
-    hir::{DefId, HirId, HirIdAllocator},
+    hir::{HirId, HirIdAllocator},
 };
-use ayuc_resolve::{
-    def::Def as RDef,
-    resolver::ResolutionContext,
-    ty::{PrimTy as RPrimTy, Ty as RTy, TyKind as RTyKind},
-};
-use bimap::BiHashMap;
-use slotmap::SecondaryMap;
+use ayuc_resolve::{def::Def as RDef, resolver::ResolutionContext};
+use ayuc_session::Session;
+use ayuc_type::ty::TyKind;
 
-#[derive(Default)]
-pub struct LoweringContext {
-    pub items: SecondaryMap<DefId, hir::Item>,
-
-    pub top_level_items: Vec<DefId>,
-    pub id_mappings: BiHashMap<NodeId, HirId>,
-}
-
-pub struct AstLowering<'a> {
-    ctx: LoweringContext,
-    rcx: &'a ResolutionContext,
-
-    hir_id_allocator: HirIdAllocator,
-}
-
-impl LoweringContext {
-    #[inline]
-    pub fn top_items(&self) -> Vec<(DefId, &hir::Item)> {
-        self.top_level_items
-            .iter()
-            .map(|id| (*id, &self.items[*id]))
-            .collect()
+fn ident_of_item(item: &ast::Item) -> &ast::Ident {
+    match &item.kind {
+        ast::ItemKind::InlineMod(decl) => &decl.ident,
+        ast::ItemKind::ExternMod(decl) => &decl.ident,
+        ast::ItemKind::Fn(decl) => &decl.ident,
+        ast::ItemKind::ExternFn(decl) => &decl.name,
+        ast::ItemKind::FileMod(decl) => &decl.name,
     }
 }
 
+pub struct AstLowering<'a> {
+    module: Module,
+    rcx: &'a ResolutionContext,
+    sess: &'a Session,
+
+    hir_id_allocator: HirIdAllocator,
+    already_lowered: HashSet<NodeId>,
+}
+
 impl<'a> AstLowering<'a> {
-    pub fn new(rcx: &'a ResolutionContext) -> Self {
+    pub fn new(id: ModuleId, rcx: &'a ResolutionContext, sess: &'a Session) -> Self {
         Self {
-            ctx: LoweringContext::default(),
+            module: Module::new(id),
             rcx,
+            sess,
             hir_id_allocator: HirIdAllocator::new(),
+            already_lowered: HashSet::default(),
         }
     }
 
     #[must_use]
-    pub fn lower(mut self, ast: &ayuc_ast::Ast) -> LoweringContext {
+    pub fn lower(mut self, ast: &ayuc_ast::Ast) -> Module {
         for item in &ast.items {
             let def_id = self.rcx.defs_by_node[&item.id];
             let lowered = self.lower_item(item);
 
-            self.ctx.items.insert(def_id, lowered);
-            self.ctx.top_level_items.push(def_id);
+            self.module.items.insert(def_id, lowered);
+            self.module
+                .items_by_symbol
+                .insert(ident_of_item(item).sym, def_id);
+            self.module.top_level_items.push(def_id);
         }
 
-        self.ctx
+        self.module
     }
 
     #[must_use]
     fn lower_id(&mut self, id: NodeId) -> HirId {
-        if self.ctx.id_mappings.get_by_left(&id).is_some() {
+        if self.already_lowered.contains(&id) {
             panic!("tried to lower NodeId ({id:?}) into HirId: it has already been lowered");
         }
 
         let hir_id = self.hir_id_allocator.allocate();
 
-        self.ctx.id_mappings.insert(id, hir_id);
+        self.module.id_mappings.insert(hir_id, id);
+        self.already_lowered.insert(id);
 
         hir_id
     }
 
     fn lower_fn_item(&mut self, item: &ast::Item, fun: &ast::FnItem) -> hir::FnItem {
-        let RTyKind::Fn(parameters, return_ty) = &self.rcx.ty_of(item.id).kind else {
+        let ty_id = self.rcx.ty_id_of(item.id);
+        let TyKind::Fn(parameters, _) = &self.sess.interner.get(ty_id) else {
             unreachable!()
         };
 
@@ -87,18 +87,17 @@ impl<'a> AstLowering<'a> {
             .map(|(i, p)| hir::Parameter {
                 hir_id: self.hir_id_allocator.allocate(),
                 name: p.ident.sym,
-                ty: self.lower_res(&parameters[i]),
+                ty: parameters[i],
             })
             .collect::<Vec<_>>();
 
-        let return_ty = self.lower_res(return_ty);
         let block = self.lower_block(&fun.block);
 
         hir::FnItem {
             name,
             block,
             params,
-            return_ty,
+            ty: ty_id,
         }
     }
 
@@ -126,7 +125,7 @@ impl<'a> AstLowering<'a> {
                         let def_id = self.rcx.defs_by_node[&item.id];
                         let lowered = self.lower_item(item);
 
-                        self.ctx.items.insert(def_id, lowered);
+                        self.module.items.insert(def_id, lowered);
 
                         Some(def_id)
                     })
@@ -141,7 +140,7 @@ impl<'a> AstLowering<'a> {
                         let def_id = self.rcx.defs_by_node[&item.id];
                         let lowered = self.lower_item(item);
 
-                        self.ctx.items.insert(def_id, lowered);
+                        self.module.items.insert(def_id, lowered);
 
                         def_id
                     })
@@ -149,14 +148,15 @@ impl<'a> AstLowering<'a> {
             }),
             ast::ItemKind::Fn(fun) => hir::ItemKind::Fn(self.lower_fn_item(item, fun)),
             ast::ItemKind::ExternFn(extern_fun) => {
-                let RTyKind::Fn(parameters, return_ty) = &self.rcx.ty_of(item.id).kind else {
+                let ty_id = self.rcx.ty_id_of(item.id);
+                let TyKind::Fn(parameters, _) = &self.sess.interner.get(ty_id) else {
                     unreachable!()
                 };
 
                 hir::ItemKind::ExternFn(hir::ExternFnItem {
                     name: extern_fun.name.sym,
                     ffi_name: extern_fun.ffi_name.as_ref().map(|i| i.sym),
-                    return_ty: self.lower_res(return_ty),
+                    ty: ty_id,
                     params: extern_fun
                         .parameters
                         .parameters
@@ -165,11 +165,14 @@ impl<'a> AstLowering<'a> {
                         .map(|(i, p)| hir::Parameter {
                             hir_id: self.hir_id_allocator.allocate(),
                             name: p.ident.sym,
-                            ty: self.lower_res(&parameters[i]),
+                            ty: parameters[i],
                         })
                         .collect(),
                 })
             }
+            ast::ItemKind::FileMod(file_module) => hir::ItemKind::FileMod(hir::FileModItem {
+                name: file_module.name.sym,
+            }),
         };
 
         hir::Item {
@@ -227,7 +230,7 @@ impl<'a> AstLowering<'a> {
             ast::StmtKind::Expr(expr) => hir::StmtKind::Expr(self.lower_expr(expr)),
             ast::StmtKind::Let(decl) => hir::StmtKind::Let(hir::LetStmt {
                 pat: self.lower_pat(&decl.pat),
-                ty: self.lower_res(self.rcx.ty_of(stmt.id)),
+                ty: self.rcx.ty_id_of(stmt.id),
                 init: self.lower_expr(&decl.init),
             }),
             ast::StmtKind::Return(ret) => hir::StmtKind::Return(hir::ReturnStmt {
@@ -340,24 +343,6 @@ impl<'a> AstLowering<'a> {
                     .map(|seg| self.resolve_id(seg.id))
                     .collect(),
             }
-        }
-    }
-
-    fn lower_res(&self, res: &RTy) -> hir::Ty {
-        match &res.kind {
-            RTyKind::Tuple(inner) => {
-                hir::Ty::Tuple(inner.iter().map(|child| self.lower_res(child)).collect())
-            }
-            RTyKind::Prim(prim) => hir::Ty::Primitive(match prim {
-                RPrimTy::Boolean => hir::PrimTy::Boolean,
-                RPrimTy::Integer => hir::PrimTy::Integer,
-                RPrimTy::Str => hir::PrimTy::Str,
-            }),
-            RTyKind::Fn(params, return_ty) => hir::Ty::Fn(
-                params.iter().map(|id| self.lower_res(id)).collect(),
-                Box::new(self.lower_res(return_ty)),
-            ),
-            RTyKind::Error => unreachable!(),
         }
     }
 }

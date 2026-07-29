@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+ayuc_ast = { path = "../ayuc_ast" }
 ayuc_source = { path = "../ayuc_source" }
 ayuc_lexer = { path = "../ayuc_lexer" }
 ayuc_parser = { path = "../ayuc_parser" }
@@ -13,3 +14,7 @@ ayuc_codegen = { path = "../ayuc_codegen" }
 ayuc_sema = { path = "../ayuc_sema" }
 ayuc_resolve = { path = "../ayuc_resolve" }
 ayuc_diagnostic = { path = "../ayuc_diagnostic" }
+ayuc_registry = { path = "../ayuc_registry" }
+ayuc_id = { path = "../ayuc_id" }
+ayuc_hir = { path = "../ayuc_hir" }
+slotmap = "1.1.1"

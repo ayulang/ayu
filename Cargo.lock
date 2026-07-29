@@ -63,6 +63,7 @@ dependencies = [
  "ayuc_resolve",
  "ayuc_session",
  "ayuc_span",
+ "ayuc_type",
 ]
 
 [[package]]
@@ -79,15 +80,20 @@ dependencies = [
 name = "ayuc_driver"
 version = "0.1.0"
 dependencies = [
+ "ayuc_ast",
  "ayuc_codegen",
  "ayuc_diagnostic",
+ "ayuc_hir",
+ "ayuc_id",
  "ayuc_lexer",
  "ayuc_lower",
  "ayuc_parser",
+ "ayuc_registry",
  "ayuc_resolve",
  "ayuc_sema",
  "ayuc_session",
  "ayuc_source",
+ "slotmap",
 ]
 
 [[package]]
@@ -96,6 +102,8 @@ version = "0.1.0"
 dependencies = [
  "ayuc_id",
  "ayuc_span",
+ "ayuc_type",
+ "slotmap",
 ]
 
 [[package]]
@@ -123,6 +131,8 @@ dependencies = [
  "ayuc_hir",
  "ayuc_id",
  "ayuc_resolve",
+ "ayuc_session",
+ "ayuc_type",
  "bimap",
  "slotmap",
 ]
@@ -148,6 +158,17 @@ name = "ayuc_printer"
 version = "0.1.0"
 
 [[package]]
+name = "ayuc_registry"
+version = "0.1.0"
+dependencies = [
+ "ayuc_ast",
+ "ayuc_hir",
+ "ayuc_id",
+ "bimap",
+ "slotmap",
+]
+
+[[package]]
 name = "ayuc_resolve"
 version = "0.1.0"
 dependencies = [
@@ -155,8 +176,10 @@ dependencies = [
  "ayuc_ast_visit",
  "ayuc_diagnostic",
  "ayuc_id",
+ "ayuc_registry",
  "ayuc_session",
  "ayuc_span",
+ "ayuc_type",
  "slotmap",
 ]
 
@@ -176,9 +199,11 @@ dependencies = [
  "ayuc_ast",
  "ayuc_ast_visit",
  "ayuc_diagnostic",
+ "ayuc_id",
  "ayuc_resolve",
  "ayuc_session",
  "ayuc_span",
+ "ayuc_type",
 ]
 
 [[package]]
@@ -187,6 +212,7 @@ version = "0.1.0"
 dependencies = [
  "ayuc_id",
  "ayuc_span",
+ "ayuc_type",
  "slotmap",
 ]
 
@@ -202,6 +228,14 @@ name = "ayuc_span"
 version = "0.1.0"
 dependencies = [
  "lasso",
+]
+
+[[package]]
+name = "ayuc_type"
+version = "0.1.0"
+dependencies = [
+ "ayuc_id",
+ "slotmap",
 ]
 
 [[package]]

@@ -14,10 +14,12 @@ members = [
     "compiler/ayuc_parser",
     "compiler/ayuc_pretty",
     "compiler/ayuc_printer",
+    "compiler/ayuc_registry",
     "compiler/ayuc_resolve",
     "compiler/ayuc_scanner",
     "compiler/ayuc_sema",
     "compiler/ayuc_session",
     "compiler/ayuc_source",
     "compiler/ayuc_span",
+    "compiler/ayuc_type",
 ]

@@ -1,7 +1,10 @@
-use ayuc_id::hir::{DefId, HirId};
+use ayuc_id::{
+    TyId,
+    hir::{DefId, HirId},
+};
 use ayuc_span::symbol::Symbol;
 
-use crate::{expr::Block, ty::Ty};
+use crate::expr::Block;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Visibility {
@@ -23,6 +26,7 @@ pub enum ItemKind {
     ExternFn(ExternFnItem),
     InlineMod(InlineModItem),
     ExternMod(ExternModItem),
+    FileMod(FileModItem),
 }
 
 #[derive(Debug)]
@@ -39,16 +43,21 @@ pub struct InlineModItem {
 }
 
 #[derive(Debug)]
+pub struct FileModItem {
+    pub name: Symbol,
+}
+
+#[derive(Debug)]
 pub struct Parameter {
     pub hir_id: HirId,
     pub name: Symbol,
-    pub ty: Ty,
+    pub ty: TyId,
 }
 
 #[derive(Debug)]
 pub struct FnItem {
     pub name: Symbol,
-    pub return_ty: Ty,
+    pub ty: TyId,
     pub block: Block,
     pub params: Vec<Parameter>,
 }
@@ -58,5 +67,5 @@ pub struct ExternFnItem {
     pub name: Symbol,
     pub ffi_name: Option<Symbol>,
     pub params: Vec<Parameter>,
-    pub return_ty: Ty,
+    pub ty: TyId,
 }

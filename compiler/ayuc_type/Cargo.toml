@@ -1,10 +1,8 @@
 [package]
-name = "ayuc_hir"
+name = "ayuc_type"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ayuc_span = { path = "../ayuc_span" }
 ayuc_id = { path = "../ayuc_id" }
-ayuc_type = { path = "../ayuc_type" }
 slotmap = "1.1.1"
