@@ -276,7 +276,14 @@ pub fn drive() -> ExitCode {
                                 ))
                                 .with_label(Label::primary(
                                     defined_where,
-                                    "module is defined here, but it doesn't have a file",
+                                    "module is defined here, but its file couldn't be found",
+                                ))
+                                .with_help(format!(
+                                    "the module must be within the `{}` folder",
+                                    mod_dir
+                                        .strip_prefix(base_directory)
+                                        .expect("unable to strip prefix")
+                                        .display()
                                 )),
                             );
 
