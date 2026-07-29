@@ -182,20 +182,21 @@ pub fn drive() -> ExitCode {
         _ => panic!("no file provided"),
     };
 
+    let project_name = match args.get(1) {
+        Some(str) => Path::new(str).file_prefix(),
+        _ => input_file.file_prefix(),
+    }
+    .expect("invalid project name")
+    .to_str()
+    .expect("invalid project name");
+
     let output_dir = Path::new("./build/").to_path_buf();
 
     if !output_dir.is_dir() {
         panic!("not a directory");
     }
 
-    let output_dir = output_dir.join(format!(
-        "{}/",
-        input_file
-            .file_prefix()
-            .expect("no file prefix")
-            .to_str()
-            .expect("invalid file prefix")
-    ));
+    let output_dir = output_dir.join(format!("{project_name}/"));
 
     fs::create_dir_all(&output_dir).expect("unable to create directory");
 
@@ -218,6 +219,13 @@ pub fn drive() -> ExitCode {
     let mut output_files = SecondaryMap::new();
 
     while let Some((dependency_of, file_path, mod_dir)) = to_parse.pop() {
+        if file_path.is_symlink() {
+            panic!(
+                "symlinks are disallowed for now: cannot parse `{}`",
+                file_path.display()
+            )
+        }
+
         let absolute = file_path.to_str().expect("invalid path");
         let module_id = if let Some(id) = ctx.module_registry.id_by_path.get_by_left(absolute) {
             *id
@@ -243,7 +251,7 @@ pub fn drive() -> ExitCode {
                 .collect::<Vec<_>>();
 
             if !file_modules.is_empty() && dependency_of.is_some() {
-                if absolute.ends_with("mod.ayu") {
+                if file_path.file_name().expect("no file name") == "mod.ayu" {
                     maybe_output = maybe_output.with_file_name("init");
                 } else {
                     let file_name = maybe_output
