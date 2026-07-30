@@ -10,7 +10,6 @@ use ayuc_id::{
 use ayuc_registry::ModuleRegistry;
 use ayuc_session::Session;
 use ayuc_type::{interner::TypeInterner, ty::TyKind};
-use slotmap::SlotMap;
 
 use crate::{def::Def, scope::ScopeStack};
 
@@ -23,8 +22,6 @@ pub struct ResolutionContext {
     /// Stores the resolved `Def`s (local or item definitions) of identifiers.
     pub name_resolutions: HashMap<NodeId, Def>,
 
-    /// The assigned [DefId] for identifiers of items.
-    pub def_ids: SlotMap<DefId, NodeId>,
     pub defs_by_node: HashMap<NodeId, DefId>,
 
     /// The assigned [LocalId] for `let` statements.
@@ -39,7 +36,6 @@ impl ResolutionContext {
             error_id,
             tys_by_node: HashMap::default(),
             name_resolutions: HashMap::default(),
-            def_ids: SlotMap::default(),
             defs_by_node: HashMap::default(),
             locals_by_node: HashMap::default(),
             qualified_paths: HashMap::default(),

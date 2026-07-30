@@ -12,7 +12,7 @@ use std::{
 use ayuc_codegen::LuauCodegen;
 use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label, Recovery};
 use ayuc_hir::Module;
-use ayuc_id::ModuleId;
+use ayuc_id::{ModuleId, ast::NodeId};
 use ayuc_lexer::{LexedFile, stream::TokenStream};
 use ayuc_lower::AstLowering;
 use ayuc_parser::Parser;
@@ -196,27 +196,17 @@ pub fn drive() -> ExitCode {
         panic!("not a directory");
     }
 
-    let output_dir = output_dir.join(format!("{project_name}/"));
+    let output_path = output_dir.join(format!("{project_name}.luau"));
 
     fs::create_dir_all(&output_dir).expect("unable to create directory");
-
-    let is_empty = fs::read_dir(&output_dir)
-        .expect("unable to read directory")
-        .count()
-        == 0;
-
-    if !is_empty {
-        fs::remove_dir_all(&output_dir).expect("unable to delete directory and contents");
-        fs::create_dir_all(&output_dir).expect("unable to create directory");
-    }
 
     let base_directory = input_file
         .parent()
         .expect("no parent directory")
         .to_path_buf();
 
-    let mut to_parse = vec![(None, input_file, base_directory.clone())];
-    let mut output_files = SecondaryMap::new();
+    let mut mods_by_stmts = SecondaryMap::<_, HashMap<NodeId, ModuleId>>::new();
+    let mut to_parse = vec![(None, input_file.clone(), base_directory.clone())];
 
     while let Some((dependency_of, file_path, mod_dir)) = to_parse.pop() {
         if file_path.is_symlink() {
@@ -233,11 +223,6 @@ pub fn drive() -> ExitCode {
             parse_file(&mut ctx, &file_path)
         };
 
-        let mut maybe_output = file_path
-            .strip_prefix(&base_directory)
-            .expect("unable to strip prefix")
-            .to_path_buf();
-
         if let Some(ast) = &ctx.module_registry.trees[module_id] {
             let file_modules = ast
                 .items
@@ -249,20 +234,6 @@ pub fn drive() -> ExitCode {
                     _ => None,
                 })
                 .collect::<Vec<_>>();
-
-            if !file_modules.is_empty() && dependency_of.is_some() {
-                if file_path.file_name().expect("no file name") == "mod.ayu" {
-                    maybe_output = maybe_output.with_file_name("init");
-                } else {
-                    let file_name = maybe_output
-                        .file_prefix()
-                        .expect("no file name")
-                        .to_str()
-                        .expect("invalid file name");
-
-                    maybe_output = maybe_output.with_file_name(file_name).join("init.luau");
-                }
-            };
 
             for (node_id, required_module, defined_where) in file_modules {
                 let file_path = {
@@ -346,13 +317,6 @@ pub fn drive() -> ExitCode {
             }
         }
 
-        // This is only true for the root file.
-        if dependency_of.is_none() {
-            maybe_output = maybe_output.with_file_name("init");
-        }
-
-        output_files.insert(module_id, maybe_output.with_extension("luau"));
-
         if let Some((node_id, origin_id)) = dependency_of {
             ctx.module_registry
                 .dependencies
@@ -360,6 +324,14 @@ pub fn drive() -> ExitCode {
                 .unwrap()
                 .and_modify(|list| list.push((node_id, module_id)))
                 .or_insert(vec![(node_id, module_id)]);
+
+            mods_by_stmts
+                .entry(origin_id)
+                .unwrap()
+                .and_modify(|list| {
+                    list.insert(node_id, module_id);
+                })
+                .or_insert(HashMap::from([(node_id, module_id)]));
         }
     }
 
@@ -383,6 +355,7 @@ pub fn drive() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
+    let mut docs = HashMap::new();
     let mut rcxs = SecondaryMap::new();
 
     for module_id in compilation_order {
@@ -395,6 +368,17 @@ pub fn drive() -> ExitCode {
         eprintln!("[compiling] {path}");
 
         if let Some((rcx, module)) = compile(&mut ctx, module_id) {
+            let doc = LuauCodegen::new(
+                &rcx,
+                &module,
+                &ctx.sess,
+                mods_by_stmts.get(module_id),
+                &docs,
+            )
+            .generate_doc();
+
+            docs.insert(module_id, doc);
+
             ctx.module_registry.modules.insert(module_id, module);
             rcxs.insert(module_id, rcx);
         } else {
@@ -402,17 +386,32 @@ pub fn drive() -> ExitCode {
         }
     }
 
-    for (id, module) in ctx.module_registry.modules {
-        let code = LuauCodegen::emit(&rcxs[id], &module, &ctx.sess);
-        let path = output_dir.join(&output_files[id]);
-        let prefix = path.parent().expect("no parent directory of file");
+    let root_mod = ctx
+        .module_registry
+        .id_by_path
+        .get_by_left(
+            input_file
+                .canonicalize()
+                .expect("unable to canonicalize input file")
+                .to_str()
+                .expect("invalid input file"),
+        )
+        .copied()
+        .expect("input file is not a module");
 
-        fs::create_dir_all(prefix).expect("unable to create directories");
+    let code = LuauCodegen::emit(
+        &rcxs[root_mod],
+        &ctx.module_registry.modules[root_mod],
+        &ctx.sess,
+        mods_by_stmts.get(root_mod),
+        &docs,
+    );
 
-        let mut file = File::create(path).expect("unable to create file");
+    let mut output_file = File::create(output_path).expect("unable to create output file");
 
-        file.write_all(code.as_bytes()).expect("unable to write");
-    }
+    output_file
+        .write_all(code.as_bytes())
+        .expect("unable to write output file");
 
     ExitCode::SUCCESS
 }
