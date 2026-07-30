@@ -60,6 +60,7 @@ dependencies = [
  "ayuc_id",
  "ayuc_lower",
  "ayuc_pretty",
+ "ayuc_registry",
  "ayuc_resolve",
  "ayuc_session",
  "ayuc_span",

@@ -1,13 +1,13 @@
 mod export;
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use ayuc_hir::{
     AlternateBranch, AssignOp, AssignStmt, BinaryOp, Block, Def, Expr, ExprKind, FnItem, IfStmt,
     IntlSegment, Item, ItemKind, LetStmt, Literal, Module, Parameter, PatKind, Path, Stmt,
     StmtKind, Visibility,
 };
-use ayuc_id::hir::DefId;
+use ayuc_id::{ModuleId, ast::NodeId, hir::DefId};
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
 use ayuc_resolve::resolver::ResolutionContext;
 use ayuc_session::Session;
@@ -20,20 +20,40 @@ pub struct LuauCodegen<'a> {
     rcx: &'a ResolutionContext,
     module: &'a Module,
     sess: &'a Session,
+    modid_for_item: Option<&'a HashMap<NodeId, ModuleId>>,
+    docs: &'a HashMap<ModuleId, Doc>,
 }
 
 impl<'a> LuauCodegen<'a> {
-    pub fn new(rcx: &'a ResolutionContext, module: &'a Module, sess: &'a Session) -> Self {
-        Self { rcx, module, sess }
+    pub fn new(
+        rcx: &'a ResolutionContext,
+        module: &'a Module,
+        sess: &'a Session,
+        modid_for_item: Option<&'a HashMap<NodeId, ModuleId>>,
+        docs: &'a HashMap<ModuleId, Doc>,
+    ) -> Self {
+        Self {
+            rcx,
+            module,
+            sess,
+            modid_for_item,
+            docs,
+        }
     }
 
-    pub fn emit(rcx: &'a ResolutionContext, lcx: &'a Module, sess: &'a Session) -> String {
-        let this = Self::new(rcx, lcx, sess);
+    pub fn emit(
+        rcx: &'a ResolutionContext,
+        lcx: &'a Module,
+        sess: &'a Session,
+        modid_for_item: Option<&'a HashMap<NodeId, ModuleId>>,
+        docs: &'a HashMap<ModuleId, Doc>,
+    ) -> String {
+        let this = Self::new(rcx, lcx, sess, modid_for_item, docs);
 
-        this.generate_code()
+        Renderer::new().render(&this.generate_doc())
     }
 
-    pub fn generate_code(&self) -> String {
+    pub fn generate_doc(&self) -> Doc {
         let mut doc = self.to_doc();
         let mut contains_main = false;
 
@@ -78,7 +98,7 @@ impl<'a> LuauCodegen<'a> {
             ]);
         }
 
-        Renderer::new().render(&doc)
+        doc
     }
 
     fn defs_to_exports(&self, defs: &[DefId], absolute_path: &[&'a str]) -> Vec<Export<'a>> {
@@ -233,8 +253,6 @@ impl<'a> LuauCodegen<'a> {
             ItemKind::FileMod(decl) => Some(Doc::concat([
                 Doc::text("local "),
                 Doc::text(decl.name.as_str()),
-                Doc::text(" = "),
-                Doc::text(format!("require(\"@self/{}\")", decl.name)),
             ])),
             ItemKind::ExternMod(_) | ItemKind::ExternFn(_) => None,
         }
@@ -292,7 +310,28 @@ impl<'a> LuauCodegen<'a> {
                     Doc::text("end"),
                 ])))
             }
-            ItemKind::FileMod(_) | ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
+            ItemKind::FileMod(decl) => {
+                let id = self
+                    .modid_for_item
+                    .expect("expected to have `modit_for_item` field")
+                    .get(&self.sess.item(item.id).id)
+                    .expect("no module id for item");
+
+                let doc = &self.docs[id];
+
+                Some(Doc::concat([
+                    Doc::text(decl.name.as_str()),
+                    Doc::text(" = "),
+                    Doc::concat([
+                        Doc::text("(function()"),
+                        Doc::Hardline,
+                        Doc::indent(doc.clone()),
+                        Doc::Hardline,
+                        Doc::text("end)()"),
+                    ]),
+                ]))
+            }
+            ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
         }
     }
 

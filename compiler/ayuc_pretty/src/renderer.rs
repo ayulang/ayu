@@ -47,7 +47,10 @@ impl Renderer {
         match doc {
             Doc::Blankline => match self.config.mode {
                 Mode::OneLine => {}
-                Mode::Pretty => buf.push('\n'),
+                Mode::Pretty => {
+                    buf.push('\n');
+                    buf.push_str(&self.full_indent_str);
+                }
             },
             Doc::Hardline => match self.config.mode {
                 Mode::OneLine => {
