@@ -40,3 +40,4 @@ macro_rules! define_id {
 
 new_key_type! { pub struct TyId; }
 new_key_type! { pub struct ModuleId; }
+new_key_type! { pub struct BodyId; }

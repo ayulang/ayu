@@ -8,6 +8,7 @@ use ayuc_id::{
     ast::NodeId,
     hir::{DefId, LocalId},
 };
+use ayuc_item as item;
 use ayuc_session::{self as session, local::LocalInfo};
 use ayuc_span::{Span, symbol::Symbol};
 
@@ -70,9 +71,9 @@ impl FirstPass<'_, '_, '_, '_> {
                 .with_message(format!("the name `{}` is defined multiple times", sym));
 
             if let Def::Def(id) = def {
-                let item = self.res.sess.item(id);
+                let item = &self.res.sess.items[id];
 
-                diag = diag.with_label(Label::help(item.signature_span(), "first definition here"))
+                diag = diag.with_label(Label::help(item.defined_at, "first definition here"))
             }
 
             diag = diag.with_label(Label::primary(ident.span, "name is already defined"));
@@ -82,7 +83,7 @@ impl FirstPass<'_, '_, '_, '_> {
             return None;
         }
 
-        let signature_span = match &item.kind {
+        let defined_at = match &item.kind {
             ItemKind::InlineMod(decl) => Span::from((item.span.start, decl.ident.span.end)),
             ItemKind::ExternMod(decl) => Span::from((item.span.start, decl.ident.span.end)),
             ItemKind::Fn(decl) => Span::from((item.span.start, decl.return_ty.span.end)),
@@ -90,7 +91,59 @@ impl FirstPass<'_, '_, '_, '_> {
             ItemKind::FileMod(_) => item.span,
         };
 
+        let parameters = match &item.kind {
+            ItemKind::Fn(FnItem { parameters, .. })
+            | ItemKind::ExternFn(ExternFnItem { parameters, .. }) => Some(Vec::new()),
+            _ => None,
+        };
+
+        let children_items = match &item.kind {
+            ItemKind::ExternMod(ExternModItem { items, .. })
+            | ItemKind::InlineMod(ModItem { items, .. }) => {
+                self.res.stack.enter(None);
+
+                let items = items
+                    .iter()
+                    .flat_map(|item| self.visit_item(item).map(|id| id))
+                    .collect();
+
+                Some(items)
+            }
+            _ => None,
+        };
+
         let kind = match &item.kind {
+            ItemKind::Fn(_) => item::ItemKind::Fn(item::FnItem {
+                ty_id: None,
+                body_id: None,
+                name: sym,
+                parameters: parameters.expect("item needs a parameters vector for registration"),
+            }),
+            ItemKind::ExternFn(extern_fn_item) => item::ItemKind::ExternFn(item::ExternFnItem {
+                ty_id: None,
+                name: sym,
+                ffi_name: extern_fn_item.ffi_name.as_ref().map(|i| i.sym),
+                parameters: parameters.expect("item needs a parameters vector for registration"),
+            }),
+            ItemKind::InlineMod(_) => item::ItemKind::InlineMod(item::InlineModItem {
+                name: sym,
+                items: children_items.expect("item needs children vector for registration"),
+            }),
+            ItemKind::ExternMod(extern_mod) => item::ItemKind::ExternMod(item::ExternModItem {
+                name: sym,
+                ffi_name: extern_mod.ffi_name.as_ref().map(|i| i.sym),
+                items: children_items.expect("item needs children vector for registration"),
+            }),
+            ItemKind::FileMod(_) => item::ItemKind::FileMod(item::FileModItem {
+                name: sym,
+                module_id: self.res.reg.dependencies[self.res.current_module]
+                    .iter()
+                    .find_map(|(id, module)| if *id == item.id { Some(*module) } else { None })
+                    .unwrap(),
+            }),
+        };
+
+        /*let kind = match &item.kind {
             ItemKind::Fn(_decl) => session::ItemKind::Fn { signature_span },
             ItemKind::ExternFn(decl) => session::ItemKind::ExternFn {
                 ffi_name: decl.ffi_name.as_ref().map(|i| i.sym),
@@ -139,10 +192,6 @@ impl FirstPass<'_, '_, '_, '_> {
             }
             ItemKind::FileMod(_) => session::ItemKind::FileMod {
                 signature_span,
-                module: self.res.reg.dependencies[self.res.current_module]
-                    .iter()
-                    .find_map(|(id, module)| if *id == item.id { Some(*module) } else { None })
-                    .unwrap(),
             },
         };
 
@@ -154,6 +203,18 @@ impl FirstPass<'_, '_, '_, '_> {
                 Visibility::Private => session::Visibility::Private,
                 Visibility::Public => session::Visibility::Public,
             },
+        });*/
+
+        let def_id = self.res.sess.items.insert_with_key(|key| item::Item {
+            def_id: key,
+            hir_id: None,
+
+            defined_at,
+            vis: match item.vis {
+                Visibility::Public => item::Visibility::Public,
+                Visibility::Private => item::Visibility::Private,
+            },
+            kind,
         });
 
         self.res.register_def(sym, def_id, item.id);

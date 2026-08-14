@@ -115,6 +115,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ayuc_item"
+version = "0.1.0"
+dependencies = [
+ "ayuc_id",
+ "ayuc_span",
+]
+
+[[package]]
 name = "ayuc_lexer"
 version = "0.1.0"
 dependencies = [
@@ -177,6 +185,7 @@ dependencies = [
  "ayuc_ast_visit",
  "ayuc_diagnostic",
  "ayuc_id",
+ "ayuc_item",
  "ayuc_registry",
  "ayuc_session",
  "ayuc_span",
@@ -212,6 +221,7 @@ name = "ayuc_session"
 version = "0.1.0"
 dependencies = [
  "ayuc_id",
+ "ayuc_item",
  "ayuc_span",
  "ayuc_type",
  "slotmap",
