@@ -224,16 +224,22 @@ pub fn drive() -> ExitCode {
         };
 
         if let Some(ast) = &ctx.module_registry.trees[module_id] {
-            let file_modules = ast
-                .items
-                .iter()
-                .flat_map(|i| match &i.kind {
+            let mut file_modules = Vec::new();
+            let mut items_to_crawl = VecDeque::from_iter(&ast.items);
+
+            while let Some(item) = items_to_crawl.pop_front() {
+                // We only match file module and inline module, because extern modules aren't allowed
+                //   to have file modules yet.
+                match &item.kind {
                     ayuc_ast::ItemKind::FileMod(file_module) => {
-                        Some((i.id, file_module.name.sym.as_str(), i.span))
+                        file_modules.push((item.id, file_module.name.sym, item.span));
                     }
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
+                    ayuc_ast::ItemKind::InlineMod(inline_mod) => {
+                        items_to_crawl.extend(&inline_mod.items);
+                    }
+                    _ => {}
+                }
+            }
 
             for (node_id, required_module, defined_where) in file_modules {
                 let file_path = {

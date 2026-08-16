@@ -255,7 +255,11 @@ impl<'a> LuauCodegen<'a> {
                 (!within_module).then_some(Doc::text(format!("local {}", decl.name)))
             }
             ItemKind::FileMod(decl) => Some(Doc::concat([
-                Doc::text("local "),
+                if !within_module {
+                    Doc::text("local ")
+                } else {
+                    Doc::Skip
+                },
                 Doc::text(decl.name.as_str()),
             ])),
             ItemKind::ExternMod(_) | ItemKind::ExternFn(_) => None,
@@ -325,7 +329,7 @@ impl<'a> LuauCodegen<'a> {
                 let doc = &self.docs[id];
 
                 Some(Doc::concat([
-                    Doc::text(decl.name.as_str()),
+                    Self::syms_to_doc(&[absolute_path, &[decl.name]].concat()),
                     Doc::text(" = "),
                     Doc::concat([
                         Doc::text("(function()"),
