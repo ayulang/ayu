@@ -10,5 +10,6 @@ ayuc_id = { path = "../ayuc_id" }
 ayuc_resolve = { path = "../ayuc_resolve" }
 ayuc_session = { path = "../ayuc_session" }
 ayuc_type = { path = "../ayuc_type" }
+ayuc_item = { path = "../ayuc_item" }
 bimap = "0.6.3"
 slotmap = "1.1.1"

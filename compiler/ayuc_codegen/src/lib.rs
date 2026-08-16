@@ -3,11 +3,11 @@ mod export;
 use std::collections::{HashMap, VecDeque};
 
 use ayuc_hir::{
-    AlternateBranch, AssignOp, AssignStmt, BinaryOp, Block, Def, Expr, ExprKind, FnItem, IfStmt,
-    IntlSegment, Item, ItemKind, LetStmt, Literal, Module, Parameter, PatKind, Path, Stmt,
-    StmtKind, Visibility,
+    AlternateBranch, AssignOp, AssignStmt, BinaryOp, Block, Def, Expr, ExprKind, IfStmt,
+    IntlSegment, LetStmt, Literal, Module, PatKind, Path, Stmt, StmtKind,
 };
-use ayuc_id::{ModuleId, ast::NodeId, hir::DefId};
+use ayuc_id::{BodyId, ModuleId, ast::NodeId, hir::DefId};
+use ayuc_item::{FnItem, Item, ItemKind, Parameter, Visibility};
 use ayuc_pretty::{doc::Doc, renderer::Renderer};
 use ayuc_resolve::resolver::ResolutionContext;
 use ayuc_session::Session;
@@ -50,14 +50,16 @@ impl<'a> LuauCodegen<'a> {
     ) -> String {
         let this = Self::new(rcx, lcx, sess, modid_for_item, docs);
 
-        Renderer::new().render(&this.generate_doc())
+        format!("{}\n", Renderer::new().render(&this.generate_doc()))
     }
 
     pub fn generate_doc(&self) -> Doc {
         let mut doc = self.to_doc();
         let mut contains_main = false;
 
-        for (_, item) in self.module.top_items() {
+        for def_id in &self.module.top_level_items {
+            let item = &self.sess.items[*def_id];
+
             if let ItemKind::Fn(FnItem { name, .. }) = item.kind
                 && name.as_str() == "main"
             {
@@ -103,7 +105,7 @@ impl<'a> LuauCodegen<'a> {
 
     fn defs_to_exports(&self, defs: &[DefId], absolute_path: &[&'a str]) -> Vec<Export<'a>> {
         defs.iter()
-            .map(|def| &self.module.items[*def])
+            .map(|def| &self.sess.items[*def])
             .filter(|i| i.vis == Visibility::Public)
             .flat_map(|i| match &i.kind {
                 ItemKind::ExternFn(_) | ItemKind::ExternMod(_) => None,
@@ -119,7 +121,7 @@ impl<'a> LuauCodegen<'a> {
                 ItemKind::InlineMod(modu) => Some(Export::module(
                     modu.name.as_str(),
                     self.defs_to_exports(
-                        &modu.items,
+                        &modu.items.values().copied().collect::<Vec<_>>(),
                         &[absolute_path, &[modu.name.as_str()]].concat(),
                     ),
                 )),
@@ -178,9 +180,10 @@ impl<'a> LuauCodegen<'a> {
         // 1st pass: Declare all items
         let first = Doc::Concat(
             self.module
-                .top_items()
+                .top_level_items
                 .iter()
-                .flat_map(|(_, item)| self.declare_item(item, false))
+                .map(|def_id| &self.sess.items[*def_id])
+                .flat_map(|item| self.declare_item(item, false))
                 .map(|doc| Doc::concat([doc, Doc::Hardline]))
                 .collect(),
         );
@@ -188,9 +191,10 @@ impl<'a> LuauCodegen<'a> {
         // 2nd pass: Define all items
         let second = Doc::Concat(
             self.module
-                .top_items()
+                .top_level_items
                 .iter()
-                .flat_map(|(_, item)| self.define_item(item, &[]))
+                .map(|def_id| &self.sess.items[*def_id])
+                .flat_map(|item| self.define_item(item, &[]))
                 .map(|doc| Doc::Concat(vec![doc, Doc::Hardline, Doc::Blankline]))
                 .collect(),
         );
@@ -205,7 +209,7 @@ impl<'a> LuauCodegen<'a> {
             ItemKind::InlineMod(decl) => decl
                 .items
                 .iter()
-                .map(|id| &self.module.items[*id])
+                .map(|id| &self.sess.items[*id.1])
                 .any(|item| self.is_visible_item(item)),
             ItemKind::FileMod(_) => true, // maybe?
         }
@@ -223,7 +227,7 @@ impl<'a> LuauCodegen<'a> {
                 let children = decl
                     .items
                     .iter()
-                    .map(|id| &self.module.items[*id])
+                    .map(|id| &self.sess.items[*id.1])
                     .flat_map(|item| self.declare_item(item, true))
                     .collect::<Vec<_>>();
 
@@ -251,7 +255,11 @@ impl<'a> LuauCodegen<'a> {
                 (!within_module).then_some(Doc::text(format!("local {}", decl.name)))
             }
             ItemKind::FileMod(decl) => Some(Doc::concat([
-                Doc::text("local "),
+                if !within_module {
+                    Doc::text("local ")
+                } else {
+                    Doc::Skip
+                },
                 Doc::text(decl.name.as_str()),
             ])),
             ItemKind::ExternMod(_) | ItemKind::ExternFn(_) => None,
@@ -266,7 +274,7 @@ impl<'a> LuauCodegen<'a> {
                     .iter()
                     .flat_map(|item| {
                         self.define_item(
-                            &self.module.items[*item],
+                            &self.sess.items[*item.1],
                             &[absolute_path, &[decl.name]].concat(),
                         )
                     })
@@ -289,7 +297,7 @@ impl<'a> LuauCodegen<'a> {
             ItemKind::Fn(decl) => {
                 let mut params = Vec::new();
 
-                for (i, param) in decl.params.iter().enumerate() {
+                for (i, param) in decl.parameters.iter().enumerate() {
                     if i != 0 {
                         params.push(Doc::text(", "));
                     }
@@ -305,7 +313,8 @@ impl<'a> LuauCodegen<'a> {
                     Doc::Concat(params),
                     Doc::text(")"),
                     Doc::Hardline,
-                    Doc::indent(self.block_to_doc(&decl.block)),
+                    Doc::indent(self.body_to_doc(decl.body_id.expect("item needs a body"))),
+                    // Doc::indent(self.block_to_doc(&decl.block)),
                     Doc::Hardline,
                     Doc::text("end"),
                 ])))
@@ -314,13 +323,13 @@ impl<'a> LuauCodegen<'a> {
                 let id = self
                     .modid_for_item
                     .expect("expected to have `modit_for_item` field")
-                    .get(&self.sess.item(item.id).id)
+                    .get(&self.module.id_mappings[&item.hir_id.expect("item needs a hir id")])
                     .expect("no module id for item");
 
                 let doc = &self.docs[id];
 
                 Some(Doc::concat([
-                    Doc::text(decl.name.as_str()),
+                    Self::syms_to_doc(&[absolute_path, &[decl.name]].concat()),
                     Doc::text(" = "),
                     Doc::concat([
                         Doc::text("(function()"),
@@ -352,6 +361,15 @@ impl<'a> LuauCodegen<'a> {
 
     fn param_to_doc(&self, param: &Parameter) -> Doc {
         Doc::text(param.name.as_str())
+    }
+
+    fn body_to_doc(&self, body_id: BodyId) -> Doc {
+        Doc::separated(
+            self.module.bodies[body_id]
+                .iter()
+                .map(|stmt| self.stmt_to_doc(stmt)),
+            Doc::StmtSep,
+        )
     }
 
     fn block_to_doc(&self, block: &Block) -> Doc {
@@ -823,12 +841,11 @@ impl<'a> LuauCodegen<'a> {
 
     fn def_is_extern(&self, def: &Def) -> bool {
         if let Def::Def(id) = def {
-            match &self.sess.item(*id).kind {
-                ayuc_session::ItemKind::ExternFn { .. }
-                | ayuc_session::ItemKind::ExternMod { .. } => true,
-                ayuc_session::ItemKind::Fn { .. }
-                | ayuc_session::ItemKind::InlineMod { .. }
-                | ayuc_session::ItemKind::FileMod { .. } => false,
+            match &self.sess.items[*id].kind {
+                ItemKind::ExternFn { .. } | ItemKind::ExternMod { .. } => true,
+                ItemKind::Fn { .. } | ItemKind::InlineMod { .. } | ItemKind::FileMod { .. } => {
+                    false
+                }
             }
         } else {
             false
@@ -837,8 +854,8 @@ impl<'a> LuauCodegen<'a> {
 
     fn def_to_sym(&self, def: &Def) -> Symbol {
         match def {
-            Def::Def(def) => self.sess.item(*def).name,
-            Def::Local(local) => self.sess.local(*local).name,
+            Def::Def(def) => self.sess.items[*def].name(),
+            Def::Local(local) => self.sess.locals[*local].name,
         }
     }
 

@@ -12,4 +12,5 @@ ayuc_diagnostic = { path = "../ayuc_diagnostic" }
 ayuc_session = { path = "../ayuc_session" }
 ayuc_registry = { path = "../ayuc_registry" }
 ayuc_type = { path = "../ayuc_type" }
+ayuc_item = { path = "../ayuc_item" }
 slotmap = "1.1.1"

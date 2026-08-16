@@ -51,14 +51,15 @@ impl TypeResolutionPhase<'_, '_, '_, '_, '_> {
 
                 match target {
                     Def::Def(id) => {
-                        if let Some(id) = self.res.sess.maybe_item_ty(id) {
+                        // For now, only function items can have a type.
+                        if let Some(id) = self.res.sess.items[id].fn_ty_id() {
                             return id;
                         } else {
                             TyKind::Error
                         }
                     }
                     Def::Local(id) => {
-                        let local = self.res.sess.local(id);
+                        let local = &self.res.sess.locals[id];
 
                         return self.res.rcx.ty_id_of(local.id);
                     }
@@ -162,22 +163,31 @@ impl<'ast> Visitor<'ast> for TypeResolutionPhase<'_, '_, '_, 'ast, '_> {
             .current_item
             .expect("visit_fn_item called outside of item context");
 
+        let def_id = self.res.rcx.defs_by_node[&item.id];
+
         fun.walk(self); // So the `Ty`s can be resolved
+
+        let sess_item = &mut self.res.sess.items[def_id];
+        let ayuc_item::ItemKind::Fn(fn_item) = &mut sess_item.kind else {
+            unreachable!()
+        };
 
         let mut parameters = Vec::with_capacity(fun.parameters.parameters.len());
 
-        for param in &fun.parameters.parameters {
-            parameters.push(self.res.rcx.ty_id_of(param.ty.id));
+        for (i, param) in fun.parameters.parameters.iter().enumerate() {
+            let ty_id = self.res.rcx.ty_id_of(param.ty.id);
+
+            parameters.push(ty_id);
+            fn_item.parameters[i].ty_id = Some(ty_id);
         }
 
         let return_ty_id = self.res.rcx.ty_id_of(fun.return_ty.id);
         let kind = TyKind::Fn(parameters, return_ty_id);
         let id = self.res.sess.interner.intern(kind);
 
+        fn_item.ty_id = Some(id);
+
         self.res.rcx.tys_by_node.insert(item.id, id);
-        self.res
-            .sess
-            .register_item_ty(self.res.rcx.defs_by_node[&item.id], id);
     }
 
     fn visit_extern_fn_item(&mut self, extern_fun: &'ast ExternFnItem) {
@@ -185,22 +195,31 @@ impl<'ast> Visitor<'ast> for TypeResolutionPhase<'_, '_, '_, 'ast, '_> {
             .current_item
             .expect("visit_fn_item called outside of item context");
 
+        let def_id = self.res.rcx.defs_by_node[&item.id];
+
         extern_fun.walk(self); // So the `Ty`s can be resolved
+
+        let sess_item = &mut self.res.sess.items[def_id];
+        let ayuc_item::ItemKind::ExternFn(fn_item) = &mut sess_item.kind else {
+            unreachable!()
+        };
 
         let mut parameters = Vec::with_capacity(extern_fun.parameters.parameters.len());
 
-        for param in &extern_fun.parameters.parameters {
-            parameters.push(self.res.rcx.ty_id_of(param.ty.id));
+        for (i, param) in extern_fun.parameters.parameters.iter().enumerate() {
+            let ty_id = self.res.rcx.ty_id_of(param.ty.id);
+
+            parameters.push(ty_id);
+            fn_item.parameters[i].ty_id = Some(ty_id);
         }
 
         let return_ty_id = self.res.rcx.ty_id_of(extern_fun.return_ty.id);
         let kind = TyKind::Fn(parameters, return_ty_id);
         let id = self.res.sess.interner.intern(kind);
 
+        fn_item.ty_id = Some(id);
+
         self.res.rcx.tys_by_node.insert(item.id, id);
-        self.res
-            .sess
-            .register_item_ty(self.res.rcx.defs_by_node[&item.id], id);
     }
 
     fn visit_path_ty(&mut self, path: &'ast ayuc_ast::Path) {

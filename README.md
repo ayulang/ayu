@@ -1,6 +1,6 @@
 # 🐠 Ayu
 
-A modern, statically typed programming language that transpiles to Luau.
+A modern, statically typed programming language that compiles to Luau.
 
 ### 🔷 `Hello, World!` Example
 
@@ -16,7 +16,7 @@ fn main() {
 
 Luau is a great language with many strengths, but Ayu explores a different approach. Its goal is to bring a more modern language design, stronger safety through static typing, and an ergonomic developer experience.
 
-Rather than replacing Luau, Ayu builds on top of it, allowing developers to write expressive, maintainable code that transpiles to clean Luau.
+Rather than replacing Luau, Ayu builds on top of it, allowing developers to write expressive, maintainable code that compiles to clean Luau.
 
 ## 🛠️ Current Status
 

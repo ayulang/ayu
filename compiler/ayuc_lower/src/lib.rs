@@ -1,70 +1,91 @@
 use std::collections::HashSet;
 
-use ayuc_ast::{self as ast};
+use ayuc_ast::{self as ast, Ast, ExternModItem, ModItem};
 use ayuc_hir::{self as hir, Module};
-
-use ayuc_id::{
-    ModuleId,
-    ast::NodeId,
-    hir::{HirId, HirIdAllocator},
-};
-use ayuc_resolve::{def::Def as RDef, resolver::ResolutionContext};
+use ayuc_id::{ModuleId, ast::NodeId, hir::HirId};
+use ayuc_item::{self as item};
+use ayuc_resolve::{Def as RDef, ResolutionContext};
 use ayuc_session::Session;
-use ayuc_type::ty::TyKind;
+use slotmap::SlotMap;
 
-fn ident_of_item(item: &ast::Item) -> &ast::Ident {
-    match &item.kind {
-        ast::ItemKind::InlineMod(decl) => &decl.ident,
-        ast::ItemKind::ExternMod(decl) => &decl.ident,
-        ast::ItemKind::Fn(decl) => &decl.ident,
-        ast::ItemKind::ExternFn(decl) => &decl.name,
-        ast::ItemKind::FileMod(decl) => &decl.name,
-    }
-}
-
-pub struct AstLowering<'a> {
+pub struct AstLowerer<'sc> {
     module: Module,
-    rcx: &'a ResolutionContext,
-    sess: &'a Session,
 
-    hir_id_allocator: HirIdAllocator,
+    rcx: &'sc ResolutionContext,
+    sess: &'sc mut Session,
+
+    hir_ids: SlotMap<HirId, NodeId>,
     already_lowered: HashSet<NodeId>,
 }
 
-impl<'a> AstLowering<'a> {
-    pub fn new(id: ModuleId, rcx: &'a ResolutionContext, sess: &'a Session) -> Self {
+impl<'sc> AstLowerer<'sc> {
+    pub fn new(id: ModuleId, rcx: &'sc ResolutionContext, sess: &'sc mut Session) -> Self {
         Self {
             module: Module::new(id),
+
             rcx,
             sess,
-            hir_id_allocator: HirIdAllocator::new(),
+
+            hir_ids: SlotMap::with_key(),
             already_lowered: HashSet::default(),
         }
     }
 
-    #[must_use]
-    pub fn lower(mut self, ast: &ayuc_ast::Ast) -> Module {
-        for item in &ast.items {
-            let def_id = self.rcx.defs_by_node[&item.id];
-            let lowered = self.lower_item(item);
-
-            self.module.items.insert(def_id, lowered);
-            self.module
-                .items_by_symbol
-                .insert(ident_of_item(item).sym, def_id);
-            self.module.top_level_items.push(def_id);
-        }
+    pub fn lower(mut self, ast: &Ast) -> Module {
+        self.lower_ast(ast);
 
         self.module
+    }
+
+    fn lower_ast(&mut self, ast: &Ast) {
+        for item in &ast.items {
+            self.lower_item(item);
+
+            self.module
+                .top_level_items
+                .push(self.rcx.defs_by_node[&item.id]);
+        }
+    }
+
+    fn lower_item(&mut self, item: &ast::Item) {
+        let def_id = self.rcx.defs_by_node[&item.id];
+        let hir_id = self.lower_id(item.id);
+
+        self.sess.items[def_id].hir_id = Some(hir_id);
+        self.module
+            .items_by_symbol
+            .insert(self.sess.items[def_id].name(), def_id);
+
+        match &item.kind {
+            ast::ItemKind::Fn(fn_item) => {
+                let body = self.lower_body(&fn_item.block.children);
+
+                let item::ItemKind::Fn(sess_fn) = &mut self.sess.items[def_id].kind else {
+                    unreachable!()
+                };
+
+                let body_id = self.module.bodies.insert(body);
+
+                sess_fn.body_id = Some(body_id);
+            }
+            ast::ItemKind::InlineMod(ModItem { items, .. })
+            | ast::ItemKind::ExternMod(ExternModItem { items, .. }) => {
+                for item in items {
+                    self.lower_item(item);
+                }
+            }
+            ast::ItemKind::ExternFn(_) => {}
+            ast::ItemKind::FileMod(_) => {}
+        }
     }
 
     #[must_use]
     fn lower_id(&mut self, id: NodeId) -> HirId {
         if self.already_lowered.contains(&id) {
-            panic!("tried to lower NodeId ({id:?}) into HirId: it has already been lowered");
+            panic!("one NodeId cannot have multiple HirIds");
         }
 
-        let hir_id = self.hir_id_allocator.allocate();
+        let hir_id = self.hir_ids.insert(id);
 
         self.module.id_mappings.insert(hir_id, id);
         self.already_lowered.insert(id);
@@ -72,121 +93,9 @@ impl<'a> AstLowering<'a> {
         hir_id
     }
 
-    fn lower_fn_item(&mut self, item: &ast::Item, fun: &ast::FnItem) -> hir::FnItem {
-        let ty_id = self.rcx.ty_id_of(item.id);
-        let TyKind::Fn(parameters, _) = &self.sess.interner.get(ty_id) else {
-            unreachable!()
-        };
-
-        let name = fun.ident.sym;
-        let params = fun
-            .parameters
-            .parameters
-            .iter()
-            .enumerate()
-            .map(|(i, p)| hir::Parameter {
-                hir_id: self.hir_id_allocator.allocate(),
-                name: p.ident.sym,
-                ty: parameters[i],
-            })
-            .collect::<Vec<_>>();
-
-        let block = self.lower_block(&fun.block);
-
-        hir::FnItem {
-            name,
-            block,
-            params,
-            ty: ty_id,
-        }
-    }
-
-    fn lower_item(&mut self, item: &ast::Item) -> hir::Item {
-        let vis = match item.vis {
-            ast::Visibility::Private => hir::Visibility::Private,
-            ast::Visibility::Public => hir::Visibility::Public,
-        };
-
-        let id = self.rcx.defs_by_node[&item.id];
-        let hir_id = self.lower_id(item.id);
-
-        let kind = match &item.kind {
-            ast::ItemKind::ExternMod(decl) => hir::ItemKind::ExternMod(hir::ExternModItem {
-                name: decl.ident.sym,
-                ffi_name: decl.ffi_name.as_ref().map(|i| i.sym),
-                items: decl
-                    .items
-                    .iter()
-                    .flat_map(|item| {
-                        if matches!(item.kind, ast::ItemKind::Fn(_)) {
-                            return None;
-                        }
-
-                        let def_id = self.rcx.defs_by_node[&item.id];
-                        let lowered = self.lower_item(item);
-
-                        self.module.items.insert(def_id, lowered);
-
-                        Some(def_id)
-                    })
-                    .collect(),
-            }),
-            ast::ItemKind::InlineMod(decl) => hir::ItemKind::InlineMod(hir::InlineModItem {
-                name: decl.ident.sym,
-                items: decl
-                    .items
-                    .iter()
-                    .map(|item| {
-                        let def_id = self.rcx.defs_by_node[&item.id];
-                        let lowered = self.lower_item(item);
-
-                        self.module.items.insert(def_id, lowered);
-
-                        def_id
-                    })
-                    .collect(),
-            }),
-            ast::ItemKind::Fn(fun) => hir::ItemKind::Fn(self.lower_fn_item(item, fun)),
-            ast::ItemKind::ExternFn(extern_fun) => {
-                let ty_id = self.rcx.ty_id_of(item.id);
-                let TyKind::Fn(parameters, _) = &self.sess.interner.get(ty_id) else {
-                    unreachable!()
-                };
-
-                hir::ItemKind::ExternFn(hir::ExternFnItem {
-                    name: extern_fun.name.sym,
-                    ffi_name: extern_fun.ffi_name.as_ref().map(|i| i.sym),
-                    ty: ty_id,
-                    params: extern_fun
-                        .parameters
-                        .parameters
-                        .iter()
-                        .enumerate()
-                        .map(|(i, p)| hir::Parameter {
-                            hir_id: self.hir_id_allocator.allocate(),
-                            name: p.ident.sym,
-                            ty: parameters[i],
-                        })
-                        .collect(),
-                })
-            }
-            ast::ItemKind::FileMod(file_module) => hir::ItemKind::FileMod(hir::FileModItem {
-                name: file_module.name.sym,
-            }),
-        };
-
-        hir::Item {
-            vis,
-            id,
-            hir_id,
-            kind,
-        }
-    }
-
-    fn lower_block(&mut self, block: &ast::Block) -> hir::Block {
-        hir::Block {
-            stmts: block.children.iter().map(|s| self.lower_stmt(s)).collect(),
-        }
+    #[must_use]
+    fn lower_body(&mut self, statements: &[ast::Stmt]) -> Vec<hir::Stmt> {
+        statements.iter().map(|s| self.lower_stmt(s)).collect()
     }
 
     fn lower_pat(&mut self, pat: &ast::Pat) -> hir::Pat {
@@ -201,6 +110,12 @@ impl<'a> AstLowering<'a> {
                     hir::PatKind::Tuple(parts.iter().map(|part| self.lower_pat(part)).collect())
                 }
             },
+        }
+    }
+
+    fn lower_block(&mut self, block: &ast::Block) -> hir::Block {
+        hir::Block {
+            stmts: block.children.iter().map(|s| self.lower_stmt(s)).collect(),
         }
     }
 

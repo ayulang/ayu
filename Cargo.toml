@@ -9,6 +9,7 @@ members = [
     "compiler/ayuc_driver",
     "compiler/ayuc_hir",
     "compiler/ayuc_id",
+    "compiler/ayuc_item",
     "compiler/ayuc_lexer",
     "compiler/ayuc_lower",
     "compiler/ayuc_parser",
