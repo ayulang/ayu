@@ -121,6 +121,8 @@ impl FirstPass<'_, '_, '_, '_> {
                     })
                     .collect();
 
+                self.res.stack.leave();
+
                 Some(items)
             }
             _ => None,
