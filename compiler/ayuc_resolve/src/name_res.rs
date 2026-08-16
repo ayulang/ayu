@@ -316,7 +316,7 @@ impl<'ast> Visitor<'ast> for SecondPass<'_, '_, '_, 'ast, '_> {
             .current_item
             .expect("visit_parameter called outside of item context");
 
-        let local_id = self.res.sess.register_local(LocalInfo {
+        let local_id = self.res.sess.locals.insert(LocalInfo {
             name: parameter.ident.sym,
             defined_where: parameter.span,
             id: parameter.id,
@@ -383,7 +383,7 @@ impl<'ast> Visitor<'ast> for SecondPass<'_, '_, '_, 'ast, '_> {
     fn visit_pat(&mut self, pat: &'ast Pat) {
         match &pat.kind {
             PatKind::Binding(binding) => {
-                let local_id = self.res.sess.register_local(LocalInfo {
+                let local_id = self.res.sess.locals.insert(LocalInfo {
                     name: binding.sym,
                     defined_where: pat.span,
                     id: pat.id,
