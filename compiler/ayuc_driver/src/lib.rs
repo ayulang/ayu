@@ -14,7 +14,7 @@ use ayuc_diagnostic::{Diagnostic, DiagnosticContext, Label, Recovery};
 use ayuc_hir::Module;
 use ayuc_id::{ModuleId, ast::NodeId};
 use ayuc_lexer::{LexedFile, stream::TokenStream};
-use ayuc_lower::AstLowering;
+use ayuc_lower::AstLowerer;
 use ayuc_parser::Parser;
 use ayuc_resolve::{ResolutionContext, Resolver};
 use ayuc_sema::SemanticAnalyzer;
@@ -167,7 +167,7 @@ fn compile(ctx: &mut CompilerContext, module: ModuleId) -> Option<(ResolutionCon
         return None;
     }
 
-    let lowering = AstLowering::new(module, &rcx, sess);
+    let lowering = AstLowerer::new(module, &rcx, sess);
     let module = lowering.lower(ast);
 
     Some((rcx, module))
@@ -192,13 +192,13 @@ pub fn drive() -> ExitCode {
 
     let output_dir = Path::new("./build/").to_path_buf();
 
+    fs::create_dir_all(&output_dir).expect("unable to create directory");
+
     if !output_dir.is_dir() {
         panic!("not a directory");
     }
 
     let output_path = output_dir.join(format!("{project_name}.luau"));
-
-    fs::create_dir_all(&output_dir).expect("unable to create directory");
 
     let base_directory = input_file
         .parent()

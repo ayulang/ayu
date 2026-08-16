@@ -48,7 +48,7 @@ impl Visitor<'_> for MutabilityAnalysisPhase<'_> {
             _ => return assign_stmt.walk(self),
         };
 
-        let info = self.sess.local(local);
+        let info = &self.sess.locals[local];
 
         if !info.mutable {
             self.dcx.emit(

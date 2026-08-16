@@ -104,7 +104,7 @@ impl Parser<'_, '_, '_> {
             .unwrap_or_else(|| {
                 let id = self.node_id_allocator.allocate();
 
-                self.sess.mark_as_synthetic(id);
+                self.sess.synthetics.insert(id);
 
                 Expr {
                     id,

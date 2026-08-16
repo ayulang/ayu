@@ -90,7 +90,7 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
                 Diagnostic::error(self.file_id, stmt.span, Recovery::Fatal)
                     .with_message("incorrect return type")
                     .with_label(Label::primary(
-                        if self.sess.is_synthetic(ret.expr.id) {
+                        if self.sess.synthetics.contains(&ret.expr.id) {
                             stmt.span
                         } else {
                             ret.expr.span
@@ -278,7 +278,7 @@ impl<'ast> Visitor<'ast> for TypeCheckingPhase<'_, '_, 'ast> {
             return assign_stmt.walk(self);
         };
 
-        let info = self.sess.local(local);
+        let info = &self.sess.locals[local];
 
         let ty_id = self.rcx.ty_id_of(info.id);
         let expr_ty_id = self.rcx.ty_id_of(assign_stmt.value.id);

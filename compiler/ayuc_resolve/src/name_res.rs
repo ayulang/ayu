@@ -9,7 +9,7 @@ use ayuc_id::{
     hir::{DefId, LocalId},
 };
 use ayuc_item as item;
-use ayuc_session::{self as session, local::LocalInfo};
+use ayuc_session::local::LocalInfo;
 use ayuc_span::{Span, symbol::Symbol};
 
 use crate::{def::Def, resolver::Resolver};
@@ -35,6 +35,7 @@ impl Resolver<'_, '_, '_> {
         SecondPass {
             res: self,
             current_item: None,
+            current_parameter: 0,
         }
         .visit_ast(ast);
     }
@@ -93,7 +94,17 @@ impl FirstPass<'_, '_, '_, '_> {
 
         let parameters = match &item.kind {
             ItemKind::Fn(FnItem { parameters, .. })
-            | ItemKind::ExternFn(ExternFnItem { parameters, .. }) => Some(Vec::new()),
+            | ItemKind::ExternFn(ExternFnItem { parameters, .. }) => Some(
+                parameters
+                    .parameters
+                    .iter()
+                    .map(|param| item::Parameter {
+                        local_id: None,
+                        ty_id: None,
+                        name: param.ident.sym,
+                    })
+                    .collect(),
+            ),
             _ => None,
         };
 
@@ -104,7 +115,10 @@ impl FirstPass<'_, '_, '_, '_> {
 
                 let items = items
                     .iter()
-                    .flat_map(|item| self.visit_item(item).map(|id| id))
+                    .flat_map(|item| {
+                        self.visit_item(item)
+                            .map(|id| (self.res.sess.items[id].name(), id))
+                    })
                     .collect();
 
                 Some(items)
@@ -143,68 +157,6 @@ impl FirstPass<'_, '_, '_, '_> {
             }),
         };
 
-        /*let kind = match &item.kind {
-            ItemKind::Fn(_decl) => session::ItemKind::Fn { signature_span },
-            ItemKind::ExternFn(decl) => session::ItemKind::ExternFn {
-                ffi_name: decl.ffi_name.as_ref().map(|i| i.sym),
-                signature_span,
-            },
-            ItemKind::ExternMod(decl) => {
-                self.res.stack.enter(None);
-
-                let items = decl
-                    .items
-                    .iter()
-                    .flat_map(|item| {
-                        let sym = ident_of_item(item).sym;
-
-                        self.visit_item(item).map(|id| (sym, id))
-                    })
-                    .collect();
-
-                self.res.stack.leave();
-
-                session::ItemKind::ExternMod {
-                    items,
-                    ffi_name: decl.ffi_name.as_ref().map(|i| i.sym),
-                    signature_span,
-                }
-            }
-            ItemKind::InlineMod(decl) => {
-                self.res.stack.enter(None);
-
-                let items = decl
-                    .items
-                    .iter()
-                    .flat_map(|item| {
-                        let sym = ident_of_item(item).sym;
-
-                        self.visit_item(item).map(|id| (sym, id))
-                    })
-                    .collect();
-
-                self.res.stack.leave();
-
-                session::ItemKind::InlineMod {
-                    items,
-                    signature_span,
-                }
-            }
-            ItemKind::FileMod(_) => session::ItemKind::FileMod {
-                signature_span,
-            },
-        };
-
-        let def_id = self.res.sess.register_item(session::ItemInfo {
-            name: sym,
-            kind,
-            id: item.id,
-            vis: match item.vis {
-                Visibility::Private => session::Visibility::Private,
-                Visibility::Public => session::Visibility::Public,
-            },
-        });*/
-
         let def_id = self.res.sess.items.insert_with_key(|key| item::Item {
             def_id: key,
             hir_id: None,
@@ -227,24 +179,25 @@ struct SecondPass<'a, 'dcx, 'sess, 'ast, 'reg> {
     res: &'a mut Resolver<'dcx, 'sess, 'reg>,
 
     current_item: Option<&'ast Item>,
+    current_parameter: usize,
 }
 
 impl SecondPass<'_, '_, '_, '_, '_> {
     pub fn resolve_segment_in_def(&mut self, seg: &PathSegment, def_id: DefId) -> Def {
-        let item = self.res.sess.item(def_id);
+        let item = &self.res.sess.items[def_id];
 
         let items = match &item.kind {
-            session::ItemKind::InlineMod { items, .. }
-            | session::ItemKind::ExternMod { items, .. } => items,
-            session::ItemKind::FileMod { module, .. } => {
-                &self.res.reg.modules[*module].items_by_symbol
+            item::ItemKind::InlineMod(item::InlineModItem { items, .. })
+            | item::ItemKind::ExternMod(item::ExternModItem { items, .. }) => items,
+            item::ItemKind::FileMod(item::FileModItem { module_id, .. }) => {
+                &self.res.reg.modules[*module_id].items_by_symbol
             }
             _ => {
                 self.res.dcx.emit(
-                    Diagnostic::error(self.res.file_id, item.signature_span(), Recovery::Fatal)
-                        .with_message(format!("item `{}` doesn't have any members", item.name))
+                    Diagnostic::error(self.res.file_id, item.defined_at, Recovery::Fatal)
+                        .with_message(format!("item `{}` doesn't have any members", item.name()))
                         .with_label(Label::primary(
-                            item.signature_span(),
+                            item.defined_at,
                             "this item doesn't have any members",
                         )),
                 );
@@ -264,7 +217,8 @@ impl SecondPass<'_, '_, '_, '_, '_> {
                     Diagnostic::error(self.res.file_id, seg.ident.span, Recovery::Fatal)
                         .with_message(format!(
                             "member `{}` does not exist in module `{}`",
-                            seg.ident.sym, item.name
+                            seg.ident.sym,
+                            item.name()
                         ))
                         .with_label(Label::primary(
                             seg.ident.span,
@@ -273,23 +227,21 @@ impl SecondPass<'_, '_, '_, '_, '_> {
                 );
             }
             def @ Def::Def(id) => {
-                let member = self.res.sess.item(id);
+                let member = &self.res.sess.items[id];
 
-                if member.vis == session::Visibility::Private && !self.res.stack.is_in_scope(&def) {
+                if member.vis == item::Visibility::Private && !self.res.stack.is_in_scope(&def) {
                     let message = format!(
                         "member `{}` of `{}` is private and therefore inaccessible in current scope",
-                        member.name, item.name
+                        member.name(),
+                        item.name()
                     );
 
-                    let help = format!("consider making `{}` public", member.name);
+                    let help = format!("consider making `{}` public", member.name());
 
                     self.res.dcx.emit(
                         Diagnostic::error(self.res.file_id, seg.ident.span, Recovery::Fatal)
                             .with_message(message)
-                            .with_label(Label::help(
-                                member.signature_span(),
-                                "member is defined here",
-                            ))
+                            .with_label(Label::help(member.defined_at, "member is defined here"))
                             .with_label(Label::primary(seg.ident.span, "attempted access here"))
                             .with_help(help),
                     );
@@ -327,6 +279,7 @@ impl<'ast> Visitor<'ast> for SecondPass<'_, '_, '_, 'ast, '_> {
             .current_item
             .expect("visit_fn_item called outside of item context");
 
+        self.current_parameter = 0;
         self.res
             .stack
             .enter(Some(self.res.rcx.defs_by_node[&item.id]));
@@ -359,12 +312,23 @@ impl<'ast> Visitor<'ast> for SecondPass<'_, '_, '_, 'ast, '_> {
     }
 
     fn visit_parameter(&mut self, parameter: &'ast Parameter) {
+        let item = self
+            .current_item
+            .expect("visit_parameter called outside of item context");
+
         let local_id = self.res.sess.register_local(LocalInfo {
             name: parameter.ident.sym,
             defined_where: parameter.span,
             id: parameter.id,
             mutable: false, // for now
         });
+
+        let sess_item = &mut self.res.sess.items[self.res.rcx.defs_by_node[&item.id]];
+        let item::ItemKind::Fn(fn_item) = &mut sess_item.kind else {
+            unreachable!()
+        };
+
+        fn_item.parameters[self.current_parameter].local_id = Some(local_id);
 
         self.res
             .register_local(parameter.ident.sym, local_id, parameter.id);

@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use ayuc_id::{
     BodyId, ModuleId, TyId,
     hir::{DefId, HirId, LocalId},
 };
 use ayuc_span::{Span, symbol::Symbol};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Visibility {
     Public,
     Private,
@@ -28,6 +30,16 @@ impl Item {
                 *ty_id
             }
             _ => None,
+        }
+    }
+
+    pub fn name(&self) -> Symbol {
+        match &self.kind {
+            ItemKind::ExternFn(ExternFnItem { name, .. })
+            | ItemKind::InlineMod(InlineModItem { name, .. })
+            | ItemKind::ExternMod(ExternModItem { name, .. })
+            | ItemKind::FileMod(FileModItem { name, .. })
+            | ItemKind::Fn(FnItem { name, .. }) => *name,
         }
     }
 }
@@ -62,14 +74,14 @@ pub struct ExternFnItem {
 #[derive(Debug)]
 pub struct InlineModItem {
     pub name: Symbol,
-    pub items: Vec<DefId>,
+    pub items: HashMap<Symbol, DefId>,
 }
 
 #[derive(Debug)]
 pub struct ExternModItem {
     pub name: Symbol,
     pub ffi_name: Option<Symbol>,
-    pub items: Vec<DefId>,
+    pub items: HashMap<Symbol, DefId>,
 }
 
 #[derive(Debug)]

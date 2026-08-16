@@ -13,3 +13,4 @@ ayuc_session = { path = "../ayuc_session" }
 ayuc_resolve = { path = "../ayuc_resolve" }
 ayuc_type = { path = "../ayuc_type" }
 ayuc_registry = { path = "../ayuc_registry" }
+ayuc_item = { path = "../ayuc_item" }
