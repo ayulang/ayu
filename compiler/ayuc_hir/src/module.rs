@@ -17,7 +17,6 @@ pub struct Module {
     pub top_level_items: Vec<DefId>,
     pub items_by_symbol: HashMap<Symbol, DefId>,
     pub id_mappings: HashMap<HirId, NodeId>,
-
     pub bodies: SlotMap<BodyId, Vec<Stmt>>,
 }
 
