@@ -190,6 +190,7 @@ impl<'sc> AstLowerer<'sc> {
             ast::ExprKind::Lit(lit) => hir::ExprKind::Lit(match lit {
                 ast::Literal::Bool { value } => hir::Literal::Bool(*value),
                 ast::Literal::Str { span: _, data } => hir::Literal::Str(*data),
+                ast::Literal::Float { span: _, value } => hir::Literal::Float(*value),
                 ast::Literal::InterpolatedStr { span: _, segments } => {
                     hir::Literal::InterpolatedStr(
                         segments

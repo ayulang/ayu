@@ -62,6 +62,7 @@ pub enum Literal {
     Str(Symbol),
     InterpolatedStr(Vec<IntlSegment>),
     Integer(i64),
+    Float(f64),
     Bool(bool),
 }
 
