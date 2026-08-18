@@ -95,6 +95,8 @@ pub enum LiteralKind {
     },
     /// 12345, 00491
     Integer { data_span: Span },
+    /// 100.4, 13.37
+    Float { data_span: Span },
 }
 
 #[derive(Debug, Clone, PartialEq)]

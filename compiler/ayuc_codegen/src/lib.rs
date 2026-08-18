@@ -730,6 +730,7 @@ impl<'a> LuauCodegen<'a> {
             ExprKind::Lit(lit) => match lit {
                 Literal::Bool(value) => Doc::text(if *value { "true" } else { "false" }),
                 Literal::Integer(value) => Doc::text(value.to_string()),
+                Literal::Float(value) => Doc::text(value.to_string()),
                 Literal::Str(str) => Doc::Concat(Vec::from([
                     Doc::text("\""),
                     Doc::text(str.as_str()),

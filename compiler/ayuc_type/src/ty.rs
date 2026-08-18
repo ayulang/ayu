@@ -35,6 +35,7 @@ impl TyKind {
 pub enum PrimTy {
     Bool,
     Int,
+    Float,
     Str,
 }
 
@@ -43,6 +44,7 @@ impl PrimTy {
         match name {
             "bool" => Some(Self::Bool),
             "int" => Some(Self::Int),
+            "float" => Some(Self::Float),
             "str" => Some(Self::Str),
             _ => None,
         }
@@ -54,6 +56,7 @@ impl Display for PrimTy {
         match self {
             Self::Bool => write!(f, "bool"),
             Self::Int => write!(f, "int"),
+            Self::Float => write!(f, "float"),
             Self::Str => write!(f, "str"),
         }
     }

@@ -44,6 +44,7 @@ impl TypeResolutionPhase<'_, '_, '_, '_, '_> {
             ExprKind::Lit(lit) => TyKind::Prim(match lit {
                 Literal::Bool { .. } => PrimTy::Bool,
                 Literal::Integer { .. } => PrimTy::Int,
+                Literal::Float { .. } => PrimTy::Float,
                 Literal::Str { .. } | Literal::InterpolatedStr { .. } => PrimTy::Str,
             }),
             ExprKind::Path(path) => {

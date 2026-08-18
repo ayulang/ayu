@@ -111,6 +111,14 @@ impl Parser<'_, '_, '_> {
                             value: data.parse().unwrap(),
                         }
                     }
+                    ayuc_lexer::token::Literal::Float { data_span } => {
+                        let data = &self.source[data_span];
+
+                        Literal::Float {
+                            span: *span,
+                            value: data.parse().unwrap(),
+                        }
+                    }
                 };
 
                 Expr {

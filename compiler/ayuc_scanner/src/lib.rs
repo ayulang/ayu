@@ -230,6 +230,27 @@ impl<'a> Scanner<'a> {
         RawToken::new(RawTokenKind::Comment, (start, self.position))
     }
 
+    fn numerical_literal(&mut self) -> RawToken {
+        let first = self.integer();
+
+        if !matches!(self.first(), Some('.')) {
+            return first;
+        }
+
+        self.bump();
+
+        let second = self.integer();
+
+        RawToken::new(
+            RawTokenKind::Literal {
+                kind: LiteralKind::Float {
+                    data_span: first.span.merged(second.span),
+                },
+            },
+            first.span.merged(second.span),
+        )
+    }
+
     pub fn next_token(&mut self) -> RawToken {
         let Some(first_char) = self.bump() else {
             return RawToken::new(RawTokenKind::Eof, self.source_len);
@@ -245,6 +266,9 @@ impl<'a> Scanner<'a> {
             ';' => self.single(RawTokenKind::Semi),
             ':' => self.single(RawTokenKind::Colon),
             '+' => self.single(RawTokenKind::Plus),
+            '-' if self.first().map(|c| c.is_ascii_digit()).unwrap_or(false) => {
+                self.numerical_literal()
+            }
             '-' => self.single(RawTokenKind::Minus),
             '=' => self.single(RawTokenKind::Equals),
             '(' => self.single(RawTokenKind::OpenParen),
@@ -261,7 +285,7 @@ impl<'a> Scanner<'a> {
 
             '"' => self.string(),
             '`' => self.interpolated_string(),
-            c if c.is_ascii_digit() => self.integer(),
+            c if c.is_ascii_digit() => self.numerical_literal(),
 
             _ => RawToken::new(RawTokenKind::Unknown, (self.position - 1, self.position)),
         }

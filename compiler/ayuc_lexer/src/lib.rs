@@ -196,6 +196,9 @@ impl<'a> Lexer<'a> {
             raw_token::LiteralKind::Integer { data_span } => {
                 Some(TokenKind::Literal(Literal::Integer { data_span }))
             }
+            raw_token::LiteralKind::Float { data_span } => {
+                Some(TokenKind::Literal(Literal::Float { data_span }))
+            }
         }
     }
 

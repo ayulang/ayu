@@ -71,6 +71,10 @@ pub enum Literal {
         span: Span,
         value: i64,
     },
+    Float {
+        span: Span,
+        value: f64,
+    },
     Bool {
         value: bool,
     },
